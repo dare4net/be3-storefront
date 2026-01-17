@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useTenant } from '@/components/providers/TenantContext'; // Correct path
-import MenuWidget from './widgets/MenuWidget'; // Relative path from components/Footer.js
 import NewsletterWidget from './widgets/NewsletterWidget';
 import SocialLinksWidget from './widgets/SocialLinksWidget';
 import { useStorefront } from './providers/StorefrontProvider';
@@ -81,16 +80,6 @@ export default function Footer() {
                                 </p>
                             </div>
                             <SocialLinksWidget config={socialLinks} />
-                        </div>
-
-                        {/* Shop Menu */}
-                        <div className="space-y-8 col-span-1">
-                            <MenuWidget config={{ title: 'Shop', menuLocation: 'footer_1' }} />
-                        </div>
-
-                        {/* Company Menu */}
-                        <div className="space-y-8 col-span-1">
-                            <MenuWidget config={{ title: 'Company', menuLocation: 'footer_2' }} />
                         </div>
 
                         {/* Newsletter */}

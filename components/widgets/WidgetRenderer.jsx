@@ -17,9 +17,7 @@ import TrustBadgesWidget from './TrustBadgesWidget';
 import BlogGridWidget from './BlogGridWidget';
 import CustomHTMLWidget from './CustomHTMLWidget';
 import HeaderLogoWidget from './HeaderLogoWidget';
-import HeaderNavWidget from './HeaderNavWidget';
 import HeaderIconsWidget from './HeaderIconsWidget';
-import FooterColumnWidget from './FooterColumnWidget';
 
 // New Primitives
 import HeadingWidget from './primitive/HeadingWidget';
@@ -59,9 +57,7 @@ const WIDGET_MAP = {
     blog_grid: BlogGridWidget,
     custom_html: CustomHTMLWidget,
     header_logo: HeaderLogoWidget,
-    header_nav: HeaderNavWidget,
     header_actions: HeaderIconsWidget,
-    footer_column: FooterColumnWidget,
 
     // Primitives
     heading: HeadingWidget,
