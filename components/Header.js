@@ -3,8 +3,9 @@
 import Link from "next/link";
 import { useAuth } from "./providers/AuthContext";
 import { useCart } from "./providers/CartContext";
+import { useWishlist } from "./providers/WishlistContext";
 import { useTenant } from "./providers/TenantContext";
-import { ShoppingBag, User, LogOut, Package, ChevronDown } from "lucide-react";
+import { ShoppingBag, User, LogOut, Package, ChevronDown, Heart } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 
 import { useStorefront } from "./providers/StorefrontProvider";
@@ -16,6 +17,7 @@ export default function Header({ menuItems = [] }) {
     const tenant = useTenant();
     const { isAuthenticated, user, logout } = useAuth();
     const { setIsOpen, cartCount } = useCart();
+    const { wishlist } = useWishlist();
     const [showAccountMenu, setShowAccountMenu] = useState(false);
     const [widgets, setWidgets] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -169,6 +171,20 @@ export default function Header({ menuItems = [] }) {
                             <span className="hidden sm:block">Login</span>
                         </Link>
                     )}
+
+                    {/* Wishlist Button */}
+                    <Link
+                        href="/wishlist"
+                        className="p-2 text-gray-600 hover:text-gray-900 relative"
+                        title="My Wishlist"
+                    >
+                        <Heart className="w-6 h-6" />
+                        {wishlist.length > 0 && (
+                            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                                {wishlist.length}
+                            </span>
+                        )}
+                    </Link>
 
                     {/* Cart Button */}
                     <button

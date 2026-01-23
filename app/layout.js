@@ -6,15 +6,19 @@ import { TenantProvider } from "@/components/providers/TenantContext";
 import { CartProvider } from "@/components/providers/CartContext";
 import { AuthProvider } from '@/components/providers/AuthContext';
 import { AxiosTenantProvider } from "@/components/providers/AxiosTenantProvider";
+import { SearchProvider } from "@/components/providers/SearchContext";
 import CartDrawer from "@/components/cart/CartDrawer";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { generateThemeVariables } from '@/lib/theme';
 import { StorefrontProvider } from "@/components/providers/StorefrontProvider";
+import { WishlistProvider } from "@/components/providers/WishlistContext";
+import { RandomizationProvider } from "@/lib/contexts/RandomizationContext";
 
 export const metadata = {
     title: "Storefront",
     description: "Multi-tenant eCommerce Store",
+    viewport: 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0'
 };
 
 import { getTenantAndTheme } from "@/lib/context";
@@ -67,12 +71,18 @@ export default async function RootLayout({ children }) {
                     <AxiosTenantProvider>
                         <AuthProvider>
                             <CartProvider>
-                                <StorefrontProvider theme={theme}>
-                                    <Header menuItems={headerMenu} />
-                                    <CartDrawer />
-                                    <main>{children}</main>
-                                    <Footer />
-                                </StorefrontProvider>
+                                <WishlistProvider>
+                                    <SearchProvider>
+                                        <RandomizationProvider>
+                                            <StorefrontProvider theme={theme}>
+                                                <Header menuItems={headerMenu} />
+                                                <CartDrawer />
+                                                <main className="overflow-x-hidden">{children}</main>
+                                                <Footer />
+                                            </StorefrontProvider>
+                                        </RandomizationProvider>
+                                    </SearchProvider>
+                                </WishlistProvider>
                             </CartProvider>
                         </AuthProvider>
                     </AxiosTenantProvider>

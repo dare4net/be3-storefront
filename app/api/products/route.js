@@ -15,7 +15,12 @@ export async function GET(request) {
 
         // Build query string
         const queryString = searchParams.toString();
-        const backendUrl = `${process.env.NEXT_PUBLIC_API_URL}/products/storefront${queryString ? `?${queryString}` : ''}`;
+
+        // Use /search if it's a collection request, otherwise use standard /products/storefront
+        const isCollection = searchParams.has('collection_id') || searchParams.has('collection_slug');
+        const endpoint = isCollection ? '/search' : '/products/storefront';
+
+        const backendUrl = `${process.env.NEXT_PUBLIC_API_URL}${endpoint}${queryString ? `?${queryString}` : ''}`;
 
         console.log('[API Route] Fetching Backend:', backendUrl);
 
@@ -46,6 +51,21 @@ export async function GET(request) {
         }
 
         const data = await response.json();
+
+        // Normalize search results if they came from /search
+        if (isCollection && data.results && !data.data) {
+            return NextResponse.json({
+                ...data,
+                data: data.results,
+                success: true,
+                // Explicitly preserve metadata fields for dynamic titles and "See All" links
+                category: data.category || null,
+                collection: data.collection || null,
+                attribute: data.attribute || null,
+                clause: data.clause || null
+            });
+        }
+
         return NextResponse.json(data);
     } catch (error) {
         console.error('Products API error:', error);

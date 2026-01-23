@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { ShoppingCart } from 'lucide-react';
 import { useCart } from '@/components/providers/CartContext';
+import WishlistButton from './WishlistButton';
 
 export default function ProductCard({ product }) {
     const { addToCart } = useCart();
@@ -28,6 +29,12 @@ export default function ProductCard({ product }) {
                         No Image
                     </div>
                 )}
+
+                {/* Wishlist Button Overlay */}
+                <WishlistButton
+                    product={product}
+                    className="absolute top-2 right-2 p-2 rounded-full bg-white/80 backdrop-blur-sm shadow-sm z-10 w-9 h-9"
+                />
             </Link>
 
             {/* Content */}

@@ -3,9 +3,13 @@ import Link from "next/link";
 import { Check, Heart, Share2, Tag, ChevronRight, Star } from 'lucide-react';
 import { getTenantAndTheme } from "@/lib/context";
 import AddToCartButton from "@/components/products/AddToCartButton";
+import WishlistButton from "@/components/products/WishlistButton";
 import ProductGallery from "@/components/products/ProductGallery";
 import RelatedProducts from "@/components/products/RelatedProducts";
 import ProductTabs from "@/components/products/ProductTabs";
+import DynamicMetaTags from "@/components/DynamicMetaTags";
+import SuggestionsCarousel from "@/components/products/SuggestionsCarousel";
+import StickyAddToCart from "@/components/products/StickyAddToCart";
 
 async function getProduct(handle, tenant) {
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3000';
@@ -39,7 +43,7 @@ export default async function ProductPage({ params }) {
         notFound();
     }
 
-    const { name, price, compare_at_price, description, images = [], attributes = {}, categories = [], tags = [] } = product;
+    const { name, price, compare_at_price, description, images = [], attributes = {}, resolved_attributes = [], categories = [], tags = [] } = product;
 
     // Process gallery images (combine main image_url if not in media list)
     const galleryImages = images.length > 0 ? images : (product.image_url ? [{ url: product.image_url }] : []);
@@ -52,6 +56,7 @@ export default async function ProductPage({ params }) {
 
     return (
         <div className="container mx-auto px-4 py-8 max-w-7xl min-h-screen">
+            <DynamicMetaTags meta={product.seo} tenant={tenant} />
             {/* Breadcrumbs */}
             <nav className="flex items-center text-sm text-gray-500 mb-8 overflow-x-auto whitespace-nowrap pb-2">
                 <Link href="/" className="hover:text-blue-600 transition-colors">Home</Link>
@@ -135,10 +140,10 @@ export default async function ProductPage({ params }) {
                         <AddToCartButton product={product} />
 
                         <div className="flex gap-4">
-                            <button className="flex-1 flex items-center justify-center gap-2 h-11 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors text-sm font-medium text-gray-700">
-                                <Heart className="w-4 h-4" />
-                                Add to Wishlist
-                            </button>
+                            <WishlistButton
+                                product={product}
+                                className="flex-1 flex items-center justify-center gap-2 h-11 border rounded-xl font-medium text-sm"
+                            />
                             <button className="flex-1 flex items-center justify-center gap-2 h-11 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors text-sm font-medium text-gray-700">
                                 <Share2 className="w-4 h-4" />
                                 Share
@@ -175,6 +180,7 @@ export default async function ProductPage({ params }) {
                 <ProductTabs
                     description={description}
                     attributes={attributes}
+                    resolvedAttributes={resolved_attributes}
                 />
             </div>
 
@@ -184,6 +190,17 @@ export default async function ProductPage({ params }) {
                 currentProductId={product.id}
                 tenantId={tenant.id}
             />
+
+            {/* Trending Section */}
+            <SuggestionsCarousel
+                title="Trending Now"
+                subtitle="Popular picks from across our store"
+                sort="trending"
+                limit={8}
+            />
+
+            {/* Sticky Add to Cart Bar */}
+            <StickyAddToCart product={product} />
         </div>
     );
 }

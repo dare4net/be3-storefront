@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { cn } from "@/lib/utils";
 
-export default function ProductTabs({ description, attributes, reviews = [] }) {
+export default function ProductTabs({ description, attributes, resolvedAttributes = [], reviews = [] }) {
     const [activeTab, setActiveTab] = useState('description');
 
     const tabs = [
@@ -11,6 +11,13 @@ export default function ProductTabs({ description, attributes, reviews = [] }) {
         { id: 'specs', label: 'Specifications' },
         { id: 'reviews', label: 'Reviews' },
     ];
+
+    // Determine attributes to display
+    // If resolvedAttributes is provided (from API), use it. Otherwise fallback to raw attributes map.
+    const hasAttributes = resolvedAttributes.length > 0 || Object.keys(attributes).length > 0;
+    const displayAttributes = resolvedAttributes.length > 0
+        ? resolvedAttributes
+        : Object.entries(attributes).map(([key, value]) => ({ code: key, label: key.replace(/_/g, ' '), value, icon: null }));
 
     return (
         <div className="mt-12 bg-white rounded-2xl border overflow-hidden">
@@ -42,11 +49,16 @@ export default function ProductTabs({ description, attributes, reviews = [] }) {
 
                 {activeTab === 'specs' && (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4">
-                        {Object.keys(attributes).length > 0 ? (
-                            Object.entries(attributes).map(([key, value]) => (
-                                <div key={key} className="flex justify-between border-b pb-2 last:border-0">
-                                    <span className="text-gray-500 capitalize">{key.replace(/_/g, ' ')}</span>
-                                    <span className="font-medium text-gray-900">{value}</span>
+                        {hasAttributes ? (
+                            displayAttributes.map((attr) => (
+                                <div key={attr.code} className="flex justify-between items-center border-b pb-2 last:border-0">
+                                    <div className="flex items-center gap-2 text-gray-500">
+                                        {attr.icon && (
+                                            <img src={attr.icon} alt="" className="w-5 h-5 object-contain opacity-60" />
+                                        )}
+                                        <span className="capitalize">{attr.label}</span>
+                                    </div>
+                                    <span className="font-medium text-gray-900">{attr.value}</span>
                                 </div>
                             ))
                         ) : (
