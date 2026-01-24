@@ -3,11 +3,13 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Heart, Check, ShoppingCart, Eye } from 'lucide-react';
 import { proxyApi as api } from '@/lib/axios';
 import { useRandomizationData } from '@/lib/hooks/useRandomizationData';
 import { applyProductRandomization } from '@/lib/utils/widgetRandomizer';
 import { useRandomizationContext } from '@/lib/contexts/RandomizationContext';
+import { useWishlist } from '../providers/WishlistContext';
+import { useCart } from '../providers/CartContext';
 
 export default function ProductCarouselWidget({ config }) {
     const {
@@ -78,6 +80,17 @@ export default function ProductCarouselWidget({ config }) {
     const [touchStart, setTouchStart] = useState(null);
     const [touchEnd, setTouchEnd] = useState(null);
     const minSwipeDistance = 50;
+
+    const { toggleWishlist, isInWishlist } = useWishlist();
+    const [addingToCart, setAddingToCart] = useState(null);
+    const { addToCart } = useCart(); // Assuming useCart is imported but it wasn't, let's checking imports. 
+    // Wait, useCart import was missing in previous file view, but handleAddToCart was used... oh wait, ProductGrid had it. 
+    // This file didn't have handleAddToCart implementation in the view I saw? 
+    // Ah, line 629 in previous view calls handleAddToCart but I need to define it or import useCart.
+    // The previous view of ProductCarouselWidget didn't show imports well enough or I missed it.
+    // Let me check imports again. Line 4-5.
+    // imports were: useState, useEffect, useMemo, Link, ChevronLeft...
+    // I need to import useCart.
 
     // Fetch randomization data if randomization is enabled
     const { data: randomizationData, loading: randomizationLoading } = useRandomizationData();
@@ -254,6 +267,42 @@ export default function ProductCarouselWidget({ config }) {
         }
     };
 
+    // Calculate scale factor based on column count (EXACTLY like ProductGridWidget)
+    const getScaleFactor = () => {
+        // Use desktop columns as the reference for "design density" - same as ProductGrid
+        const cols = columns.desktop || 4;
+
+        if (cols >= 7) return 0.75; // Dense
+        if (cols >= 5) return 0.85; // Compact
+        return 1.0; // Standard
+    };
+    const scale = getScaleFactor();
+
+    const handleAddToCart = async (e, product) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setAddingToCart(product.id);
+        try {
+            await addToCart({
+                id: product.id,
+                name: product.name,
+                price: product.price,
+                image: product.image_url,
+                quantity: 1
+            });
+            setTimeout(() => setAddingToCart(null), 1500);
+        } catch (err) {
+            console.error("Add to cart failed", err);
+            setAddingToCart(null);
+        }
+    };
+
+    const handleWishlistToggle = (e, product) => {
+        e.preventDefault();
+        e.stopPropagation();
+        toggleWishlist(product);
+    };
+
     // Touch Handlers
     const onTouchStart = (e) => {
         setTouchEnd(null);
@@ -374,7 +423,7 @@ export default function ProductCarouselWidget({ config }) {
                         )}
                     </div>
                 )}
-                <div className="container mx-auto px-4">
+                <div className="container mx-auto px-2 md:px-4">
                     {showTitle && !config.fullWidthTitle && (
                         <div className="flex items-center justify-between mb-4" style={styles.titleContainer}>
                             <div className="h-8 bg-gray-200 rounded w-48 animate-pulse"></div>
@@ -455,7 +504,7 @@ export default function ProductCarouselWidget({ config }) {
                 </div>
             )}
 
-            <div className="container mx-auto px-4">
+            <div className="container mx-auto px-2 md:px-4">
                 {showTitle && displayTitle && !config.fullWidthTitle && (
                     <div className="flex items-center justify-between mb-4" style={styles.titleContainer}>
                         <h2
@@ -551,18 +600,44 @@ export default function ProductCarouselWidget({ config }) {
                                                     No Image
                                                 </div>
                                             )}
+
+                                            {/* Wishlist Button */}
+                                            <button
+                                                onClick={(e) => handleWishlistToggle(e, product)}
+                                                className="absolute top-2 left-2 p-1.5 rounded-full bg-white/80 hover:bg-white text-gray-600 hover:text-red-500 transition-all shadow-sm z-10"
+                                                style={{ padding: `${0.35 * scale}rem` }}
+                                            >
+                                                <Heart
+                                                    className={`transition-colors ${isInWishlist(product.id) ? 'fill-red-500 text-red-500' : ''}`}
+                                                    style={{ width: `${1.2 * scale}rem`, height: `${1.2 * scale}rem` }}
+                                                />
+                                            </button>
+
                                             {showFeaturedBadge !== false && product.is_featured && (
-                                                <span className="absolute top-2 right-2 bg-yellow-400 text-xs font-bold px-2 py-1 rounded-full shadow-sm">
-                                                    FEATURED
-                                                </span>
+                                                <div
+                                                    className="absolute top-3 right-3 font-bold rounded-full shadow-sm z-10"
+                                                    style={{
+                                                        backgroundColor: '#fbbf24',
+                                                        color: '#ffffff',
+                                                        fontSize: `${0.75 * scale}rem`,
+                                                        padding: `${0.25 * scale}rem ${0.75 * scale}rem`
+                                                    }}
+                                                >
+                                                    Featured
+                                                </div>
                                             )}
                                         </div>
-                                        <div className="p-4 flex-1 flex flex-col">
-                                            <h3 className="font-semibold mb-2 line-clamp-1">{product.name}</h3>
+                                        <div className="flex-1 flex flex-col" style={{ padding: `${1.1 * scale}rem` }}>
+                                            <h3
+                                                className={`font-semibold mb-2 transition-colors group-hover:text-blue-600 ${scale < 0.8 ? 'line-clamp-1' : 'line-clamp-2'}`}
+                                                style={{ fontSize: `${1.125 * scale}rem`, lineHeight: `${1.5 * scale}rem` }}
+                                            >
+                                                {product.name}
+                                            </h3>
 
                                             {/* Description */}
                                             {showDescription && product.description && (
-                                                <p className="text-gray-500 text-sm line-clamp-2 mb-2">
+                                                <p className={`text-gray-500 ${scale < 0.8 ? 'line-clamp-1' : 'line-clamp-2'} mb-2`} style={{ fontSize: `${0.875 * scale}rem` }}>
                                                     {product.description}
                                                 </p>
                                             )}
@@ -571,7 +646,7 @@ export default function ProductCarouselWidget({ config }) {
                                             {showAttributes && product.attributes && Object.keys(product.attributes).length > 0 && (
                                                 <div className="flex flex-wrap gap-1 mb-2">
                                                     {Object.entries(product.attributes).slice(0, 2).map(([key, value], i) => (
-                                                        <span key={i} className="px-2 py-0.5 bg-gray-50 border border-gray-100 text-gray-600 rounded text-xs">
+                                                        <span key={i} className="px-2 py-0.5 bg-gray-50 border border-gray-100 text-gray-600 rounded" style={{ fontSize: `${0.75 * scale}rem` }}>
                                                             <span className="font-medium">{key}:</span> {value}
                                                         </span>
                                                     ))}
@@ -582,7 +657,7 @@ export default function ProductCarouselWidget({ config }) {
                                             {showTags && product.tags && Array.isArray(product.tags) && product.tags.length > 0 && (
                                                 <div className="flex flex-wrap gap-1 mb-2">
                                                     {product.tags.slice(0, 2).map((tag, i) => (
-                                                        <span key={i} className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full text-xs">
+                                                        <span key={i} className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full" style={{ fontSize: `${0.75 * scale}rem` }}>
                                                             {tag}
                                                         </span>
                                                     ))}
@@ -591,9 +666,10 @@ export default function ProductCarouselWidget({ config }) {
 
                                             {/* Social Proof */}
                                             {showSocialProof && (
-                                                <div className="flex items-center gap-3 text-gray-400 mb-2 text-xs">
+                                                <div className="flex items-center gap-3 text-gray-400 mb-2" style={{ fontSize: `${0.75 * scale}rem` }}>
                                                     <span className="flex items-center gap-1">
-                                                        👁️ {Math.floor(Math.random() * 500) + 50}
+                                                        <Eye style={{ width: `${0.8 * scale}rem`, height: `${0.8 * scale}rem` }} />
+                                                        {Math.floor(Math.random() * 500) + 50}
                                                     </span>
                                                     <span className="flex items-center gap-1">
                                                         ❤️ {Math.floor(Math.random() * 50) + 5}
@@ -601,30 +677,40 @@ export default function ProductCarouselWidget({ config }) {
                                                 </div>
                                             )}
 
-                                            <div className="mt-auto flex items-center justify-between gap-2">
+                                            <div className="mt-auto flex items-center justify-between gap-2" style={{ paddingTop: `${1 * scale}rem` }}>
                                                 {showPrice !== false && (
-                                                    <p className="text-xl font-bold text-blue-600">${product.price}</p>
+                                                    <p className="font-bold text-blue-600" style={{ fontSize: `${1.25 * scale}rem` }}>
+                                                        ${product.price}
+                                                    </p>
                                                 )}
 
                                                 <div className="flex items-center gap-2">
                                                     {showViewDetails && (
                                                         <button
-                                                            className="p-2 bg-gray-100 text-gray-600 rounded-full hover:bg-gray-200 transition"
+                                                            className="bg-gray-100 text-gray-600 rounded-full hover:bg-gray-200 transition"
                                                             title="View Details"
                                                             onClick={(e) => {
                                                                 e.preventDefault();
                                                                 window.location.href = `/products/${product.slug || product.id}`;
                                                             }}
+                                                            style={{ padding: `${0.625 * scale}rem` }}
                                                         >
-                                                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" /><circle cx="12" cy="12" r="3" /></svg>
+                                                            <Eye style={{ width: `${1.25 * scale}rem`, height: `${1.25 * scale}rem` }} />
                                                         </button>
                                                     )}
                                                     {showAddToCart !== false && (
                                                         <button
-                                                            className="p-2 bg-blue-50 text-blue-600 rounded-full hover:bg-blue-100 transition"
+                                                            className="bg-blue-50 text-blue-600 rounded-full hover:bg-blue-100 transition flex items-center gap-2"
                                                             title="Add to Cart"
+                                                            onClick={(e) => handleAddToCart(e, product)}
+                                                            disabled={addingToCart === product.id}
+                                                            style={{ padding: `${0.625 * scale}rem` }}
                                                         >
-                                                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="21" r="1" /><circle cx="20" cy="21" r="1" /><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" /></svg>
+                                                            {addingToCart === product.id ? (
+                                                                <Check className="animate-pulse" style={{ width: `${1.25 * scale}rem`, height: `${1.25 * scale}rem` }} />
+                                                            ) : (
+                                                                <ShoppingCart style={{ width: `${1.25 * scale}rem`, height: `${1.25 * scale}rem` }} />
+                                                            )}
                                                         </button>
                                                     )}
                                                 </div>

@@ -40,6 +40,25 @@ async function getMenu(location, tenantId) {
     return [];
 }
 
+import { Inter, Roboto, Open_Sans, Lato, Raleway, Montserrat } from 'next/font/google';
+
+// Font configurations
+const inter = Inter({ subsets: ['latin'], variable: '--font-inter', display: 'swap' });
+const roboto = Roboto({ weight: ['400', '500', '700'], subsets: ['latin'], variable: '--font-roboto', display: 'swap' });
+const openSans = Open_Sans({ subsets: ['latin'], variable: '--font-open-sans', display: 'swap' });
+const lato = Lato({ weight: ['400', '700'], subsets: ['latin'], variable: '--font-lato', display: 'swap' });
+const raleway = Raleway({ subsets: ['latin'], variable: '--font-raleway', display: 'swap' });
+const montserrat = Montserrat({ subsets: ['latin'], variable: '--font-montserrat', display: 'swap' });
+
+const fonts = {
+    'Inter': inter,
+    'Roboto': roboto,
+    'Open Sans': openSans,
+    'Lato': lato,
+    'Raleway': raleway,
+    'Montserrat': montserrat
+};
+
 export default async function RootLayout({ children }) {
     const { tenant, theme } = await getTenantAndTheme();
 
@@ -61,9 +80,12 @@ export default async function RootLayout({ children }) {
     const themeCss = generateThemeVariables(theme);
     const headerMenu = await getMenu('header', tenant.id);
 
+    // Select font based on settings, default to Inter
+    const selectedFont = fonts[tenant.settings?.font_family] || inter;
+
     return (
         <html lang="en">
-            <body>
+            <body className={`${selectedFont.className} ${selectedFont.variable}`}>
                 {themeCss && (
                     <style dangerouslySetInnerHTML={{ __html: themeCss }} />
                 )}

@@ -3,8 +3,9 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
-import { ShoppingCart, Check, Eye } from 'lucide-react';
+import { ShoppingCart, Check, Eye, Heart } from 'lucide-react';
 import { useCart } from '../providers/CartContext';
+import { useWishlist } from '../providers/WishlistContext';
 import { proxyApi as api } from '@/lib/axios';
 import { useRandomizationData } from '@/lib/hooks/useRandomizationData';
 import { applyProductRandomization } from '@/lib/utils/widgetRandomizer';
@@ -71,6 +72,7 @@ export default function ProductGridWidget({ config }) {
     const [loading, setLoading] = useState(true);
     const { addToCart } = useCart();
     const [addingToCart, setAddingToCart] = useState(null);
+    const { toggleWishlist, isInWishlist } = useWishlist();
 
     // Fetch randomization data if randomization is enabled
     const { data: randomizationData, loading: randomizationLoading } = useRandomizationData();
@@ -291,11 +293,18 @@ export default function ProductGridWidget({ config }) {
             });
 
             // Show success state briefly
+            // Show success state briefly
             setTimeout(() => setAddingToCart(null), 1500);
         } catch (err) {
             console.error("Add to cart failed", err);
             setAddingToCart(null);
         }
+    };
+
+    const handleWishlistToggle = (e, product) => {
+        e.preventDefault();
+        e.stopPropagation();
+        toggleWishlist(product);
     };
 
 
@@ -457,7 +466,7 @@ export default function ProductGridWidget({ config }) {
                 </div>
             )}
 
-            <div className="container mx-auto px-4">
+            <div className="container mx-auto px-2 md:px-4">
                 {showTitle && displayTitle && !config.fullWidthTitle && (
                     <div className="flex items-center justify-between mb-4" style={styles.titleContainer}>
                         <h2
@@ -527,6 +536,18 @@ export default function ProductGridWidget({ config }) {
                                             No Image
                                         </div>
                                     )}
+
+                                    {/* Wishlist Button */}
+                                    <button
+                                        onClick={(e) => handleWishlistToggle(e, product)}
+                                        className="absolute top-2 left-2 p-1.5 rounded-full bg-white/80 hover:bg-white text-gray-600 hover:text-red-500 transition-all shadow-sm z-10"
+                                        style={{ padding: `${0.35 * scale}rem` }}
+                                    >
+                                        <Heart
+                                            className={`transition-colors ${isInWishlist(product.id) ? 'fill-red-500 text-red-500' : ''}`}
+                                            style={{ width: `${1.2 * scale}rem`, height: `${1.2 * scale}rem` }}
+                                        />
+                                    </button>
 
                                     {showFeaturedBadge && product.is_featured && (
                                         <div

@@ -2,12 +2,17 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import api from '@/lib/axios';
+import Link from 'next/link';
 
 export default function CarouselWidget({ config = {}, children }) {
     const [currentIndex, setCurrentIndex] = useState(0);
     const [deviceType, setDeviceType] = useState('desktop');
     const [touchStart, setTouchStart] = useState(null);
     const [touchEnd, setTouchEnd] = useState(null);
+    const [banners, setBanners] = useState([]);
+    const [loading, setLoading] = useState(!!config.bannerGroupId);
+
     const autoPlayRef = useRef(null);
     const containerRef = useRef(null);
 
@@ -32,7 +37,72 @@ export default function CarouselWidget({ config = {}, children }) {
         peekEffect: config.peekEffect ?? false,
     };
 
-    const childrenArray = React.Children.toArray(children);
+    const getItemsPerRow = () => {
+        const base = deviceType === 'mobile' ? settings.itemsPerRowMobile :
+            deviceType === 'tablet' ? settings.itemsPerRowTablet :
+                settings.itemsPerRowDesktop;
+        return settings.peekEffect ? base + 0.25 : base;
+    };
+
+    const currentItemsPerRow = getItemsPerRow();
+
+    // If banner group is configured, we use the fetched banners instead of children
+    // If loading, show nothing or skeleton (here nothing for simplicity)
+    const items = config.bannerGroupId ? banners : React.Children.toArray(children);
+
+    // If using banners, we need to wrap them in JSX
+    const renderItems = config.bannerGroupId ? items.map((banner, i) => (
+        <Link
+            href={banner.url || '#'}
+            key={banner.id}
+            className={`block relative overflow-hidden rounded-lg group ${!banner.url ? 'pointer-events-none' : ''}`}
+        >
+            <div className={`${currentItemsPerRow <= 2 ? 'aspect-[16/9] md:aspect-[21/9]' : 'aspect-[4/5] md:aspect-[3/4]'} relative bg-gray-100`}>
+                {banner.image_url ? (
+                    <img
+                        src={banner.image_url}
+                        alt={banner.title || 'Banner'}
+                        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                    />
+                ) : (
+                    <div className="w-full h-full flex items-center justify-center text-gray-400 bg-gray-50">
+                        No Image
+                    </div>
+                )}
+
+                {/* Overlay Content */}
+                {(banner.title || banner.subtitle) && (
+                    <div className="absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-black/70 to-transparent text-white">
+                        {banner.title && <h3 className="font-bold text-lg mb-1">{banner.title}</h3>}
+                        {banner.subtitle && <p className="text-sm opacity-90">{banner.subtitle}</p>}
+                    </div>
+                )}
+            </div>
+        </Link>
+    )) : items;
+
+    const childrenArray = React.Children.toArray(renderItems);
+    useEffect(() => {
+        if (!config.bannerGroupId) return;
+
+        const fetchBanners = async () => {
+            try {
+                // Assuming public access or proxy handles auth
+                const res = await api.get(`/modules/banner/public/groups/${config.bannerGroupId}`);
+                if (res.data.success && res.data.data) {
+                    // Sort by sort_order just in case
+                    const sorted = (res.data.data.banners || []).sort((a, b) => a.sort_order - b.sort_order);
+                    setBanners(sorted);
+                }
+            } catch (err) {
+                console.error("Failed to fetch banner group", err);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchBanners();
+    }, [config.bannerGroupId]);
 
     useEffect(() => {
         const handleResize = () => {
@@ -45,14 +115,7 @@ export default function CarouselWidget({ config = {}, children }) {
         return () => window.removeEventListener('resize', handleResize);
     }, []);
 
-    const getItemsPerRow = () => {
-        const base = deviceType === 'mobile' ? settings.itemsPerRowMobile :
-            deviceType === 'tablet' ? settings.itemsPerRowTablet :
-                settings.itemsPerRowDesktop;
-        return settings.peekEffect ? base + 0.25 : base;
-    };
 
-    const currentItemsPerRow = getItemsPerRow();
     const maxIndex = Math.max(0, childrenArray.length - Math.floor(currentItemsPerRow));
 
     const handlePrev = () => {
@@ -97,7 +160,7 @@ export default function CarouselWidget({ config = {}, children }) {
 
     return (
         <div className={`w-full ${settings.padding}`} style={{ backgroundColor: settings.backgroundColor }}>
-            <div className={`max-w-${settings.maxWidth} mx-auto px-4 relative group`}>
+            <div className={`max-w-${settings.maxWidth} mx-auto px-2 md:px-4 relative group`}>
                 <div
                     className="overflow-hidden"
                     ref={containerRef}
