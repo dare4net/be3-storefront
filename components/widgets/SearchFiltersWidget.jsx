@@ -1,167 +1,85 @@
 "use client";
 
 import { useMemo } from "react";
-import { SlidersHorizontal, X } from "lucide-react";
+import { SlidersHorizontal, X, ChevronRight, Tag, Layers, Check, DollarSign, ArrowLeft } from "lucide-react";
 import { useSearch } from "@/components/providers/SearchContext";
 
-function coerceBoolean(v) {
-  if (v === true || v === false) return v;
-  if (v === "true") return true;
-  if (v === "false") return false;
-  return undefined;
-}
-
 export default function SearchFiltersWidget({ config = {} }) {
-  const { filters, setFilter, clearFilters, schema, facets, loading } = useSearch();
+  const { filters, setFilter, clearFilters, schema, facets, loading, category: contextCategory } = useSearch();
 
-  const categories = schema?.categories || [];
-  const attributes = schema?.attributes || [];
-
-  const attributeFacets = facets?.attributes || {};
-
-  const attributeOptions = useMemo(() => {
-    const map = {};
-    attributes.forEach((a) => {
-      const opt = a.options;
-      if (Array.isArray(opt)) {
-        // Supports ["S","M"] or [{label,value}]
-        map[a.code] = opt.map((o) => {
-          if (typeof o === "string") return { label: o, value: o };
-          if (o && typeof o === "object") return { label: o.label ?? o.value ?? "", value: o.value ?? o.label ?? "" };
-          return null;
-        }).filter(Boolean);
-      } else if (attributeFacets[a.code]) {
-        map[a.code] = Object.keys(attributeFacets[a.code]).map((v) => ({ label: v, value: v }));
-      } else {
-        map[a.code] = [];
-      }
-    });
-    return map;
-  }, [attributes, attributeFacets]);
+  // Use facets if available, otherwise fallback to schema
+  const categories = facets?.categories || schema?.categories || [];
+  const parentCategory = facets?.parent_category;
+  const attributes = facets?.attributes || schema?.attributes || [];
+  const activeTags = facets?.tags || [];
 
   const showTitle = config.showTitle !== false && config.showHeader !== false;
 
   return (
-    <section className={config.container === false ? "" : "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-6"}>
-      <div className={config.container === false ? "" : "bg-white border border-gray-200 rounded-2xl p-5"}>
+    <section className={config.container === false ? "w-full" : "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-10"}>
+      <div className={config.container === false ? "" : "bg-white border border-gray-200 rounded-3xl shadow-sm p-6"}>
+
+        {/* Header */}
         {(showTitle || (config.container !== false)) && (
-          <div className="flex items-center justify-between gap-3 mb-6">
+          <div className="flex items-center justify-between gap-4 mb-8">
             {showTitle && (
-              <div className="flex items-center gap-2">
-                <SlidersHorizontal className="w-5 h-5 text-gray-700" />
-                <h3 className="font-semibold text-gray-900">Filters</h3>
-                {loading && <span className="text-xs text-gray-500">(updating)</span>}
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-indigo-50 rounded-xl">
+                  <SlidersHorizontal className="w-5 h-5 text-indigo-600" />
+                </div>
+                <div className="flex items-center gap-2">
+                  <h3 className="font-bold text-gray-900 leading-none">Filters</h3>
+                  <span className="px-1.5 py-0.5 bg-indigo-100 text-indigo-700 text-[8px] font-extrabold uppercase rounded tracking-wider">Smart</span>
+                </div>
               </div>
             )}
             <button
               type="button"
               onClick={clearFilters}
-              className="inline-flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800 font-medium"
+              className="inline-flex items-center gap-1.5 text-xs text-gray-400 hover:text-indigo-600 font-bold transition-colors uppercase tracking-wider"
             >
-              <X className="w-4 h-4" />
               Clear All
             </button>
           </div>
         )}
 
-        <div className="flex flex-col gap-6">
-          {/* Category */}
-          {config.showCategoryFilter !== false && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
-              <select
-                value={filters.category_id || ""}
-                onChange={(e) => setFilter("category_id", e.target.value)}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 bg-white"
-              >
-                <option value="">All categories</option>
-                {categories.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
+        <div className="flex flex-col gap-8">
 
-          {/* Price min */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Min price</label>
-            <input
-              type="number"
-              value={filters.price_min ?? ""}
-              onChange={(e) => setFilter("price_min", e.target.value)}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2"
-              placeholder="0"
-              min="0"
-            />
-          </div>
-
-          {/* Price max */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Max price</label>
-            <input
-              type="number"
-              value={filters.price_max ?? ""}
-              onChange={(e) => setFilter("price_max", e.target.value)}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2"
-              placeholder="1000"
-              min="0"
-            />
-          </div>
-
-          {/* Featured */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Featured</label>
-            <select
-              value={filters.is_featured === undefined ? "" : String(coerceBoolean(filters.is_featured))}
-              onChange={(e) => {
-                if (!e.target.value) return setFilter("is_featured", "");
-                setFilter("is_featured", e.target.value === "true");
-              }}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 bg-white"
-            >
-              <option value="">Any</option>
-              <option value="true">Featured</option>
-              <option value="false">Not featured</option>
-            </select>
-          </div>
-
-          {/* Status */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-            <select
-              value={filters.status || ""}
-              onChange={(e) => setFilter("status", e.target.value)}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 bg-white"
-            >
-              <option value="">Any</option>
-              <option value="active">Active</option>
-              <option value="draft">Draft</option>
-              <option value="archived">Archived</option>
-            </select>
-          </div>
-
-          {/* Tags */}
-          {facets?.tags && Object.keys(facets.tags).length > 0 && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Tags</label>
-              <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto pr-2 custom-scrollbar">
-                {Object.entries(facets.tags).map(([tag, count]) => {
-                  const isActive = filters.tag === tag || (Array.isArray(filters.tag) && filters.tag.includes(tag));
+          {/* 1. Context-Aware Categories (Pills with Sideways/Back support) */}
+          {config.showCategoryFilter !== false && (categories.length > 0 || parentCategory) && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-sm font-bold text-gray-900">
+                  <Layers className="w-4 h-4 text-indigo-500" />
+                  <span>{filters.category_id ? "Category Selected" : "Categories"}</span>
+                </div>
+                {parentCategory && (
+                  <button
+                    onClick={() => setFilter("category_id", parentCategory.id)}
+                    className="inline-flex items-center gap-1 text-[10px] font-black text-indigo-500 uppercase tracking-tighter hover:underline"
+                  >
+                    <ArrowLeft className="w-2.5 h-2.5" />
+                    All {parentCategory.name}
+                  </button>
+                )}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {categories.map((c) => {
+                  const isActive = filters.category_id === c.id;
                   return (
                     <button
-                      key={tag}
+                      key={c.id}
                       type="button"
-                      onClick={() => setFilter("tag", isActive ? undefined : tag)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all border flex items-center gap-2 ${isActive
-                        ? "bg-blue-600 border-blue-600 text-white shadow-md shadow-blue-100"
-                        : "bg-white border-gray-200 text-gray-600 hover:border-blue-400 hover:bg-blue-50"
+                      onClick={() => setFilter("category_id", isActive ? (parentCategory?.id || "") : c.id)}
+                      className={`group flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-300 border ${isActive
+                          ? "bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-100 ring-2 ring-indigo-600 ring-offset-2"
+                          : "bg-gray-50 border-gray-100 text-gray-600 hover:border-indigo-200 hover:bg-white hover:shadow-md"
                         }`}
                     >
-                      {tag}
-                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${isActive ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-500'}`}>
-                        {count}
+                      {c.name}
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded-lg transition-colors ${isActive ? "bg-indigo-500 text-white" : "bg-gray-200 text-gray-500 group-hover:bg-indigo-100 group-hover:text-indigo-600"
+                        }`}>
+                        {c.count}
                       </span>
                     </button>
                   );
@@ -170,74 +88,137 @@ export default function SearchFiltersWidget({ config = {} }) {
             </div>
           )}
 
-          {/* Attribute filters */}
-          {attributes.map((a) => {
-            const key = `attribute.${a.code}`;
-            const opts = attributeOptions[a.code] || [];
-            const clauses = a.clauses || [];
+          {/* 2. Price Range */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 text-sm font-bold text-gray-900">
+              <DollarSign className="w-4 h-4 text-emerald-500" />
+              <span>Price Range</span>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="relative group">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs font-bold leading-none">$</span>
+                <input
+                  type="number"
+                  value={filters.price_min ?? ""}
+                  onChange={(e) => setFilter("price_min", e.target.value)}
+                  className="w-full pl-7 pr-3 py-2.5 bg-gray-50 border-transparent rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-indigo-500 transition-all outline-none"
+                  placeholder="Min"
+                />
+              </div>
+              <div className="relative group">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs font-bold leading-none">$</span>
+                <input
+                  type="number"
+                  value={filters.price_max ?? ""}
+                  onChange={(e) => setFilter("price_max", e.target.value)}
+                  className="w-full pl-7 pr-3 py-2.5 bg-gray-50 border-transparent rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-indigo-500 transition-all outline-none"
+                  placeholder="Max"
+                />
+              </div>
+            </div>
+          </div>
 
-            // If no options AND no clauses, hide
-            if (opts.length === 0 && clauses.length === 0) return null;
+          {/* 3. Attribute-Aware Filters */}
+          {attributes.map((attr) => {
+            const key = `attribute.${attr.code}`;
+            const opts = attr.options || [];
+            const clauses = attr.clauses || [];
 
             return (
-              <div key={a.code} className="space-y-3">
-                <label className="block text-sm font-medium text-gray-700 mb-1">{a.label || a.code}</label>
+              <div key={attr.code} className="space-y-4 pt-4 border-t border-gray-100">
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-bold text-gray-900">{attr.label || attr.code}</label>
+                  {filters[key] && (
+                    <button
+                      onClick={() => setFilter(key, "")}
+                      className="text-[10px] text-indigo-500 font-bold hover:underline"
+                    >
+                      Reset
+                    </button>
+                  )}
+                </div>
 
-                {/* 1. Basic Options Filter */}
-                {opts.length > 0 && (
-                  <select
-                    value={filters[key] || ""}
-                    onChange={(e) => setFilter(key, e.target.value)}
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 bg-white text-sm"
-                  >
-                    <option value="">Specific Value (Any)</option>
-                    {opts.map((o) => (
-                      <option key={`${a.code}-${o.value}`} value={o.value}>
-                        {o.label}
-                      </option>
-                    ))}
-                  </select>
-                )}
-
-                {/* 2. Clauses Filter (Pills or List) */}
                 {clauses.length > 0 && (
                   <div className="flex flex-wrap gap-2">
                     {clauses.map((clause) => {
-                      const clauseKey = `attribute.${a.code}:${clause.name}`;
+                      const clauseKey = `attribute.${attr.code}:${clause.name}`;
                       const isActive = filters[clauseKey] !== undefined;
 
                       return (
                         <button
                           key={clause.name}
                           type="button"
-                          onClick={() => {
-                            if (isActive) {
-                              // Clear the filter
-                              const newFilters = { ...filters };
-                              delete newFilters[clauseKey];
-                              // We need a way to batch update or clear specifically
-                              setFilter(clauseKey, undefined);
-                            } else {
-                              setFilter(clauseKey, clause.value || true);
-                            }
-                          }}
-                          className={`px-3 py-1 rounded-full text-xs font-medium transition-all border ${isActive
-                            ? "bg-blue-600 border-blue-600 text-white"
-                            : "bg-gray-50 border-gray-200 text-gray-600 hover:border-blue-300"
+                          onClick={() => setFilter(clauseKey, isActive ? undefined : (clause.value || 1))}
+                          className={`group relative flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold transition-all border ${isActive
+                              ? "bg-indigo-600 border-indigo-600 text-white shadow-md shadow-indigo-100"
+                              : "bg-white border-gray-200 text-gray-600 hover:border-indigo-400 hover:text-indigo-600"
                             }`}
                         >
                           {clause.label}
+                          {clause.count !== undefined && (
+                            <span className={`text-[9px] px-1 rounded-md ${isActive ? "bg-indigo-500 text-white" : "bg-gray-100 text-gray-400 group-hover:bg-indigo-50 group-hover:text-indigo-600"}`}>
+                              {clause.count}
+                            </span>
+                          )}
                         </button>
                       );
                     })}
                   </div>
                 )}
+
+                {opts.length > 0 && (
+                  <div className="relative">
+                    <select
+                      value={filters[key] || ""}
+                      onChange={(e) => setFilter(key, e.target.value)}
+                      className="w-full appearance-none bg-gray-50 border-none rounded-xl px-4 py-2.5 text-xs font-medium text-gray-700 outline-none focus:ring-2 focus:ring-indigo-500 transition-all cursor-pointer"
+                    >
+                      <option value="">Any {attr.label}</option>
+                      {opts.map((o) => (
+                        <option key={o.value} value={o.value}>
+                          {o.label || o.value} ({o.count})
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronRight className="absolute right-3 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-400 rotate-90 pointer-events-none" />
+                  </div>
+                )}
               </div>
             );
           })}
+
+          {/* 4. Tags */}
+          {activeTags.length > 0 && (
+            <div className="space-y-4 pt-4 border-t border-gray-100">
+              <div className="flex items-center gap-2 text-sm font-bold text-gray-900">
+                <Tag className="w-4 h-4 text-orange-400" />
+                <span>Tags</span>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {activeTags.map(({ name, count }) => {
+                  const isActive = filters.tag === name;
+                  return (
+                    <button
+                      key={name}
+                      type="button"
+                      onClick={() => setFilter("tag", isActive ? "" : name)}
+                      className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[10px] font-bold tracking-tight uppercase transition-all border ${isActive
+                          ? "bg-gray-900 border-gray-900 text-white shadow-lg"
+                          : "bg-white border-gray-200 text-gray-500 hover:border-gray-400"
+                        }`}
+                    >
+                      {name}
+                      <span className={`px-1.5 py-0.5 rounded-md ${isActive ? 'bg-gray-800 text-gray-300' : 'bg-gray-100 text-gray-400'}`}>
+                        {count}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </section>
   );
 }
-

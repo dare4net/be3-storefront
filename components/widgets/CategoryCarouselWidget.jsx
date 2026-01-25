@@ -208,7 +208,7 @@ export default function CategoryCarouselWidget({ config = {} }) {
 
     // Fetch randomization data if randomization is enabled
     const { data: randomizationData, loading: randomizationLoading } = useRandomizationData();
-    
+
     // Apply randomization to config
     const randomizedConfig = useMemo(() => {
         if (!config.randomize?.enabled || randomizationLoading || !randomizationData) {
@@ -338,7 +338,7 @@ export default function CategoryCarouselWidget({ config = {} }) {
     const getGapPadding = () => {
         // Use gridGap if provided (in px), otherwise fall back to gap preset
         if (settings.gridGap) {
-            const gapValue = typeof settings.gridGap === 'string' 
+            const gapValue = typeof settings.gridGap === 'string'
                 ? parseFloat(settings.gridGap.replace('px', '')) || 8
                 : settings.gridGap;
             return getScaledValue(gapValue);
@@ -752,6 +752,7 @@ function CategoryCard({
                         alt={category.name}
                         className="absolute inset-0 w-full h-full"
                         style={imageStyle}
+                        loading="lazy"
                     />
                 ) : (
                     <div className="absolute inset-0 bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">

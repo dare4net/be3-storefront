@@ -1,7 +1,7 @@
 // Product Grid Widget - Display products in a grid
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import Link from 'next/link';
 import { ShoppingCart, Check, Eye, Heart } from 'lucide-react';
 import { useCart } from '../providers/CartContext';
@@ -64,7 +64,8 @@ export default function ProductGridWidget({ config }) {
         autogenerateTitle = false,
         showSeeAll = false,
         seeAllLabel = 'See All',
-        subtitle = ''
+        subtitle = '',
+        enableEntryAnimation = false
     } = config;
 
     const [products, setProducts] = useState([]);
@@ -74,13 +75,9 @@ export default function ProductGridWidget({ config }) {
     const [addingToCart, setAddingToCart] = useState(null);
     const { toggleWishlist, isInWishlist } = useWishlist();
 
-    // Fetch randomization data if randomization is enabled
     const { data: randomizationData, loading: randomizationLoading } = useRandomizationData();
-
-    // Get randomization context for collision prevention
     const { getNextRandom } = useRandomizationContext();
 
-    // Store randomized config in state to avoid calling setState during render
     const [randomizedConfig, setRandomizedConfig] = useState(config);
     const [randomizationReady, setRandomizationReady] = useState(!config.randomize?.enabled);
 
@@ -497,9 +494,11 @@ export default function ProductGridWidget({ config }) {
                         gap: formatCSSValue(config.gridGap || '24px')
                     }}
                 >
-                    {products.map((product) => (
-                        <div
+                    {products.map((product, index) => (
+                        <AnimatedItem
                             key={product.id}
+                            delayIndex={index % 4}
+                            enabled={enableEntryAnimation}
                             className="group block h-full"
                         >
                             <div
@@ -530,6 +529,7 @@ export default function ProductGridWidget({ config }) {
                                             src={product.image_url}
                                             alt={product.name}
                                             className="absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                                            loading="lazy"
                                         />
                                     ) : (
                                         <div className="absolute inset-0 w-full h-full flex items-center justify-center text-gray-400">
@@ -672,10 +672,13 @@ export default function ProductGridWidget({ config }) {
                                     </div>
                                 </div>
                             </div>
-                        </div>
+                        </AnimatedItem>
                     ))}
                 </div>
             </div>
+
+
+            {enableEntryAnimation && <AnimationStyles />}
 
             <style jsx>{`
                 @media (min-width: 640px) {
@@ -688,6 +691,69 @@ export default function ProductGridWidget({ config }) {
                     transform: ${cardStyle?.hoverLift ? 'translateY(-8px)' : 'none'} !important;
                 }
             `}</style>
-        </section>
+        </section >
+    );
+}
+
+function AnimationStyles() {
+    return (
+        <style dangerouslySetInnerHTML={{
+            __html: `
+            @keyframes fadeInUp {
+                from { opacity: 0; transform: translateY(30px); }
+                to { opacity: 1; transform: translateY(0); }
+            }
+            .animate-entry {
+                opacity: 0;
+                animation: fadeInUp 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+            }
+            .delay-0 { animation-delay: 0ms; }
+            .delay-1 { animation-delay: 100ms; }
+            .delay-2 { animation-delay: 200ms; }
+            .delay-3 { animation-delay: 300ms; }
+            .delay-4 { animation-delay: 400ms; }
+            .delay-5 { animation-delay: 500ms; }
+            .delay-6 { animation-delay: 600ms; }
+            .delay-7 { animation-delay: 700ms; }
+            .delay-8 { animation-delay: 800ms; }
+            .delay-9 { animation-delay: 900ms; }
+            .delay-10 { animation-delay: 1000ms; }
+            .delay-11 { animation-delay: 1100ms; }
+            `
+        }} />
+    );
+}
+
+function AnimatedItem({ children, delayIndex = 0, enabled = false, className = '', style = {} }) {
+    const [inView, setInView] = useState(false);
+    const ref = useRef(null);
+
+    useEffect(() => {
+        if (!enabled || inView) return;
+
+        const observer = new IntersectionObserver(([entry]) => {
+            if (entry.isIntersecting) {
+                setInView(true);
+                observer.disconnect();
+            }
+        }, { threshold: 0.1 });
+
+        if (ref.current) {
+            observer.observe(ref.current);
+        }
+
+        return () => observer.disconnect();
+    }, [enabled, inView]);
+
+    const shouldAnimate = enabled && inView;
+
+    return (
+        <div
+            ref={ref}
+            className={`${className} ${shouldAnimate ? `animate-entry delay-${delayIndex}` : (enabled ? 'opacity-0' : '')}`}
+            style={style}
+        >
+            {children}
+        </div>
     );
 }

@@ -137,7 +137,7 @@ export default function CategoryPage({ params }) {
                     columns: { desktop: 4, tablet: 2, mobile: 1 },
                     showFilters: true,
                     sidebarEnabled: true,
-                    showCategoryFilter: false // Don't show category filter on a category page
+                    showCategoryFilter: true // Enable to show intelligent subcategory pills
                 }} />
 
                 {/* Suggestions Section */}
