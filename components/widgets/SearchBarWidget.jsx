@@ -229,7 +229,7 @@ export default function SearchBarWidget({ config = {} }) {
                       onMouseEnter={() => setSelectedIndex(idx)}
                     >
                       <div className="w-12 h-12 flex-shrink-0 bg-gray-100 rounded-lg overflow-hidden flex items-center justify-center border border-gray-100">
-                        {isContent && s.image_url ? (
+                        {s.image_url ? (
                           <img src={s.image_url} alt="" className="w-full h-full object-cover" />
                         ) : (
                           <Icon className={`w-5 h-5 ${isSelected ? "text-indigo-600" : "text-gray-400"}`} />
@@ -252,8 +252,12 @@ export default function SearchBarWidget({ config = {} }) {
                             <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded">
                               {s.content_type}
                             </span>
+                          ) : s.type === 'category' || s.type === 'clause' || s.type === 'filter' ? (
+                            <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 bg-indigo-50 text-indigo-600 rounded">
+                              {s.type === 'category' ? 'Category' : s.type === 'filter' ? 'Global Filter' : 'Special Collection'}
+                            </span>
                           ) : (
-                            <span className="text-xs text-indigo-500 font-medium">Popular Search</span>
+                            <span className="text-xs text-indigo-500 font-medium whitespace-nowrap">Popular Search</span>
                           )}
                         </div>
                       </div>

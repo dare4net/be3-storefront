@@ -58,23 +58,26 @@ export default async function ProductPage({ params }) {
         <div className="container mx-auto px-4 py-8 max-w-7xl min-h-screen">
             <DynamicMetaTags meta={product.seo} tenant={tenant} />
             {/* Breadcrumbs */}
-            <nav className="flex items-center text-sm text-gray-500 mb-8 overflow-x-auto whitespace-nowrap pb-2">
+            <nav className="flex items-center text-sm text-gray-500 mb-8 overflow-x-auto whitespace-nowrap pb-2 scrollbar-hide">
                 <Link href="/" className="hover:text-blue-600 transition-colors">Home</Link>
-                <ChevronRight className="w-4 h-4 mx-2" />
-                {mainCategory ? (
-                    <>
-                        <Link href={`/categories/${mainCategory.slug}`} className="hover:text-blue-600 transition-colors">
-                            {mainCategory.name}
+                <ChevronRight className="w-4 h-4 mx-2 text-gray-400" />
+                <Link href="/categories" className="hover:text-blue-600 transition-colors">Categories</Link>
+                {mainCategory?.breadcrumb?.map(bc => (
+                    <span key={bc.id} className="flex items-center">
+                        <ChevronRight className="w-4 h-4 mx-2 text-gray-400" />
+                        <Link href={`/categories/${bc.slug}`} className="hover:text-blue-600 transition-colors">
+                            {bc.name}
                         </Link>
-                        <ChevronRight className="w-4 h-4 mx-2" />
-                    </>
-                ) : (
+                    </span>
+                ))}
+                {!mainCategory && (
                     <>
-                        <span className="hover:text-blue-600">Products</span>
-                        <ChevronRight className="w-4 h-4 mx-2" />
+                        <ChevronRight className="w-4 h-4 mx-2 text-gray-400" />
+                        <span className="text-gray-400 italic">Uncategorized</span>
                     </>
                 )}
-                <span className="text-gray-900 font-medium truncate max-w-[200px]">{name}</span>
+                <ChevronRight className="w-4 h-4 mx-2 text-gray-400" />
+                <span className="text-gray-900 font-bold truncate max-w-[200px]">{name}</span>
             </nav>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-12 lg:gap-16">

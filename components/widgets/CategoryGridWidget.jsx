@@ -182,6 +182,9 @@ export default function CategoryGridWidget({ config }) {
 
             // Apply filtering based on source type
             switch (effectiveSourceType) {
+                case 'all':
+                    // Use all categories
+                    break;
                 case 'top-level':
                     filtered = filtered.filter(cat => !cat.parent_id);
                     break;
@@ -197,13 +200,13 @@ export default function CategoryGridWidget({ config }) {
                     filtered = filtered.filter(cat => effectiveManualCategoryIds.includes(cat.id));
                     break;
                 case 'random':
-                    filtered = filtered.sort(() => 0.5 - Math.random()).slice(0, effectiveRandomCount);
+                    filtered = filtered.sort(() => 0.5 - Math.random());
                     break;
             }
 
             // Apply sorting
             if (effectiveSortOrder === 'alphabetical') {
-                filtered.sort((a, b) => a.name.localeCompare(b.name));
+                filtered.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
             } else if (effectiveSortOrder === 'random') {
                 filtered.sort(() => 0.5 - Math.random());
             }
@@ -298,7 +301,7 @@ export default function CategoryGridWidget({ config }) {
                             }
                             
                             /* Mobile Pattern (Strict 2-Column Masonry) 
-                               Items never span full width (span 2) to maintain distinct 2 columns */
+                                Items never span full width (span 2) to maintain distinct 2 columns */
                             .bento-item-0 { grid-column: span 1; grid-row: span 2; } /* Tall, not Wide */
                             .bento-item-3 { grid-column: span 1; grid-row: span 2; } /* Tall */
                             .bento-item-6 { grid-column: span 1; grid-row: span 2; } /* Another Tall for variety */

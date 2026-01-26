@@ -94,12 +94,20 @@ export default function CategoryPage({ params }) {
                         </div>
                     )}
                     <div className="relative container mx-auto px-4 py-16 lg:py-24 max-w-7xl">
-                        <nav className="flex items-center text-sm text-gray-300 mb-6">
+                        <nav className="flex items-center text-sm text-gray-300 mb-6 overflow-x-auto whitespace-nowrap scrollbar-hide">
                             <Link href="/" className="hover:text-white transition-colors">Home</Link>
-                            <ChevronRight className="w-4 h-4 mx-2" />
-                            <Link href="/products" className="hover:text-white transition-colors">Products</Link>
-                            <ChevronRight className="w-4 h-4 mx-2" />
-                            <span className="text-white font-medium">{category.name}</span>
+                            <ChevronRight className="w-4 h-4 mx-2 text-gray-500" />
+                            <Link href="/categories" className="hover:text-white transition-colors">Categories</Link>
+                            {category.breadcrumb?.filter(bc => bc.id !== category.id).map(bc => (
+                                <span key={bc.id} className="flex items-center">
+                                    <ChevronRight className="w-4 h-4 mx-2 text-gray-500" />
+                                    <Link href={`/categories/${bc.slug}`} className="hover:text-white transition-colors">
+                                        {bc.name}
+                                    </Link>
+                                </span>
+                            ))}
+                            <ChevronRight className="w-4 h-4 mx-2 text-gray-500" />
+                            <span className="text-white font-bold">{category.name}</span>
                         </nav>
                         <h1 className="text-4xl lg:text-6xl font-extrabold tracking-tight mb-6">
                             {category.name}
