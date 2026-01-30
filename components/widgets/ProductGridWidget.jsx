@@ -385,7 +385,7 @@ export default function ProductGridWidget({ config }) {
                     <div
                         className={`grid grid-cols-${gridCols.mobile} md:grid-cols-${gridCols.tablet} lg:grid-cols-${gridCols.desktop}`}
                         style={{
-                            gap: formatCSSValue(config.gridGap || '24px')
+                            gap: formatCSSValue(gridGap)
                         }}
                     >
                         {Array.from({ length: skeletonCount }).map((_, idx) => (
@@ -486,7 +486,7 @@ export default function ProductGridWidget({ config }) {
                 <div
                     className={`grid ${columns?.mobile ? `grid-cols-${columns.mobile}` : 'grid-cols-1'} ${columns?.tablet ? `md:grid-cols-${columns.tablet}` : 'md:grid-cols-2'} ${columns?.desktop ? `lg:grid-cols-${columns.desktop}` : 'lg:grid-cols-4'}`}
                     style={{
-                        gap: formatCSSValue(config.gridGap || '24px')
+                        gap: formatCSSValue(gridGap)
                     }}
                 >
                     {products.map((product, index) => (

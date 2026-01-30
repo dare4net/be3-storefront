@@ -275,7 +275,7 @@ export default function CategoryGridWidget({ config }) {
                             .category-grid-widget-${columns?.mobile || 2}-${columns?.tablet || 3}-${columns?.desktop || 4} {
                                 display: grid;
                                 grid-template-columns: repeat(${columns?.mobile || 2}, minmax(0, 1fr));
-                                gap: ${formatCSSValue(gridGap || '24px')};
+                                gap: ${formatCSSValue(gridGap)};
                             }
                             @media (min-width: 768px) {
                                 .category-grid-widget-${columns?.mobile || 2}-${columns?.tablet || 3}-${columns?.desktop || 4} {

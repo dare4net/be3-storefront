@@ -43,6 +43,7 @@ export default function ProductCarouselWidget({ config }) {
         sectionBackground = 'transparent',
         columns = { desktop: 5, tablet: 3, mobile: 2 },
         cardStyle, // Keep existing cardStyle prop
+        gridGap = '12px',
 
         // New Dynamic Features
         autogenerateTitle = false,
@@ -454,7 +455,7 @@ export default function ProductCarouselWidget({ config }) {
                                 key={idx}
                                 className="flex-shrink-0 bg-white rounded-lg overflow-hidden"
                                 style={{
-                                    width: `calc(${100 / itemsToShow}% - ${(16 * (itemsToShow - 1)) / itemsToShow}px)`,
+                                    width: `calc(${100 / itemsToShow}% - ${(parseFloat(gridGap) * (itemsToShow - 1)) / itemsToShow}px)`,
                                     boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'
                                 }}
                             >
@@ -578,7 +579,7 @@ export default function ProductCarouselWidget({ config }) {
                             className="flex transition-transform duration-300 ease-out"
                             style={{
                                 transform: `translateX(-${currentIndex * (100 / itemsToShow)}%)`,
-                                gap: '16px' // Explicit gap
+                                gap: formatCSSValue(gridGap)
                             }}
                         >
                             {products.map((product) => (
@@ -587,7 +588,7 @@ export default function ProductCarouselWidget({ config }) {
                                     href={`/products/${product.slug || product.id}`}
                                     className="flex-shrink-0 group"
                                     style={{
-                                        width: `calc(${100 / itemsToShow}% - ${(16 * (itemsToShow - 1)) / itemsToShow}px)`
+                                        width: `calc(${100 / itemsToShow}% - ${(parseFloat(gridGap) * (itemsToShow - 1)) / itemsToShow}px)`
                                     }}
                                 >
                                     <div
