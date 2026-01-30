@@ -95,11 +95,17 @@ export default function DynamicPage() {
                 // Enable search functionality for this dynamic route
                 setIsSearchActive(true);
 
-                // Set filters including category scoping
-                setFilters({
-                    category_id: resData.category.id,
-                    [resData.filter]: resData.clause.value
+                // Parse the filter string into individual filter parameters
+                const filterParams = {};
+                const filterPairs = resData.filter.split('&');
+                filterPairs.forEach(pair => {
+                    const [key, value] = pair.split('=');
+                    if (key && value) {
+                        filterParams[key] = decodeURIComponent(value);
+                    }
                 });
+
+                setFilters(filterParams);
                 setQ(""); // We don't want a residual query string usually
 
                 // Fetch search widgets to render the results

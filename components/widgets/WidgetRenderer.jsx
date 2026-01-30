@@ -122,6 +122,11 @@ export default function WidgetRenderer({ widget, widgets = [] }) {
         }
     }
 
+    // Inject stable unique ID from database/page builder
+    if (widget.id) {
+        config = { ...config, id: widget.id };
+    }
+
     // Find children
     const children = widgets
         .filter(w => w.parent_id === widget.id)

@@ -75,149 +75,138 @@ export default function ProductGridWidget({ config }) {
     const [addingToCart, setAddingToCart] = useState(null);
     const { toggleWishlist, isInWishlist } = useWishlist();
 
-    const { data: randomizationData, loading: randomizationLoading } = useRandomizationData();
-    const { getNextRandom } = useRandomizationContext();
+    // Generate a stable ID if config.id is missing
+    const generatedId = useRef(`widget_${Math.random().toString(36).substr(2, 9)}`);
+    // Old widgetId removed to prevent duplicate declaration
 
-    const [randomizedConfig, setRandomizedConfig] = useState(config);
-    const [randomizationReady, setRandomizationReady] = useState(!config.randomize?.enabled);
+    // Use Randomization Context
+    const { masterPlan, registerWidget, isResolving, getStableWidgetId } = useRandomizationContext();
 
-    // Apply randomization in useEffect (after render) to avoid setState during render
+    // Generate stable ID for caching synchronization if not explicitly provided
+    // We use the context helper to ensure frontend/backend ID alignment
+    const widgetId = useMemo(() => {
+        if (config.id) return config.id;
+        // Fallback: Use context helper if available, or temporary local relabel
+        return getStableWidgetId ? getStableWidgetId(config) : (config.id || `temp_${Math.random()}`);
+    }, [config.id, getStableWidgetId, config]);
+
+    // Register with Master Plan on mount if randomization is enabled
     useEffect(() => {
-        if (!config.randomize?.enabled) {
-            setRandomizedConfig(config);
-            setRandomizationReady(true);
-            return;
+        if (config.randomize?.enabled) {
+            console.log(`[ProductGridWidget] Registering widget ${widgetId} for randomization`);
+            const intent = {
+                allowedTypes: config.randomize.allowedTypes || ['category', 'clause', 'collection'],
+            };
+            registerWidget(widgetId, intent, config);
         }
+    }, [widgetId, config.randomize?.enabled, registerWidget, config]);
 
-        if (randomizationLoading || !randomizationData) {
-            return;
-        }
+    const resolvedFromPlan = masterPlan[widgetId];
+    const isReady = !config.randomize?.enabled || resolvedFromPlan;
 
-        console.log('[ProductGridWidget] Applying randomization. Current Config:', config);
+    // Use randomized values from plan if available
+    const effectiveSourceType = resolvedFromPlan?.resolvedType || sourceType;
+    const planMeta = resolvedFromPlan?.meta || {};
 
-        // We reconstruct the context object here to satisfy the helper signature, 
-        // but we rely on getNextRandom being stable to prevent effects from re-firing matches
-        const contextWrapper = { getNextRandom };
+    // Determine effective search parameters
+    const effectiveLimit = limit;
+    const effectiveSort = resolvedFromPlan?.resolvedSort || config.sort || 'relevance';
 
-        const newConfig = applyProductRandomization(config, randomizationData, contextWrapper);
-        console.log('[ProductGridWidget] Randomized Config:', newConfig);
-
-        // Debug: Log if we fall back to "all" (which means no dynamic title) despite having randomization data
-        if (newConfig.sourceType === 'all' && config.sourceType !== 'all' && config.randomize?.randomizeSource) {
-            console.warn('[ProductGridWidget] Randomization fell back to "all". Data stats:', {
-                categories: randomizationData?.categories?.length,
-                collections: randomizationData?.collections?.length,
-                attributes: randomizationData?.attributes?.length
-            });
-        }
-
-        setRandomizedConfig(newConfig);
-        setRandomizationReady(true);
-    }, [config, randomizationData, randomizationLoading, getNextRandom]);
-
-    // Use randomized config values
-    const effectiveSourceType = randomizedConfig.sourceType || sourceType;
-    const effectiveCategoryId = randomizedConfig.categoryId || categoryId;
-    const effectiveCollectionId = randomizedConfig.collectionId || collectionId;
-    const effectiveCollectionSlug = randomizedConfig.collectionSlug || collectionSlug;
-    const effectiveAttributeClause = randomizedConfig.attributeClause || attributeClause;
-    const effectiveLimit = randomizedConfig.limit || limit;
-    const effectiveShowFeaturedOnly = randomizedConfig.showFeaturedOnly !== undefined ? randomizedConfig.showFeaturedOnly : showFeaturedOnly;
-    const effectiveSort = randomizedConfig.sort || config.sort;
-    // IMPORTANT: Check randomized config for autogenerateTitle as it might be enabled by the randomizer
-    const effectiveAutogenerateTitle = randomizedConfig.autogenerateTitle !== undefined ? randomizedConfig.autogenerateTitle : autogenerateTitle;
-
-    // Only fetch products when randomization data is ready (if randomization is enabled)
     useEffect(() => {
-        // If randomization is enabled, wait for it to be ready
-        if (!randomizationReady) {
-            return;
+        if (isReady) {
+            fetchProducts();
         }
+    }, [isReady, resolvedFromPlan, effectiveLimit, effectiveSort]);
 
-
-        // Clear metadata when source type changes to avoid stale data
-        if (effectiveSourceType !== sourceType) {
-            setMetadata({});
-        }
-        fetchProducts(null);
-    }, [effectiveCategoryId, effectiveLimit, effectiveSourceType, effectiveAttributeClause, effectiveShowFeaturedOnly, effectiveSort, randomizationReady]);
-
-    const fetchProducts = async (overrideCatId = null) => {
+    const fetchProducts = async () => {
         try {
             setLoading(true);
-            const catId = overrideCatId || effectiveCategoryId;
 
-            // Attribute clause source: resolve random eligible category + products + pretty URL/title
-            if (effectiveSourceType === 'clause' && effectiveAttributeClause) {
-                const [attribute_code, clause] = String(effectiveAttributeClause).split(':');
+            // 1. Master Plan Resolution
+            if (resolvedFromPlan) {
+                let params = { limit: effectiveLimit, sort: effectiveSort };
+                let newMetadata = { ...resolvedFromPlan.meta };
 
-                const res = await api.get('/api/search/attribute-clause/random-category', {
-                    params: {
-                        attribute_code,
-                        clause,
-                        per_page: effectiveLimit,
-                        sort: effectiveSort || 'relevance'
+                // Case A: Meta has pre-calculated filter
+                if (resolvedFromPlan.meta?.filter) {
+                    const filterParams = new URLSearchParams(resolvedFromPlan.meta.filter);
+                    filterParams.forEach((value, key) => params[key] = value);
+
+                    // Use backend-provided metadata directly
+                    newMetadata = { ...resolvedFromPlan.meta };
+                }
+                // Case B: Manual construction from Selection (Backend returned meta: null)
+                else if (resolvedFromPlan.selection) {
+                    const { resolvedType, selection } = resolvedFromPlan;
+
+                    if (resolvedType === 'category') {
+                        params.category_id = selection.id;
+                        newMetadata.category = selection;
                     }
-                });
+                    else if (resolvedType === 'collection') {
+                        params.collection_id = selection.id;
+                        newMetadata.collection = selection;
+                    }
+                    else if (resolvedType === 'clause') {
+                        const attrCode = selection.attribute?.code;
+                        const clauseValue = selection.clause?.value;
+                        const clauseName = selection.clause?.name;
 
-                setProducts(res.data.results || []);
-                setMetadata({
-                    category: res.data.category,
-                    collection: null,
-                    attribute: res.data.attribute,
-                    clause: res.data.clause,
-                    title: res.data.title,
-                    pretty_url: res.data.pretty_url
-                });
-                return;
+                        if (attrCode && clauseValue) {
+                            params[`filter[${attrCode}]`] = Array.isArray(clauseValue) ? clauseValue.join(',') : clauseValue;
+                            newMetadata.attribute = selection.attribute;
+                            newMetadata.clause = selection.clause;
+
+                            // If backend provided a picked category in meta, use it
+                            if (resolvedFromPlan.meta?.pickedCategory) {
+                                newMetadata.category = resolvedFromPlan.meta.pickedCategory;
+                            }
+
+                            // Construct pretty_url for "See All" link
+                            if (clauseName) {
+                                newMetadata.pretty_url = `/search?filter[${attrCode}]=${clauseName}`;
+                            }
+                        }
+                    }
+                }
+
+                // If we successfully determined a query filter
+                if (Object.keys(params).length > 2) {
+                    // Check if this is a clause-based filter (contains attribute.code:clause format)
+                    const hasClauseFilter = Object.keys(params).some(key => key.startsWith('attribute.'));
+
+                    // Use /search endpoint for clause filters, /api/products for others
+                    const endpoint = hasClauseFilter ? '/api/search' : '/api/products';
+
+                    const res = await api.get(endpoint, { params });
+                    setProducts(res.data.data || res.data.results || []);
+                    setMetadata(newMetadata);
+                    return;
+                }
             }
 
-            const params = {
-                limit: effectiveLimit
-            };
-
-            // Handle Source Type
-            if (effectiveSourceType === 'category' && catId) {
-                params.category_id = catId;
-            } else if (effectiveSourceType === 'collection') {
-                if (effectiveCollectionId) params.collection_id = effectiveCollectionId;
-                if (effectiveCollectionSlug) params.collection_slug = effectiveCollectionSlug;
+            // 2. Fallback to standard manual config
+            const params = { limit: effectiveLimit, sort: effectiveSort };
+            if (sourceType === 'category' && categoryId) params.category_id = categoryId;
+            else if (sourceType === 'collection') {
+                if (collectionId) params.collection_id = collectionId;
+                if (collectionSlug) params.collection_slug = collectionSlug;
             }
 
-            // Handle Featured Filter
-            if (effectiveShowFeaturedOnly) {
-                params.featured = 'true';
-            }
-
-            // Handle Sorting
-            if (effectiveSort) {
-                params.sort = effectiveSort;
-            }
-
-            // Standardized API call
             const res = await api.get('/api/products', { params });
-
             setProducts(res.data.data || []);
-
-            // Ensure metadata is properly set for dynamic title and "See All" link
-            // This matches the original implementation - metadata comes from the API response
-            const metadataToSet = {
-                category: res.data.category || null,
-                collection: res.data.collection || null,
-                attribute: res.data.attribute || null,
-                clause: res.data.clause || null,
-                // Preserve title and pretty_url if they exist (for clause sources)
-                title: res.data.title || null,
-                pretty_url: res.data.pretty_url || null
-            };
-
-            setMetadata(metadataToSet);
+            setMetadata(res.data);
         } catch (error) {
-            console.error('Failed to fetch products', error);
+            console.error('[ProductGridWidget] Failed to fetch products', error);
         } finally {
             setLoading(false);
         }
     };
+
+
+    // Use randomized values from plan if available
+    const effectiveAutogenerateTitle = resolvedFromPlan ? true : autogenerateTitle;
+    const effectiveShowFeaturedOnly = showFeaturedOnly;
 
     // Auto-generate title based on metadata
     const getDisplayTitle = () => {
@@ -225,24 +214,30 @@ export default function ProductGridWidget({ config }) {
             return title;
         }
 
+        if (metadata.title) return metadata.title; // Server-provided title
+
         let base = '';
         if (effectiveSourceType === 'category' && metadata.category) {
             base = metadata.category.name;
         } else if (effectiveSourceType === 'collection' && metadata.collection) {
             base = metadata.collection.name;
-        } else if (effectiveSourceType === 'clause' && metadata.title) {
-            base = metadata.title;
-        } else if (effectiveSourceType === 'clause' && metadata.category && metadata.clause) {
+        } else if (effectiveSourceType === 'clause' && metadata.clause) {
+            // Try prefix/suffix pattern first
             const prefix = metadata.clause.prefix ? `${metadata.clause.prefix} ` : '';
             const suffix = metadata.clause.suffix ? ` ${metadata.clause.suffix}` : '';
-            base = `${prefix}${metadata.category.name}${suffix}`.trim();
 
-            // Fallback if no prefix/suffix but we have a clause label
-            if (base === metadata.category.name && (metadata.clause.label || metadata.clause.name)) {
+            // If we have a category, use it with prefix/suffix
+            if (metadata.category) {
+                base = `${prefix}${metadata.category.name}${suffix}`.trim();
+            }
+            // Otherwise, use just prefix + suffix (if both exist)
+            else if (prefix && suffix) {
+                base = `${prefix}${suffix}`.trim();
+            }
+            // Fallback to clause label
+            else {
                 base = metadata.clause.label || metadata.clause.name;
             }
-        } else if (effectiveSourceType === 'clause' && metadata.clause) {
-            base = metadata.clause.label || metadata.clause.name;
         }
 
         // If autogenerate is on but we couldn't resolve a base yet,
@@ -354,7 +349,7 @@ export default function ProductGridWidget({ config }) {
     };
 
     // Show skeleton loader if fetching randomization data or products
-    if (loading || (config.randomize?.enabled && randomizationLoading)) {
+    if (loading || (config.randomize?.enabled && isResolving)) {
         const skeletonCount = limit || 8;
         const gridCols = {
             mobile: columns?.mobile || 1,
