@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { ChevronLeft, ChevronRight, Search, TrendingUp, Sparkles, Tag, Calendar, Package } from "lucide-react";
 import { useSearch } from "@/components/providers/SearchContext";
 import api from "@/lib/axios";
 import { useTenant } from "@/components/providers/TenantContext";
+import { useAnalytics } from "@/lib/hooks/useAnalytics";
 
 function formatPrice(value) {
   const num = typeof value === "string" ? parseFloat(value) : value;
@@ -144,7 +145,7 @@ function NoResultsState({ query }) {
   );
 }
 
-function ProductCard({ item }) {
+function ProductCard({ item, trackClick }) {
   const meta = item.metadata || {};
   const price = meta.price != null ? formatPrice(meta.price) : null;
   const comparePrice = meta.compare_at_price != null ? formatPrice(meta.compare_at_price) : null;
@@ -161,6 +162,7 @@ function ProductCard({ item }) {
   return (
     <Link
       href={getResultHref(item)}
+      onClick={() => trackClick && trackClick(item)}
       className="group bg-white border border-gray-200 rounded-2xl overflow-hidden hover:shadow-xl hover:border-indigo-200 transition-all duration-300"
     >
       {/* Image or Placeholder */}
@@ -272,10 +274,53 @@ function ProductCard({ item }) {
 
 export default function SearchResultsWidget({ config = {} }) {
   const { results, pagination, loading, error, sort, setSort, setPage, schema, q } = useSearch();
+  const { trackImpression, trackClick } = useAnalytics();
+  const impressionTrackedRef = useRef(new Set());
 
   const supportedSorts = schema?.supportedSorts || ["relevance", "price_asc", "price_desc", "date_desc", "date_asc"];
   const showHeader = config.showHeader !== false;
   const gridCols = config.columns || { desktop: 5, tablet: 3, mobile: 2 };
+
+  // Track impressions when results load
+  useEffect(() => {
+    if (!loading && results.length > 0) {
+      results.forEach((item, index) => {
+        if (!impressionTrackedRef.current.has(item.id || item.content_id)) {
+          trackImpression({
+            entity_type: item.content_type,
+            entity_id: item.content_id,
+            placement_id: 'search_results_grid',
+            placement_type: 'search_result',
+            position: index + 1,
+            metadata: {
+              search_query: q,
+              rank: item.rank
+            }
+          });
+          impressionTrackedRef.current.add(item.id || item.content_id);
+        }
+      });
+    }
+  }, [results, loading, trackImpression, q]);
+
+  // Reset impression cache when query changes or page changes
+  useEffect(() => {
+    impressionTrackedRef.current.clear();
+  }, [q, pagination?.page]);
+
+  const handleResultClick = (item) => {
+    trackClick({
+      entity_type: item.content_type,
+      entity_id: item.content_id,
+      placement_id: 'search_results_grid',
+      placement_type: 'search_result',
+      position: results.findIndex(i => (i.id || i.content_id) === (item.id || item.content_id)) + 1,
+      metadata: {
+        search_query: q,
+        rank: item.rank
+      }
+    });
+  };
 
   return (
     <section className={config.container === false ? "" : "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-12"}>
@@ -336,7 +381,7 @@ export default function SearchResultsWidget({ config = {} }) {
           {/* Results Grid */}
           <div className={`grid gap-6 ${colsClass(gridCols.mobile || 1)} md:${colsClass(gridCols.tablet || 2)} lg:${colsClass(gridCols.desktop || 4)}`}>
             {results.map((item) => (
-              <ProductCard key={item.id} item={item} />
+              <ProductCard key={item.id} item={item} trackClick={handleResultClick} />
             ))}
           </div>
 

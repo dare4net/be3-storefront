@@ -8,6 +8,7 @@ import { proxyApi as api } from '@/lib/axios';
 import { useRandomizationContext } from '@/lib/contexts/RandomizationContext';
 import { useWishlist } from '../providers/WishlistContext';
 import { useCart } from '../providers/CartContext';
+import { useAnalytics } from '@/lib/hooks/useAnalytics';
 
 export default function ProductCarouselWidget({ config }) {
     const {
@@ -83,6 +84,7 @@ export default function ProductCarouselWidget({ config }) {
     const { toggleWishlist, isInWishlist } = useWishlist();
     const [addingToCart, setAddingToCart] = useState(null);
     const { addToCart } = useCart();
+    const { trackImpression, trackClick } = useAnalytics();
 
     // Generate a stable ID if config.id is missing
     const generatedId = useRef(`widget_${Math.random().toString(36).substr(2, 9)}`);
@@ -226,6 +228,28 @@ export default function ProductCarouselWidget({ config }) {
             setLoading(false);
         }
     };
+
+    // Track impressions when products are loaded
+    useEffect(() => {
+        if (!loading && products.length > 0) {
+            products.forEach((product, index) => {
+                trackImpression({
+                    entity_type: 'product',
+                    entity_id: product.id,
+                    placement_id: widgetId,
+                    placement_type: config.placement_type || 'widget',
+                    position: index + 1,
+                    metadata: {
+                        widget_title: displayTitle || title,
+                        source_type: effectiveSourceType,
+                        category_id: categoryId,
+                        collection_id: collectionId,
+                        product_name: product.name
+                    }
+                });
+            });
+        }
+    }, [loading, products, widgetId, trackImpression]);
 
 
     // Use randomized values from plan if available
@@ -582,13 +606,27 @@ export default function ProductCarouselWidget({ config }) {
                                 gap: formatCSSValue(gridGap)
                             }}
                         >
-                            {products.map((product) => (
+                            {products.map((product, index) => (
                                 <Link
                                     key={product.id}
-                                    href={`/products/${product.slug || product.id}`}
+                                    href={`/products/${product.slug || product.id}?ref_type=widget&ref_id=${widgetId}`}
                                     className="flex-shrink-0 group"
                                     style={{
                                         width: `calc(${100 / itemsToShow}% - ${(parseFloat(gridGap) * (itemsToShow - 1)) / itemsToShow}px)`
+                                    }}
+                                    onClick={() => {
+                                        trackClick({
+                                            entity_type: 'product',
+                                            entity_id: product.id,
+                                            placement_id: widgetId,
+                                            placement_type: config.placement_type || 'widget',
+                                            position: index + 1,
+                                            metadata: {
+                                                widget_title: displayTitle || title,
+                                                product_name: product.name,
+                                                product_slug: product.slug
+                                            }
+                                        });
                                     }}
                                 >
                                     <div

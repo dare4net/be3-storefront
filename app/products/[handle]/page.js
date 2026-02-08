@@ -10,6 +10,7 @@ import ProductTabs from "@/components/products/ProductTabs";
 import DynamicMetaTags from "@/components/DynamicMetaTags";
 import SuggestionsCarousel from "@/components/products/SuggestionsCarousel";
 import StickyAddToCart from "@/components/products/StickyAddToCart";
+import EntityAnalytics from "@/components/analytics/EntityAnalytics";
 
 async function getProduct(handle, tenant) {
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3000';
@@ -204,6 +205,9 @@ export default async function ProductPage({ params }) {
 
             {/* Sticky Add to Cart Bar */}
             <StickyAddToCart product={product} />
+
+            {/* Analytics Tracking */}
+            <EntityAnalytics type="product" entity={product} />
         </div>
     );
 }

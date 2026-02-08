@@ -8,6 +8,7 @@ import { SearchProvider, useSearch } from "@/components/providers/SearchContext"
 import SearchPageLayout from "@/components/widgets/SearchPageLayout";
 import DynamicMetaTags from "@/components/DynamicMetaTags";
 import SuggestionsCarousel from "@/components/products/SuggestionsCarousel";
+import EntityAnalytics from "@/components/analytics/EntityAnalytics";
 import api from "@/lib/axios";
 
 // Client-side Category Page
@@ -80,6 +81,7 @@ export default function CategoryPage({ params }) {
         <SearchProvider initialFilters={initialFilters}>
             <div className="min-h-screen bg-white">
                 <DynamicMetaTags meta={{ ...category.seo, title: category.name }} tenant={tenant} />
+                <EntityAnalytics type="category" entity={category} />
 
                 {/* Hero Section */}
                 <div className="relative bg-gray-900 text-white overflow-hidden">

@@ -11,6 +11,7 @@ import { useStorefront } from "@/components/providers/StorefrontProvider";
 import { useSearch } from "@/components/providers/SearchContext";
 import { DEFAULT_PAGES, DEFAULT_SEARCH_WIDGETS } from "@/lib/default-content";
 import SuggestionsCarousel from "@/components/products/SuggestionsCarousel";
+import EntityAnalytics from "@/components/analytics/EntityAnalytics";
 
 export default function DynamicPage() {
     const params = useParams();
@@ -30,6 +31,13 @@ export default function DynamicPage() {
         }
         return () => setIsSearchActive(false);
     }, [tenant, params.slug]);
+
+    // Analytics: Track Page View
+    const analyticsEntity = resolution
+        ? { ...resolution, id: `${resolution.attribute.id}:${resolution.clause.name}:${resolution.category.id}`, name: page?.title || resolution.seo?.title }
+        : page;
+
+    const analyticsType = resolution ? 'branded_page' : 'page';
 
     const fetchPage = async () => {
         // ... (existing default pages logic remains the same)
@@ -169,6 +177,9 @@ export default function DynamicPage() {
     return (
         <>
             <DynamicMetaTags meta={page} tenant={tenant} />
+            {!loading && analyticsEntity && (
+                <EntityAnalytics type={analyticsType} entity={analyticsEntity} />
+            )}
 
             <div className="min-h-screen">
                 {widgets.length > 0 ? (

@@ -3,15 +3,17 @@
 import { createContext, useContext, useState, useEffect, useCallback } from "react";
 import api from "@/lib/axios";
 import { useTenant } from "@/components/providers/TenantContext";
-
+import { useAnalytics } from "@/lib/hooks/useAnalytics";
 
 
 const CartContext = createContext({});
 
 export function CartProvider({ children }) {
     const tenant = useTenant();
+    const { trackClick } = useAnalytics();
     const [cart, setCart] = useState(null);
     const [items, setItems] = useState([]);
+    const [vendorGroups, setVendorGroups] = useState([]);
     const [isOpen, setIsOpen] = useState(false);
     const [loading, setLoading] = useState(true);
 
@@ -40,6 +42,7 @@ export function CartProvider({ children }) {
             if (res.data.success) {
                 setCart(res.data.cart);
                 setItems(res.data.items || []);
+                setVendorGroups(res.data.vendorGroups || []);
             }
         } catch (err) {
             console.error("Failed to fetch cart", err);
@@ -64,6 +67,19 @@ export function CartProvider({ children }) {
             });
 
             if (res.data.success) {
+                // Track Analytics
+                trackClick({
+                    entity_type: 'product',
+                    entity_id: product.id,
+                    event_type: 'add_to_cart',
+                    metadata: {
+                        name: product.name,
+                        price: product.price,
+                        quantity,
+                        variant_id: variantId
+                    }
+                });
+
                 await fetchCart();
                 setIsOpen(true); // Open drawer on add
                 return true;
@@ -78,7 +94,22 @@ export function CartProvider({ children }) {
 
     const removeFromCart = async (itemId) => {
         try {
+            const item = items.find(i => i.id === itemId);
             await api.delete(`/cart/items/${itemId}`);
+
+            if (item) {
+                // Track Analytics
+                trackClick({
+                    entity_type: 'product',
+                    entity_id: item.product_id,
+                    event_type: 'remove_from_cart',
+                    metadata: {
+                        name: item.product_name,
+                        quantity: item.quantity
+                    }
+                });
+            }
+
             await fetchCart();
         } catch (err) {
             console.error("Failed to remove from cart", err);
@@ -102,6 +133,7 @@ export function CartProvider({ children }) {
         <CartContext.Provider value={{
             cart,
             items,
+            vendorGroups,
             loading,
             isOpen,
             setIsOpen,

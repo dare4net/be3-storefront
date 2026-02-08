@@ -10,6 +10,7 @@ import { proxyApi as api } from '@/lib/axios';
 import { useRandomizationData } from '@/lib/hooks/useRandomizationData';
 import { applyProductRandomization } from '@/lib/utils/widgetRandomizer';
 import { useRandomizationContext } from '@/lib/contexts/RandomizationContext';
+import { useAnalytics } from '@/lib/hooks/useAnalytics';
 
 export default function ProductGridWidget({ config }) {
     const {
@@ -74,6 +75,7 @@ export default function ProductGridWidget({ config }) {
     const { addToCart } = useCart();
     const [addingToCart, setAddingToCart] = useState(null);
     const { toggleWishlist, isInWishlist } = useWishlist();
+    const { trackImpression, trackClick } = useAnalytics();
 
     // Generate a stable ID if config.id is missing
     const generatedId = useRef(`widget_${Math.random().toString(36).substr(2, 9)}`);
@@ -203,6 +205,26 @@ export default function ProductGridWidget({ config }) {
         }
     };
 
+    // Track impressions when products load
+    useEffect(() => {
+        if (!loading && products.length > 0) {
+            products.forEach((product, index) => {
+                trackImpression({
+                    entity_type: 'product',
+                    entity_id: product.id,
+                    placement_id: widgetId,
+                    placement_type: config.placement_type || 'widget',
+                    position: index + 1,
+                    metadata: {
+                        widget_title: title,
+                        product_name: product.name,
+                        product_slug: product.slug,
+                        source_type: effectiveSourceType
+                    }
+                });
+            });
+        }
+    }, [products, loading, widgetId, title, trackImpression, effectiveSourceType]);
 
     // Use randomized values from plan if available
     const effectiveAutogenerateTitle = resolvedFromPlan ? true : autogenerateTitle;
@@ -513,8 +535,21 @@ export default function ProductGridWidget({ config }) {
                             >
                                 {/* Product Image */}
                                 <Link
-                                    href={`/products/${product.slug || product.id}`}
+                                    href={`/products/${product.slug || product.id}?ref_type=widget&ref_id=${widgetId}`}
                                     className={`relative bg-gray-100 overflow-hidden block`}
+                                    onClick={() => trackClick({
+                                        entity_type: 'product',
+                                        entity_id: product.id,
+                                        placement_id: widgetId,
+                                        placement_type: config.placement_type || 'widget',
+                                        position: index + 1,
+                                        metadata: {
+                                            widget_title: displayTitle || title,
+                                            product_name: product.name,
+                                            product_slug: product.slug
+                                        },
+                                        source: 'image_click'
+                                    })}
                                     style={{
                                         paddingBottom: scale < 0.8 ? '75%' : '100%' // Switch to 4:3 aspect ratio in dense mode to save height
                                     }}
@@ -564,7 +599,17 @@ export default function ProductGridWidget({ config }) {
 
                                 {/* Product Info */}
                                 <div className="flex flex-col flex-grow" style={{ padding: `${1.1 * scale}rem` }}>
-                                    <Link href={`/products/${product.slug || product.id}`}>
+                                    <Link
+                                        href={`/products/${product.slug || product.id}?ref_type=widget&ref_id=${widgetId}`}
+                                        onClick={() => trackClick({
+                                            entity_type: 'product',
+                                            entity_id: product.id,
+                                            placement_id: widgetId,
+                                            placement_type: config.placement_type || 'widget',
+                                            position: index + 1,
+                                            metadata: { source: 'title_click' }
+                                        })}
+                                    >
                                         <h3
                                             className={`font-semibold mb-2 transition-colors hover:text-blue-600 ${scale < 0.8 ? 'line-clamp-1' : 'line-clamp-2'}`}
                                             style={{
@@ -632,8 +677,16 @@ export default function ProductGridWidget({ config }) {
                                         <div className="flex items-center gap-2">
                                             {showViewDetails && (
                                                 <Link
-                                                    href={`/products/${product.slug || product.id}`}
+                                                    href={`/products/${product.slug || product.id}?ref_type=widget&ref_id=${widgetId}`}
                                                     className="rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
+                                                    onClick={() => trackClick({
+                                                        entity_type: 'product',
+                                                        entity_id: product.id,
+                                                        placement_id: widgetId,
+                                                        placement_type: 'widget',
+                                                        position: index + 1,
+                                                        metadata: { type: 'quick_view' }
+                                                    })}
                                                     style={{ padding: `${0.625 * scale}rem` }}
                                                     aria-label="View Details"
                                                 >

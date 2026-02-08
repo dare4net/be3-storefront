@@ -6,8 +6,9 @@ import { Folder } from 'lucide-react';
 import { proxyApi as api } from '@/lib/axios';
 import { useRandomizationData } from '@/lib/hooks/useRandomizationData';
 import { applyCategoryRandomization } from '@/lib/utils/widgetRandomizer';
+import { useAnalytics } from '@/lib/hooks/useAnalytics';
 
-function CategoryCard({ category, config = {} }) {
+function CategoryCard({ category, config = {}, trackClick, widgetId, index }) {
     const { isBento = false } = config;
     const [imageError, setImageError] = useState(false);
     const [imageLoaded, setImageLoaded] = useState(false);
@@ -84,8 +85,23 @@ function CategoryCard({ category, config = {} }) {
 
     return (
         <Link
-            href={`/categories/${category.slug || category.id}`}
+            href={`/categories/${category.slug || category.id}?ref_type=widget&ref_id=${widgetId}`}
             className="group block h-full w-full"
+            onClick={() => {
+                if (trackClick) {
+                    trackClick({
+                        entity_type: 'category',
+                        entity_id: category.id,
+                        placement_id: widgetId,
+                        placement_type: 'widget',
+                        position: index + 1,
+                        metadata: {
+                            category_name: category.name,
+                            category_slug: category.slug
+                        }
+                    });
+                }
+            }}
         >
             <div className={`relative ${isBento ? 'h-full w-full' : 'aspect-square'} rounded-2xl overflow-hidden bg-gradient-to-br from-pink-500 to-orange-500 hover:scale-[1.02] transition-transform flex items-center justify-center border-2 border-white shadow-lg`}>
                 {/* Always show High-Contrast Folder (Yellow) as base layer/fallback */}
@@ -149,6 +165,8 @@ export default function CategoryGridWidget({ config }) {
     } = config;
 
     const isBento = layoutMode === 'bento';
+    const { trackImpression, trackClick } = useAnalytics();
+    const widgetId = config.id || `category_grid_${Date.now()}`;
 
     const [categories, setCategories] = useState([]);
 
@@ -217,6 +235,23 @@ export default function CategoryGridWidget({ config }) {
             }
 
             setCategories(filtered);
+
+            // Track impressions
+            filtered.forEach((cat, index) => {
+                trackImpression({
+                    entity_type: 'category',
+                    entity_id: cat.id,
+                    placement_id: widgetId,
+                    placement_type: 'widget',
+                    position: index + 1,
+                    metadata: {
+                        widget_title: title,
+                        category_name: cat.name,
+                        category_slug: cat.slug,
+                        source_type: effectiveSourceType
+                    }
+                });
+            });
         } catch (error) {
             console.error('Failed to fetch categories', error);
         }
@@ -379,6 +414,9 @@ export default function CategoryGridWidget({ config }) {
                                 <CategoryCard
                                     category={category}
                                     config={{ ...config, isBento }}
+                                    trackClick={trackClick}
+                                    widgetId={widgetId}
+                                    index={index}
                                 />
                             </AnimatedItem>
                         ))}

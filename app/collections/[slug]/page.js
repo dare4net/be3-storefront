@@ -8,6 +8,7 @@ import { SearchProvider } from "@/components/providers/SearchContext";
 import SearchPageLayout from "@/components/widgets/SearchPageLayout";
 import DynamicMetaTags from "@/components/DynamicMetaTags";
 import api from "@/lib/axios";
+import EntityAnalytics from "@/components/analytics/EntityAnalytics";
 
 export default function CollectionPage({ params }) {
     const resolvedParams = use(params);
@@ -82,6 +83,7 @@ export default function CollectionPage({ params }) {
                     }}
                     tenant={tenant}
                 />
+                <EntityAnalytics type="collection" entity={collection} />
 
                 {/* Hero Section */}
                 <div className="relative bg-gradient-to-br from-indigo-900 via-purple-900 to-black text-white overflow-hidden py-16 lg:py-24">

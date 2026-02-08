@@ -8,12 +8,18 @@ import api from "@/lib/axios";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Lock, CheckCircle } from "lucide-react";
+import EntityAnalytics from "@/components/analytics/EntityAnalytics";
+import { useAnalytics } from "@/lib/hooks/useAnalytics";
+import { useSearchParams } from "next/navigation";
 
 export default function CheckoutPage() {
     const { cart, items, cartTotal, loading: cartLoading } = useCart();
     const tenant = useTenant();
     const { user, token } = useAuth();
     const router = useRouter();
+    const searchParams = useSearchParams();
+    const { trackClick } = useAnalytics();
+    const vendorId = searchParams.get('vendor_id');
 
     const [step, setStep] = useState(1); // 1: Info, 2: Payment
     const [loading, setLoading] = useState(false);
@@ -95,6 +101,17 @@ export default function CheckoutPage() {
             });
 
             if (res.data.success) {
+                // Track Analytics
+                trackClick({
+                    entity_type: 'checkout',
+                    entity_id: cart.id,
+                    event_type: 'checkout_success',
+                    metadata: {
+                        order_id: res.data.transactionId,
+                        total,
+                        item_count: items.length
+                    }
+                });
                 router.push(`/checkout/success?orderId=${res.data.transactionId}`);
             }
         } catch (err) {
@@ -120,6 +137,7 @@ export default function CheckoutPage() {
 
     return (
         <div className="min-h-screen bg-gray-50 pb-12">
+            <EntityAnalytics type="checkout" entity={{ id: vendorId || 'general', name: 'Checkout Page' }} />
             {/* Header */}
             <div className="bg-white border-b sticky top-0 z-10">
                 <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">

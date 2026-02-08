@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { proxyApi as api } from '@/lib/axios';
 import { useRandomizationData } from '@/lib/hooks/useRandomizationData';
 import { applyCategoryRandomization } from '@/lib/utils/widgetRandomizer';
+import { useAnalytics } from '@/lib/hooks/useAnalytics';
 
 export default function CategoryCarouselWidget({ config = {} }) {
     const [categories, setCategories] = useState([]);
@@ -18,6 +19,8 @@ export default function CategoryCarouselWidget({ config = {} }) {
     const [touchStart, setTouchStart] = useState(null);
     const [touchEnd, setTouchEnd] = useState(null);
     const minSwipeDistance = 50;
+    const { trackImpression, trackClick } = useAnalytics();
+    const widgetId = config.id || `category_carousel_${Date.now()}`;
 
     useEffect(() => {
         const handleResize = () => {
@@ -293,6 +296,23 @@ export default function CategoryCarouselWidget({ config = {} }) {
                 }
 
                 setCategories(filtered);
+
+                // Track impressions for all loaded categories
+                filtered.forEach((cat, index) => {
+                    trackImpression({
+                        entity_type: 'category',
+                        entity_id: cat.id,
+                        placement_id: widgetId,
+                        placement_type: 'widget',
+                        position: index + 1,
+                        metadata: {
+                            widget_title: title,
+                            category_name: cat.name,
+                            category_slug: cat.slug,
+                            source_type: settings.sourceType
+                        }
+                    });
+                });
             }
         } catch (error) {
             console.error('Failed to fetch categories:', error);
@@ -530,6 +550,8 @@ export default function CategoryCarouselWidget({ config = {} }) {
                                                 getShadowStyles={getShadowStyles}
                                                 getHoverTransform={getHoverTransform}
                                                 getEntranceAnimation={getEntranceAnimation}
+                                                trackClick={trackClick}
+                                                widgetId={widgetId}
                                             />
                                         </div>
                                     ))}
@@ -594,6 +616,8 @@ export default function CategoryCarouselWidget({ config = {} }) {
                                         getShadowStyles={getShadowStyles}
                                         getHoverTransform={getHoverTransform}
                                         getEntranceAnimation={getEntranceAnimation}
+                                        trackClick={trackClick}
+                                        widgetId={widgetId}
                                     />
                                 ))}
                             </div>
@@ -618,7 +642,9 @@ function CategoryCard({
     onLeave,
     getShadowStyles,
     getHoverTransform,
-    getEntranceAnimation
+    getEntranceAnimation,
+    trackClick,
+    widgetId
 }) {
     const cardRef = useRef(null);
 
@@ -731,12 +757,27 @@ function CategoryCard({
 
     return (
         <Link
-            href={`/categories/${category.slug}`}
+            href={`/categories/${category.slug}?ref_type=widget&ref_id=${widgetId}`}
             ref={cardRef}
             className={`block w-full cursor-pointer group category-card-link ${applyStylesToLink ? `relative overflow-hidden ${shapeClasses}` : ''}`}
             style={applyStylesToLink ? cardStyle : {}}
             onMouseEnter={onHover}
             onMouseLeave={onLeave}
+            onClick={() => {
+                if (trackClick) {
+                    trackClick({
+                        entity_type: 'category',
+                        entity_id: category.id,
+                        placement_id: widgetId,
+                        placement_type: 'widget',
+                        position: index + 1,
+                        metadata: {
+                            category_name: category.name,
+                            category_slug: category.slug
+                        }
+                    });
+                }
+            }}
         >
             {/* Image Container (Styled if text is below, otherwise just aspect ratio wrapper) */}
             <div
@@ -811,8 +852,9 @@ function CategoryCard({
                                 'border-l-gray-900'
                         }`} />
                 </div>
-            )}
-        </Link>
+            )
+            }
+        </Link >
     );
 }
 

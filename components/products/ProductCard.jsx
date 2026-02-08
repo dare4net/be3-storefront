@@ -5,7 +5,7 @@ import { ShoppingCart } from 'lucide-react';
 import { useCart } from '@/components/providers/CartContext';
 import WishlistButton from './WishlistButton';
 
-export default function ProductCard({ product }) {
+export default function ProductCard({ product, trackClick }) {
     const { addToCart } = useCart();
 
     const handleAddToCart = (e) => {
@@ -14,10 +14,20 @@ export default function ProductCard({ product }) {
         addToCart(product, 1);
     };
 
+    const handleCardClick = () => {
+        if (trackClick) {
+            trackClick(product);
+        }
+    };
+
     return (
         <div className="group bg-white rounded-lg border overflow-hidden hover:shadow-lg transition-all duration-300">
             {/* Image */}
-            <Link href={`/products/${product.handle}`} className="block relative aspect-square overflow-hidden bg-gray-100">
+            <Link
+                href={`/products/${product.handle}`}
+                className="block relative aspect-square overflow-hidden bg-gray-100"
+                onClick={handleCardClick}
+            >
                 {product.image_url ? (
                     <img
                         src={product.image_url}
@@ -39,7 +49,7 @@ export default function ProductCard({ product }) {
 
             {/* Content */}
             <div className="p-4">
-                <Link href={`/products/${product.handle}`}>
+                <Link href={`/products/${product.handle}`} onClick={handleCardClick}>
                     <h3 className="text-lg font-medium text-gray-900 group-hover:text-blue-600 transition-colors line-clamp-1">
                         {product.name}
                     </h3>

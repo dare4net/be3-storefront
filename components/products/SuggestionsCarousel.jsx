@@ -26,7 +26,8 @@ export default function SuggestionsCarousel({
         container: true,
         titleSize: "text-3xl",
         titleColor: "text-gray-900",
-        subtitleColor: "text-gray-500"
+        subtitleColor: "text-gray-500",
+        placement_type: 'suggestions_carousel'
     };
 
     return (
