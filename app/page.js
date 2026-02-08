@@ -7,8 +7,11 @@ import WidgetRenderer from "@/components/widgets/WidgetRenderer";
 
 import { DEFAULT_WIDGETS } from "@/lib/default-content";
 
+import { useRandomizationContext } from "@/lib/contexts/RandomizationContext";
+
 export default function Home() {
     const tenant = useTenant();
+    const { seedPlan } = useRandomizationContext();
     const [widgets, setWidgets] = useState([]);
     const [loading, setLoading] = useState(true);
 
@@ -36,6 +39,11 @@ export default function Home() {
             });
 
             if (res.data.success) {
+                // Waterfall Killer: Seed initial randomization plan from server
+                if (res.data.randomizationPlan) {
+                    seedPlan(res.data.randomizationPlan);
+                }
+
                 // If explicit 'COMPLETED' status but empty widgets, we show empty state (User deleted them)
                 setWidgets(res.data.widgets);
             }

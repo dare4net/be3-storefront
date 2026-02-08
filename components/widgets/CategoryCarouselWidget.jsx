@@ -4,8 +4,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { ChevronLeft, ChevronRight, Package, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 import { proxyApi as api } from '@/lib/axios';
-import { useRandomizationData } from '@/lib/hooks/useRandomizationData';
-import { applyCategoryRandomization } from '@/lib/utils/widgetRandomizer';
+import { useRandomizationContext } from '@/lib/contexts/RandomizationContext';
 import { useAnalytics } from '@/lib/hooks/useAnalytics';
 
 export default function CategoryCarouselWidget({ config = {} }) {
@@ -17,10 +16,9 @@ export default function CategoryCarouselWidget({ config = {} }) {
     const autoPlayRef = useRef(null);
     const [deviceType, setDeviceType] = useState('desktop'); // 'mobile', 'tablet', 'desktop'
     const [touchStart, setTouchStart] = useState(null);
-    const [touchEnd, setTouchEnd] = useState(null);
-    const minSwipeDistance = 50;
     const { trackImpression, trackClick } = useAnalytics();
-    const widgetId = config.id || `category_carousel_${Date.now()}`;
+    const { masterPlan, registerWidget, getStableWidgetId } = useRandomizationContext();
+    const widgetId = useMemo(() => config.id || (getStableWidgetId ? getStableWidgetId(config) : `cat_carousel_${Math.random().toString(36).substr(2, 9)}`), [config.id, getStableWidgetId, config]);
 
     useEffect(() => {
         const handleResize = () => {
@@ -209,40 +207,65 @@ export default function CategoryCarouselWidget({ config = {} }) {
         return desktop;
     };
 
-    // Fetch randomization data if randomization is enabled
-    const { data: randomizationData, loading: randomizationLoading } = useRandomizationData();
+    const stableId = getStableWidgetId(config, widgetId);
+    const resolvedFromPlan = masterPlan[stableId];
+    const effectiveSourceType = resolvedFromPlan?.resolvedType || settings.sourceType;
+    const effectiveSettings = {
+        ...settings,
+        sourceType: effectiveSourceType
+    };
 
-    // Apply randomization to config
-    const randomizedConfig = useMemo(() => {
-        if (!config.randomize?.enabled || randomizationLoading || !randomizationData) {
-            return config;
-        }
-        return applyCategoryRandomization(config, randomizationData);
-    }, [config, randomizationData, randomizationLoading]);
-
-    // Update settings with randomized values
-    const effectiveSettings = useMemo(() => {
-        const baseSettings = { ...settings };
-        if (randomizedConfig.sourceType) baseSettings.sourceType = randomizedConfig.sourceType;
-        if (randomizedConfig.parentCategoryId !== undefined) baseSettings.parentCategoryId = randomizedConfig.parentCategoryId;
-        if (randomizedConfig.sortOrder) baseSettings.sortOrder = randomizedConfig.sortOrder;
-        if (randomizedConfig.maxCategories) baseSettings.maxCategories = randomizedConfig.maxCategories;
-        if (randomizedConfig.randomCount) baseSettings.randomCount = randomizedConfig.randomCount;
-        if (randomizedConfig.manualCategoryIds) baseSettings.manualCategoryIds = randomizedConfig.manualCategoryIds;
-        return baseSettings;
-    }, [settings, randomizedConfig]);
-
-    // Fetch categories based on source type
     useEffect(() => {
+        if (config.randomize?.enabled) {
+            console.log(`[CategoryCarouselWidget] Registering ${stableId} for randomization`);
+            registerWidget(widgetId, {
+                allowedTypes: ['category'],
+                sourceType: settings.sourceType,
+                randomCount: settings.randomCount,
+                parentCategoryId: settings.parentCategoryId,
+                manualCategoryIds: settings.manualCategoryIds
+            }, config);
+        }
+    }, [widgetId, config.randomize?.enabled, registerWidget, stableId]);
+
+    // 2. Computed Categories (Render-Phase Resolution)
+    // This eliminates the flicker by calculating data immediately if the plan exists
+    const displayCategories = useMemo(() => {
+        if (!config.randomize?.enabled) return categories;
+        if (!resolvedFromPlan) return [];
+
+        return resolvedFromPlan.multiple
+            ? resolvedFromPlan.selections.map(s => s.selection).filter(Boolean)
+            : (resolvedFromPlan.selection ? [resolvedFromPlan.selection] : []);
+    }, [categories, resolvedFromPlan, config.randomize?.enabled]);
+
+    // Main data fetching effect (Now only for NON-randomized or initial loading)
+    useEffect(() => {
+        if (config.randomize?.enabled) {
+            if (resolvedFromPlan) {
+                // Track impressions when plan is ready
+                displayCategories.forEach((cat, index) => {
+                    trackImpression({
+                        entity_type: 'category',
+                        entity_id: cat.id,
+                        placement_id: widgetId,
+                        placement_type: 'widget',
+                        position: index + 1,
+                        metadata: {
+                            widget_title: title,
+                            category_name: cat.name,
+                            category_slug: cat.slug,
+                            source_type: effectiveSourceType
+                        }
+                    });
+                });
+            }
+            return;
+        }
+
+        // Standard non-randomized path
         fetchCategories();
-    }, [
-        effectiveSettings.sourceType,
-        effectiveSettings.parentCategoryId,
-        effectiveSettings.sortOrder,
-        effectiveSettings.maxCategories,
-        effectiveSettings.randomCount,
-        JSON.stringify(effectiveSettings.manualCategoryIds)
-    ]);
+    }, [resolvedFromPlan, config.randomize?.enabled, widgetId, stableId, displayCategories.length]);
 
     // Auto-play functionality
     useEffect(() => {
@@ -269,14 +292,17 @@ export default function CategoryCarouselWidget({ config = {} }) {
                         break;
                     case 'subcategories':
                         if (effectiveSettings.parentCategoryId) {
-                            filtered = filtered.filter(cat => cat.parent_id === effectiveSettings.parentCategoryId);
+                            filtered = filtered.filter(cat => String(cat.parent_id) === String(effectiveSettings.parentCategoryId));
                         }
                         break;
                     case 'all-subcategories':
                         filtered = filtered.filter(cat => cat.parent_id);
                         break;
                     case 'manual':
-                        filtered = filtered.filter(cat => effectiveSettings.manualCategoryIds.includes(cat.id));
+                        if (effectiveSettings.manualCategoryIds?.length > 0) {
+                            const manualIds = effectiveSettings.manualCategoryIds.map(String);
+                            filtered = filtered.filter(cat => manualIds.includes(String(cat.id)));
+                        }
                         break;
                     case 'random':
                         filtered = filtered.sort(() => 0.5 - Math.random()).slice(0, effectiveSettings.randomCount);
@@ -285,7 +311,7 @@ export default function CategoryCarouselWidget({ config = {} }) {
 
                 // Apply sorting
                 if (effectiveSettings.sortOrder === 'alphabetical') {
-                    filtered.sort((a, b) => a.name.localeCompare(b.name));
+                    filtered.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
                 } else if (effectiveSettings.sortOrder === 'random') {
                     filtered.sort(() => 0.5 - Math.random());
                 }
@@ -415,7 +441,7 @@ export default function CategoryCarouselWidget({ config = {} }) {
 
 
     // Empty State
-    if (categories.length === 0) {
+    if (displayCategories.length === 0) {
         return (
             <div className={`w-full ${settings.sectionPadding}`} style={{ background: settings.sectionBackground }}>
                 <div className="max-w-7xl mx-auto px-4">
@@ -528,7 +554,7 @@ export default function CategoryCarouselWidget({ config = {} }) {
                                         transform: `translateX(-${currentIndex * (100 / currentItemsPerRow)}%)`
                                     }}
                                 >
-                                    {categories.map((category, index) => (
+                                    {displayCategories.map((category, index) => (
                                         <div
                                             key={category.id}
                                             className="flex-shrink-0"
@@ -604,7 +630,7 @@ export default function CategoryCarouselWidget({ config = {} }) {
                                 `
                             }} />
                             <div className={`category-grid-${settings.itemsPerRowMobile}-${settings.itemsPerRowTablet}-${settings.itemsPerRowDesktop}`}>
-                                {categories.map((category, index) => (
+                                {displayCategories.map((category, index) => (
                                     <CategoryCard
                                         key={category.id}
                                         category={category}

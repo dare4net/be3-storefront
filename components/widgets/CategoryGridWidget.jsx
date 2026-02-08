@@ -4,8 +4,7 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import Link from 'next/link';
 import { Folder } from 'lucide-react';
 import { proxyApi as api } from '@/lib/axios';
-import { useRandomizationData } from '@/lib/hooks/useRandomizationData';
-import { applyCategoryRandomization } from '@/lib/utils/widgetRandomizer';
+import { useRandomizationContext } from '@/lib/contexts/RandomizationContext';
 import { useAnalytics } from '@/lib/hooks/useAnalytics';
 
 function CategoryCard({ category, config = {}, trackClick, widgetId, index }) {
@@ -166,56 +165,108 @@ export default function CategoryGridWidget({ config }) {
 
     const isBento = layoutMode === 'bento';
     const { trackImpression, trackClick } = useAnalytics();
-    const widgetId = config.id || `category_grid_${Date.now()}`;
+    const { masterPlan, registerWidget, getStableWidgetId } = useRandomizationContext();
+    const widgetId = useMemo(() => config.id || (getStableWidgetId ? getStableWidgetId(config) : `cat_grid_${Math.random().toString(36).substr(2, 9)}`), [config.id, getStableWidgetId, config]);
 
     const [categories, setCategories] = useState([]);
+    const [loading, setLoading] = useState(false);
 
-    // Fetch randomization data if randomization is enabled
-    const { data: randomizationData, loading: randomizationLoading } = useRandomizationData();
-
-    // Apply randomization to config
-    const randomizedConfig = useMemo(() => {
-        if (!config.randomize?.enabled || randomizationLoading || !randomizationData) {
-            return config;
-        }
-        return applyCategoryRandomization(config, randomizationData);
-    }, [config, randomizationData, randomizationLoading]);
-
-    // Use randomized config values
-    const effectiveSourceType = randomizedConfig.sourceType || sourceType;
-    const effectiveParentCategoryId = randomizedConfig.parentCategoryId || parentCategoryId;
-    const effectiveSortOrder = randomizedConfig.sortOrder || sortOrder;
-    const effectiveMaxCategories = randomizedConfig.maxCategories || maxCategories;
-    const effectiveRandomCount = randomizedConfig.randomCount || randomCount;
-    const effectiveManualCategoryIds = randomizedConfig.manualCategoryIds || manualCategoryIds;
+    // Use modern randomization context
+    const stableId = getStableWidgetId(config, widgetId);
+    const resolvedFromPlan = masterPlan[stableId];
+    const effectiveSourceType = resolvedFromPlan?.resolvedType || sourceType;
+    const effectiveSettings = {
+        ...config,
+        sourceType: effectiveSourceType,
+        parentCategoryId,
+        manualCategoryIds,
+        randomCount,
+        maxCategories,
+        sortOrder,
+        title
+    };
 
     useEffect(() => {
+        if (config.randomize?.enabled) {
+            console.log(`[CategoryGridWidget] Registering ${stableId} for randomization`);
+            registerWidget(widgetId, {
+                allowedTypes: ['category'],
+                sourceType: sourceType,
+                randomCount: randomCount,
+                parentCategoryId: parentCategoryId,
+                manualCategoryIds: manualCategoryIds
+            }, config);
+        }
+    }, [widgetId, config.randomize?.enabled, registerWidget, stableId]);
+
+    // 2. Computed Categories (Render-Phase Resolution)
+    // This eliminates the flicker by calculating data immediately if the plan exists
+    const displayCategories = useMemo(() => {
+        if (!config.randomize?.enabled) return categories;
+        if (!resolvedFromPlan) return [];
+
+        return resolvedFromPlan.multiple
+            ? resolvedFromPlan.selections.map(s => s.selection).filter(Boolean)
+            : (resolvedFromPlan.selection ? [resolvedFromPlan.selection] : []);
+    }, [categories, resolvedFromPlan, config.randomize?.enabled]);
+
+    // Main data fetching effect (Now only for NON-randomized or initial loading)
+    useEffect(() => {
+        if (config.randomize?.enabled) {
+            if (!resolvedFromPlan) {
+                setLoading(true);
+            } else {
+                setLoading(false);
+                // Track impressions when plan is ready
+                displayCategories.forEach((cat, index) => {
+                    trackImpression({
+                        entity_type: 'category',
+                        entity_id: cat.id,
+                        placement_id: widgetId,
+                        placement_type: 'widget',
+                        position: index + 1,
+                        metadata: {
+                            widget_title: title,
+                            category_name: cat.name,
+                            category_slug: cat.slug,
+                            source_type: effectiveSourceType
+                        }
+                    });
+                });
+            }
+            return;
+        }
+
+        // Standard non-randomized path
         fetchCategories();
-    }, [effectiveSourceType, effectiveParentCategoryId, effectiveSortOrder, effectiveMaxCategories, effectiveRandomCount, JSON.stringify(effectiveManualCategoryIds)]);
+    }, [resolvedFromPlan, config.randomize?.enabled, widgetId, stableId, displayCategories.length]);
 
     const fetchCategories = async () => {
         try {
+            setLoading(true);
             const res = await api.get('/api/categories');
             let filtered = res.data.categories || [];
 
             // Apply filtering based on source type
-            switch (effectiveSourceType) {
+            switch (effectiveSettings.sourceType) {
                 case 'all':
-                    // Use all categories
                     break;
                 case 'top-level':
                     filtered = filtered.filter(cat => !cat.parent_id);
                     break;
                 case 'subcategories':
-                    if (effectiveParentCategoryId) {
-                        filtered = filtered.filter(cat => cat.parent_id === effectiveParentCategoryId);
+                    if (effectiveSettings.parentCategoryId) {
+                        filtered = filtered.filter(cat => String(cat.parent_id) === String(effectiveSettings.parentCategoryId));
                     }
                     break;
                 case 'all-subcategories':
                     filtered = filtered.filter(cat => cat.parent_id);
                     break;
                 case 'manual':
-                    filtered = filtered.filter(cat => effectiveManualCategoryIds.includes(cat.id));
+                    if (effectiveSettings.manualCategoryIds?.length > 0) {
+                        const manualIds = effectiveSettings.manualCategoryIds.map(String);
+                        filtered = filtered.filter(cat => manualIds.includes(String(cat.id)));
+                    }
                     break;
                 case 'random':
                     filtered = filtered.sort(() => 0.5 - Math.random());
@@ -223,15 +274,15 @@ export default function CategoryGridWidget({ config }) {
             }
 
             // Apply sorting
-            if (effectiveSortOrder === 'alphabetical') {
+            if (sortOrder === 'alphabetical') {
                 filtered.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-            } else if (effectiveSortOrder === 'random') {
+            } else if (sortOrder === 'random') {
                 filtered.sort(() => 0.5 - Math.random());
             }
 
             // Apply max limit
-            if (effectiveMaxCategories) {
-                filtered = filtered.slice(0, effectiveMaxCategories);
+            if (maxCategories) {
+                filtered = filtered.slice(0, maxCategories);
             }
 
             setCategories(filtered);
@@ -248,12 +299,14 @@ export default function CategoryGridWidget({ config }) {
                         widget_title: title,
                         category_name: cat.name,
                         category_slug: cat.slug,
-                        source_type: effectiveSourceType
+                        source_type: sourceType
                     }
                 });
             });
         } catch (error) {
-            console.error('Failed to fetch categories', error);
+            console.error('[CategoryGridWidget] Failed to fetch categories', error);
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -403,7 +456,7 @@ export default function CategoryGridWidget({ config }) {
                     )}
 
                     <div className={isBento ? 'bento-grid' : `category-grid-widget-${columns?.mobile || 2}-${columns?.tablet || 3}-${columns?.desktop || 4}`}>
-                        {categories.map((category, index) => (
+                        {displayCategories.map((category, index) => (
                             <AnimatedItem
                                 key={category.id}
                                 delayIndex={index % 6} // Slightly larger stagger loop for categories

@@ -12,9 +12,12 @@ import { useStorefront } from "./providers/StorefrontProvider";
 import api from "@/lib/axios";
 import WidgetRenderer from "./widgets/WidgetRenderer";
 
+import { useRandomizationContext } from "@/lib/contexts/RandomizationContext";
+
 export default function Header({ menuItems = [] }) {
     const { config, theme } = useStorefront();
     const tenant = useTenant();
+    const { seedPlan } = useRandomizationContext();
     const { isAuthenticated, user, logout } = useAuth();
     const { setIsOpen, cartCount } = useCart();
     const { wishlist } = useWishlist();
@@ -30,14 +33,21 @@ export default function Header({ menuItems = [] }) {
                 headers: { "X-Tenant-ID": tenant.id }
             })
                 .then(res => {
-                    if (res.data.success && res.data.widgets.length > 0) {
-                        setWidgets(res.data.widgets);
+                    if (res.data.success) {
+                        // Waterfall Killer: Seed initial randomization plan from server
+                        if (res.data.randomizationPlan) {
+                            seedPlan(res.data.randomizationPlan);
+                        }
+
+                        if (res.data.widgets.length > 0) {
+                            setWidgets(res.data.widgets);
+                        }
                     }
                 })
                 .catch(err => console.error("Failed to fetch header widgets", err))
                 .finally(() => setLoading(false));
         }
-    }, [tenant?.id]);
+    }, [tenant?.id, seedPlan]);
 
     // Close menu when clicking outside
     useEffect(() => {

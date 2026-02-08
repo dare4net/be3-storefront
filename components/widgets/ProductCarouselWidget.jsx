@@ -91,7 +91,14 @@ export default function ProductCarouselWidget({ config }) {
     // Old widgetId removed to prevent duplicate declaration
 
     // Use Randomization Context
-    const { masterPlan, registerWidget, isResolving, getStableWidgetId } = useRandomizationContext();
+    const {
+        masterPlan,
+        registerWidget,
+        isResolving,
+        getStableWidgetId,
+        registerProductFetch,
+        batchProducts
+    } = useRandomizationContext();
 
     // Generate stable ID for caching synchronization if not explicitly provided
     // We use the context helper to ensure frontend/backend ID alignment
@@ -101,118 +108,103 @@ export default function ProductCarouselWidget({ config }) {
         return getStableWidgetId ? getStableWidgetId(config) : (config.id || `temp_${Math.random()}`);
     }, [config.id, getStableWidgetId, config]);
 
-    // Register with Master Plan on mount if randomization is enabled
     useEffect(() => {
         if (config.randomize?.enabled) {
             console.log(`[ProductCarouselWidget] Registering widget ${widgetId} for randomization`);
             const intent = {
                 allowedTypes: config.randomize.allowedTypes || ['category', 'clause', 'collection'],
+                sourceType: sourceType === 'category' ? 'subcategories' : sourceType,
+                parentCategoryId: categoryId,
+                collectionId: collectionId,
+                manualCategoryIds: config.manualCategoryIds || []
             };
             registerWidget(widgetId, intent, config);
         }
-    }, [widgetId, config.randomize?.enabled, registerWidget, config]);
+    }, [widgetId, config.randomize?.enabled, registerWidget]);
 
     const resolvedFromPlan = masterPlan[widgetId];
-
-    // DEBUG LOG
-    useEffect(() => {
-        if (config.randomize?.enabled) {
-            console.log(`[ProductCarouselWidget] Widget ${widgetId} Plan Status:`, {
-                inPlan: !!resolvedFromPlan,
-                isResolving,
-                planData: resolvedFromPlan
-            });
-        }
-    }, [masterPlan, isResolving, widgetId, resolvedFromPlan]);
-
     const isReady = !config.randomize?.enabled || resolvedFromPlan;
 
     // Use randomized values from plan if available
     const effectiveSourceType = resolvedFromPlan?.resolvedType || sourceType;
-    const planMeta = resolvedFromPlan?.meta || {};
+    const effectiveAutogenerateTitle = resolvedFromPlan ? true : autogenerateTitle;
 
-    // Determine effective search parameters
-    const effectiveLimit = limit;
-    const effectiveSort = resolvedFromPlan?.resolvedSort || config.sort || 'relevance';
+    // Batch Product Consumption
+    const batchData = batchProducts[widgetId];
+
+    useEffect(() => {
+        if (batchData && !batchData.loading) {
+            if (batchData.results) {
+                setProducts(batchData.results);
+                setLoading(false);
+            }
+            if (batchData.pagination) {
+                // Merge pagination into metadata if needed
+                setMetadata(prev => ({ ...prev, pagination: batchData.pagination }));
+            }
+        }
+    }, [batchData]);
 
     useEffect(() => {
         if (isReady) {
             fetchProducts();
         }
-    }, [isReady, resolvedFromPlan, effectiveLimit, effectiveSort]);
+    }, [isReady, resolvedFromPlan, limit, config.sort, widgetId]);
 
     const fetchProducts = async () => {
         try {
             setLoading(true);
 
-            // 1. Master Plan Resolution
+            // If randomized but no plan yet, wait (prevents flicker)
+            if (config.randomize?.enabled && !resolvedFromPlan) {
+                return;
+            }
+
+            // Case A: Randomized according to Master Plan
             if (resolvedFromPlan) {
-                let params = { limit: effectiveLimit, sort: effectiveSort };
-                let newMetadata = { ...resolvedFromPlan.meta };
+                const selections = resolvedFromPlan.multiple ? resolvedFromPlan.selections : [resolvedFromPlan];
+                const primary = selections[0];
+                const filters = {};
 
-                // Case A: Meta has pre-calculated filter (Backend provided everything)
-                if (resolvedFromPlan.meta?.filter) {
-                    const filterParams = new URLSearchParams(resolvedFromPlan.meta.filter);
-                    filterParams.forEach((value, key) => params[key] = value);
-
-                    // Use backend-provided metadata directly
-                    newMetadata = { ...resolvedFromPlan.meta };
-                }
-                // Case B: Manual construction from Selection (Backend returned meta: null)
-                else if (resolvedFromPlan.selection) {
-                    const { resolvedType, selection } = resolvedFromPlan;
-
-                    if (resolvedType === 'category') {
-                        params.category_id = selection.id;
-                        newMetadata.category = selection;
+                if (primary.meta?.filter) {
+                    const params = new URLSearchParams(primary.meta.filter);
+                    for (const [key, val] of params.entries()) {
+                        filters[key] = val;
                     }
-                    else if (resolvedType === 'collection') {
-                        params.collection_id = selection.id;
-                        newMetadata.collection = selection;
-                    }
+                } else if (primary.selection) {
+                    const { resolvedType, selection } = primary;
+                    if (resolvedType === 'category') filters.category_id = selection.id;
+                    else if (resolvedType === 'collection') filters.collection_id = selection.id;
                     else if (resolvedType === 'clause') {
-                        // Selection has attribute and clause
                         const attrCode = selection.attribute?.code;
-                        const clauseValue = selection.clause?.value; // Array of values
-                        const clauseName = selection.clause?.name;
-
+                        const clauseValue = selection.clause?.value;
                         if (attrCode && clauseValue) {
-                            params[`filter[${attrCode}]`] = Array.isArray(clauseValue) ? clauseValue.join(',') : clauseValue;
-
-                            // Set metadata for title generation
-                            newMetadata.attribute = selection.attribute;
-                            newMetadata.clause = selection.clause;
-
-                            // If backend provided a picked category in meta, use it
-                            if (resolvedFromPlan.meta?.pickedCategory) {
-                                newMetadata.category = resolvedFromPlan.meta.pickedCategory;
-                            }
-
-                            // Construct pretty_url for "See All" link
-                            if (clauseName) {
-                                newMetadata.pretty_url = `/search?filter[${attrCode}]=${clauseName}`;
+                            filters[`attribute.${attrCode}`] = Array.isArray(clauseValue) ? clauseValue.join(',') : clauseValue;
+                            if (primary.meta?.pickedCategory) {
+                                filters.category_id = primary.meta.pickedCategory.id;
                             }
                         }
                     }
                 }
 
-                // If we successfully determined a query filter
-                if (Object.keys(params).length > 2) { // more than just limit/sort
-                    // Check if this is a clause-based filter (contains attribute.code:clause format)
-                    const hasClauseFilter = Object.keys(params).some(key => key.startsWith('attribute.'));
+                // Add resolved overrides
+                filters.sort = primary.resolvedSort || config.sort || 'relevance';
+                filters.limit = primary.resolvedLimit || config.limit || 8;
+                filters.showFeaturedOnly = primary.resolvedFeatured ?? config.showFeaturedOnly ?? false;
 
-                    // Use /search endpoint for clause filters, /api/products for others
-                    const endpoint = hasClauseFilter ? '/api/search' : '/api/products';
+                console.log(`[ProductCarouselWidget] Registering batch fetch for ${widgetId}`);
+                registerProductFetch(widgetId, {
+                    widgetId,
+                    filters,
+                    perPage: filters.limit
+                });
 
-                    const res = await api.get(endpoint, { params });
-                    setProducts(res.data.data || res.data.results || []);
-                    setMetadata(newMetadata);
-                    return;
-                }
+                setMetadata(prev => ({ ...prev, ...(primary.meta || {}) }));
+                return;
             }
 
-            // 2. Fallback to standard manual config
-            const params = { limit: effectiveLimit, sort: effectiveSort };
+            // Case B: Standard manual config
+            const params = { limit, sort: config.sort || 'relevance' };
             if (sourceType === 'category' && categoryId) params.category_id = categoryId;
             else if (sourceType === 'collection') {
                 if (collectionId) params.collection_id = collectionId;
@@ -225,7 +217,7 @@ export default function ProductCarouselWidget({ config }) {
         } catch (error) {
             console.error('[ProductCarouselWidget] Failed to fetch products', error);
         } finally {
-            setLoading(false);
+            if (!resolvedFromPlan) setLoading(false);
         }
     };
 
@@ -253,7 +245,6 @@ export default function ProductCarouselWidget({ config }) {
 
 
     // Use randomized values from plan if available
-    const effectiveAutogenerateTitle = resolvedFromPlan ? true : autogenerateTitle;
     const effectiveShowFeaturedOnly = showFeaturedOnly;
 
     // Calculate visible items based on screen size and config

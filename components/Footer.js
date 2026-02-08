@@ -9,9 +9,12 @@ import { useStorefront } from './providers/StorefrontProvider';
 import api from '@/lib/axios';
 import WidgetRenderer from './widgets/WidgetRenderer';
 
+import { useRandomizationContext } from '@/lib/contexts/RandomizationContext';
+
 export default function Footer() {
     const tenant = useTenant();
     const { config, theme } = useStorefront();
+    const { seedPlan } = useRandomizationContext();
     const [widgets, setWidgets] = useState([]);
     const [loading, setLoading] = useState(true);
 
@@ -22,14 +25,21 @@ export default function Footer() {
                 headers: { "X-Tenant-ID": tenant.id }
             })
                 .then(res => {
-                    if (res.data.success && res.data.widgets.length > 0) {
-                        setWidgets(res.data.widgets);
+                    if (res.data.success) {
+                        // Waterfall Killer: Seed initial randomization plan from server
+                        if (res.data.randomizationPlan) {
+                            seedPlan(res.data.randomizationPlan);
+                        }
+
+                        if (res.data.widgets.length > 0) {
+                            setWidgets(res.data.widgets);
+                        }
                     }
                 })
                 .catch(err => console.error("Failed to fetch footer widgets", err))
                 .finally(() => setLoading(false));
         }
-    }, [tenant?.id]);
+    }, [tenant?.id, seedPlan]);
 
     if (!config.showFooter) return null;
 
