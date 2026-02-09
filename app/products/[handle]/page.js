@@ -13,6 +13,7 @@ import StickyAddToCart from "@/components/products/StickyAddToCart";
 import EntityAnalytics from "@/components/analytics/EntityAnalytics";
 import ChatButton from "@/components/chat/ChatButton";
 import { ChevronRight } from 'lucide-react';
+import ProductLocation from "@/components/product/ProductLocation";
 
 async function getProduct(handle, tenant) {
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3000';
@@ -141,6 +142,8 @@ export default async function ProductPage({ params }) {
                     <p className="text-gray-600 text-lg leading-relaxed line-clamp-3">
                         {description}
                     </p>
+
+                    <ProductLocation location={product.vendor_location} otherLocations={product.other_locations} />
 
                     {/* Actions */}
                     <div className="space-y-6 pt-4">
