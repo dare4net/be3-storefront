@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { Check, Heart, Share2, Tag, ChevronRight, Star } from 'lucide-react';
+import { Check, Heart, Share2, Star, ShieldCheck, Truck, RefreshCw, MessageCircle } from 'lucide-react';
 import { getTenantAndTheme } from "@/lib/context";
 import AddToCartButton from "@/components/products/AddToCartButton";
 import WishlistButton from "@/components/products/WishlistButton";
@@ -11,6 +11,8 @@ import DynamicMetaTags from "@/components/DynamicMetaTags";
 import SuggestionsCarousel from "@/components/products/SuggestionsCarousel";
 import StickyAddToCart from "@/components/products/StickyAddToCart";
 import EntityAnalytics from "@/components/analytics/EntityAnalytics";
+import ChatButton from "@/components/chat/ChatButton";
+import { ChevronRight } from 'lucide-react';
 
 async function getProduct(handle, tenant) {
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3000';
@@ -30,13 +32,14 @@ async function getProduct(handle, tenant) {
     }
 }
 
+
 export default async function ProductPage({ params }) {
-    const resolvedParams = await params;
-    const { handle } = resolvedParams;
+    const { handle } = await params;
 
     // Fetch tenant context once
     const { tenant } = await getTenantAndTheme();
     if (!tenant) return null;
+
 
     const product = await getProduct(handle, tenant);
 
@@ -147,6 +150,11 @@ export default async function ProductPage({ params }) {
                             <WishlistButton
                                 product={product}
                                 className="flex-1 flex items-center justify-center gap-2 h-11 border rounded-xl font-medium text-sm"
+                            />
+                            <ChatButton
+                                productId={product.id}
+                                productName={product.name}
+                                className="flex-1 flex items-center justify-center gap-2 h-11 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors text-sm font-medium text-gray-700"
                             />
                             <button className="flex-1 flex items-center justify-center gap-2 h-11 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors text-sm font-medium text-gray-700">
                                 <Share2 className="w-4 h-4" />

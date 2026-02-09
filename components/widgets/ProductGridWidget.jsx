@@ -3,7 +3,8 @@
 
 import { useState, useEffect, useMemo, useRef } from 'react';
 import Link from 'next/link';
-import { ShoppingCart, Check, Eye, Heart } from 'lucide-react';
+import { ShoppingCart, Check, Eye, Heart, MessageCircle } from 'lucide-react';
+import { useChatContext } from '@/components/providers/ChatContext';
 import { useCart } from '../providers/CartContext';
 import { useWishlist } from '../providers/WishlistContext';
 import { proxyApi as api } from '@/lib/axios';
@@ -26,6 +27,7 @@ export default function ProductGridWidget({ config }) {
         showPrice = true,
         showFeaturedBadge = true,
         showViewDetails = true,
+        showChat = true,
         showTags = false,
         showDescription = false,
         showAttributes = false,
@@ -75,6 +77,7 @@ export default function ProductGridWidget({ config }) {
     const [addingToCart, setAddingToCart] = useState(null);
     const { toggleWishlist, isInWishlist } = useWishlist();
     const { trackImpression, trackClick } = useAnalytics();
+    const { openChat } = useChatContext();
 
     // Generate a stable ID if config.id is missing
     const generatedId = useRef(`widget_${Math.random().toString(36).substr(2, 9)}`);
@@ -685,6 +688,19 @@ export default function ProductGridWidget({ config }) {
                                         </div>
 
                                         <div className="flex items-center gap-2">
+                                            {showChat && (
+                                                <button
+                                                    className="rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
+                                                    title="Chat with Seller"
+                                                    onClick={(e) => {
+                                                        e.preventDefault();
+                                                        openChat('product', product.id, product.name);
+                                                    }}
+                                                    style={{ padding: `${0.625 * scale}rem` }}
+                                                >
+                                                    <MessageCircle style={{ width: `${1.25 * scale}rem`, height: `${1.25 * scale}rem` }} />
+                                                </button>
+                                            )}
                                             {showViewDetails && (
                                                 <Link
                                                     href={`/products/${product.slug || product.id}?ref_type=widget&ref_id=${widgetId}`}

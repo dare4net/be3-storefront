@@ -3,7 +3,8 @@
 
 import { useState, useEffect, useMemo, useRef } from 'react';
 import Link from 'next/link';
-import { ChevronLeft, ChevronRight, Heart, Check, ShoppingCart, Eye } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Heart, Check, ShoppingCart, Eye, MessageCircle } from 'lucide-react';
+import { useChatContext } from '@/components/providers/ChatContext';
 import { proxyApi as api } from '@/lib/axios';
 import { useRandomizationContext } from '@/lib/contexts/RandomizationContext';
 import { useWishlist } from '../providers/WishlistContext';
@@ -25,6 +26,7 @@ export default function ProductCarouselWidget({ config }) {
         showAddToCart: _showAddToCart = true,
         showFeaturedBadge: _showFeaturedBadge = true,
         showViewDetails: _showViewDetails = true,
+        showChat: _showChat = true,
         showTags: _showTags = true,
         showDescription: _showDescription = true,
         showAttributes: _showAttributes = true,
@@ -67,6 +69,7 @@ export default function ProductCarouselWidget({ config }) {
     const showAddToCart = resolveBool(config.showAddToCart, true);
     const showFeaturedBadge = resolveBool(config.showFeaturedBadge, true);
     const showViewDetails = resolveBool(config.showViewDetails, true);
+    const showChat = resolveBool(config.showChat, true);
     const showTags = resolveBool(config.showTags, true);
     const showDescription = resolveBool(config.showDescription, true);
     const showAttributes = resolveBool(config.showAttributes, true);
@@ -82,6 +85,7 @@ export default function ProductCarouselWidget({ config }) {
     const minSwipeDistance = 50;
 
     const { toggleWishlist, isInWishlist } = useWishlist();
+    const { openChat } = useChatContext();
     const [addingToCart, setAddingToCart] = useState(null);
     const { addToCart } = useCart();
     const { trackImpression, trackClick } = useAnalytics();
@@ -732,6 +736,19 @@ export default function ProductCarouselWidget({ config }) {
                                                 )}
 
                                                 <div className="flex items-center gap-2">
+                                                    {showChat && (
+                                                        <button
+                                                            className="bg-gray-100 text-gray-600 rounded-full hover:bg-gray-200 transition"
+                                                            title="Chat with Seller"
+                                                            onClick={(e) => {
+                                                                e.preventDefault();
+                                                                openChat('product', product.id, product.name);
+                                                            }}
+                                                            style={{ padding: `${0.625 * scale}rem` }}
+                                                        >
+                                                            <MessageCircle style={{ width: `${1.25 * scale}rem`, height: `${1.25 * scale}rem` }} />
+                                                        </button>
+                                                    )}
                                                     {showViewDetails && (
                                                         <button
                                                             className="bg-gray-100 text-gray-600 rounded-full hover:bg-gray-200 transition"

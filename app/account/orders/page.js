@@ -5,11 +5,13 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/components/providers/AuthContext";
 import api from "@/lib/axios";
-import { Package, ChevronRight, Loader2, Search } from "lucide-react";
+import { Package, ChevronRight, Loader2, Search, MessageCircle } from "lucide-react";
 import { useTenant } from "@/components/providers/TenantContext";
+import { useChatContext } from "@/components/providers/ChatContext";
 
 export default function OrdersPage() {
     const router = useRouter();
+    const { openChat } = useChatContext();
     const { isAuthenticated, loading: authLoading, token } = useAuth();
     const tenant = useTenant();
     const [orders, setOrders] = useState([]);
@@ -127,7 +129,20 @@ export default function OrdersPage() {
                                                 <p className="font-medium text-gray-900">Total: ${parseFloat(order.total).toFixed(2)}</p>
                                             </div>
                                         </div>
-                                        <ChevronRight className="w-5 h-5 text-gray-400" />
+                                        <div className="flex flex-col items-end gap-2">
+                                            <ChevronRight className="w-5 h-5 text-gray-400" />
+                                            <button
+                                                className="mt-4 p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors flex items-center gap-2 text-sm font-medium"
+                                                onClick={(e) => {
+                                                    e.preventDefault();
+                                                    e.stopPropagation();
+                                                    openChat('order', order.id, `Order ${order.order_number}`);
+                                                }}
+                                            >
+                                                <MessageCircle className="w-4 h-4" />
+                                                Chat about order
+                                            </button>
+                                        </div>
                                     </div>
                                 </Link>
                             ))}

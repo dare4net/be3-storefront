@@ -14,6 +14,8 @@ import { generateThemeVariables } from '@/lib/theme';
 import { StorefrontProvider } from "@/components/providers/StorefrontProvider";
 import { WishlistProvider } from "@/components/providers/WishlistContext";
 import { RandomizationProvider } from "@/lib/contexts/RandomizationContext";
+import { ChatProvider } from "@/components/providers/ChatContext";
+import ChatWidget from "@/components/chat/ChatWidget";
 
 export const metadata = {
     title: "Storefront",
@@ -92,20 +94,23 @@ export default async function RootLayout({ children }) {
                 <TenantProvider tenant={tenant}>
                     <AxiosTenantProvider>
                         <AuthProvider>
-                            <CartProvider>
-                                <WishlistProvider>
-                                    <SearchProvider>
-                                        <RandomizationProvider>
-                                            <StorefrontProvider theme={theme}>
-                                                <Header menuItems={headerMenu} />
-                                                <CartDrawer />
-                                                <main className="overflow-x-hidden">{children}</main>
-                                                <Footer />
-                                            </StorefrontProvider>
-                                        </RandomizationProvider>
-                                    </SearchProvider>
-                                </WishlistProvider>
-                            </CartProvider>
+                            <ChatProvider>
+                                <CartProvider>
+                                    <WishlistProvider>
+                                        <SearchProvider>
+                                            <RandomizationProvider>
+                                                <StorefrontProvider theme={theme}>
+                                                    <Header menuItems={headerMenu} />
+                                                    <CartDrawer />
+                                                    <main className="overflow-x-hidden">{children}</main>
+                                                    <Footer />
+                                                    <ChatWidget />
+                                                </StorefrontProvider>
+                                            </RandomizationProvider>
+                                        </SearchProvider>
+                                    </WishlistProvider>
+                                </CartProvider>
+                            </ChatProvider>
                         </AuthProvider>
                     </AxiosTenantProvider>
                 </TenantProvider>
