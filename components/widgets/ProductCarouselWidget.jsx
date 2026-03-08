@@ -709,10 +709,11 @@ export default function ProductCarouselWidget({ config }) {
                                                 <div className="flex items-center gap-3 text-gray-400 mb-2" style={{ fontSize: `clamp(${0.65 * scale}rem, ${0.6 * scale}rem + ${0.1 * scale}vw, ${0.75 * scale}rem)` }}>
                                                     <span className="flex items-center gap-1">
                                                         <Eye style={{ width: `${0.8 * scale}rem`, height: `${0.8 * scale}rem` }} />
-                                                        {Math.floor(Math.random() * 500) + 50}
+                                                        {product.stats?.impressions || 0}
                                                     </span>
                                                     <span className="flex items-center gap-1">
-                                                        ❤️ {Math.floor(Math.random() * 50) + 5}
+                                                        <Heart style={{ width: `${0.8 * scale}rem`, height: `${0.8 * scale}rem` }} />
+                                                        {product.stats?.wishlist_count || 0}
                                                     </span>
                                                 </div>
                                             )}

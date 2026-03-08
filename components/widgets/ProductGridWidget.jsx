@@ -669,10 +669,11 @@ export default function ProductGridWidget({ config }) {
                                             <div className="flex items-center gap-3 text-gray-400 mt-2" style={{ fontSize: `${0.75 * scale}rem` }}>
                                                 <span className="flex items-center gap-1">
                                                     <Eye className="w-3 h-3" style={{ width: `${0.75 * scale}rem`, height: `${0.75 * scale}rem` }} />
-                                                    {Math.floor(Math.random() * 500) + 50}
+                                                    {product.stats?.impressions || 0}
                                                 </span>
                                                 <span className="flex items-center gap-1">
-                                                    ❤️ {Math.floor(Math.random() * 50) + 5}
+                                                    <Heart className="w-3 h-3" style={{ width: `${0.75 * scale}rem`, height: `${0.75 * scale}rem` }} />
+                                                    {product.stats?.wishlist_count || 0}
                                                 </span>
                                             </div>
                                         )}

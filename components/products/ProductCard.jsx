@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { ShoppingCart, MessageCircle, Eye, X } from 'lucide-react';
+import { ShoppingCart, MessageCircle, Eye, X, Heart } from 'lucide-react';
 import { useCart } from '@/components/providers/CartContext';
 import { useChatContext } from '@/components/providers/ChatContext';
 import WishlistButton from './WishlistButton';
@@ -12,13 +12,20 @@ export default function ProductCard({ product, trackClick }) {
     const { openChat } = useChatContext();
     const [showOverlay, setShowOverlay] = useState(false);
     const [isMobile, setIsMobile] = useState(false);
+    const [stats, setStats] = useState({ impressions: 0, wishlist_count: 0 });
 
     useEffect(() => {
         const checkMobile = () => setIsMobile(window.innerWidth < 768);
         checkMobile();
         window.addEventListener('resize', checkMobile);
+
+        // Stats are now injected by the backend (RandomizationService)
+        if (product.stats) {
+            setStats(product.stats);
+        }
+
         return () => window.removeEventListener('resize', checkMobile);
-    }, []);
+    }, [product]);
 
     const handleAddToCart = (e) => {
         e.preventDefault();
@@ -90,6 +97,18 @@ export default function ProductCard({ product, trackClick }) {
                     >
                         <ShoppingCart className="w-4 h-4 sm:w-5 h-5" />
                     </button>
+                </div>
+
+                {/* Social Proof Stats */}
+                <div className="mt-2 flex items-center gap-3 text-xs text-gray-500">
+                    <div className="flex items-center gap-1">
+                        <Eye className="w-3 h-3 sm:w-4 sm:h-4" />
+                        <span>{stats.impressions || 0}</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                        <Heart className="w-3 h-3 sm:w-4 sm:h-4" />
+                        <span>{stats.wishlist_count || 0}</span>
+                    </div>
                 </div>
             </div>
 
