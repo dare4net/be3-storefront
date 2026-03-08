@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useMemo, useRef } from 'react';
 import Link from 'next/link';
-import { ShoppingCart, Check, Eye, Heart, MessageCircle } from 'lucide-react';
+import { ShoppingCart, Check, Eye, Heart, MessageCircle, X } from 'lucide-react';
 import { useChatContext } from '@/components/providers/ChatContext';
 import { useCart } from '../providers/CartContext';
 import { useWishlist } from '../providers/WishlistContext';
@@ -78,6 +78,8 @@ export default function ProductGridWidget({ config }) {
     const { toggleWishlist, isInWishlist } = useWishlist();
     const { trackImpression, trackClick } = useAnalytics();
     const { openChat } = useChatContext();
+    const [activeOverlay, setActiveOverlay] = useState(null);
+    const [isMobile, setIsMobile] = useState(false);
 
     // Generate a stable ID if config.id is missing
     const generatedId = useRef(`widget_${Math.random().toString(36).substr(2, 9)}`);
@@ -306,7 +308,8 @@ export default function ProductGridWidget({ config }) {
     const seeAllLink = getSeeAllLink();
 
     const handleAddToCart = async (e, product) => {
-        e.preventDefault(); // Prevent navigation
+        e.preventDefault();
+        e.stopPropagation();
         setAddingToCart(product.id);
 
         // Add to cart safely
@@ -337,16 +340,21 @@ export default function ProductGridWidget({ config }) {
 
     // Calculate scale factor based on column count
     const getScaleFactor = () => {
-        // We use the current effective column count based on screen width
-        // simpler approach: use desktop columns as the reference for "design density"
         const cols = columns.desktop || 4;
-
-        if (cols >= 7) return 0.75; // Dense
-        if (cols >= 5) return 0.85; // Compact
-        return 1.0; // Standard
+        if (cols >= 7) return 0.75;
+        if (cols >= 5) return 0.85;
+        return 1.0;
     };
-
     const scale = getScaleFactor();
+
+    useEffect(() => {
+        const handleResize = () => {
+            setIsMobile(window.innerWidth < 768);
+        };
+        handleResize();
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
 
     // Generate background style
     const getBackgroundStyle = () => {
@@ -377,8 +385,9 @@ export default function ProductGridWidget({ config }) {
         },
         title: {
             color: titleColor || colors.text,
-            fontSize: formatCSSValue(titleFontSize),
+            fontSize: `clamp(1.1rem, 0.9rem + 0.8vw, ${formatCSSValue(titleFontSize)})`,
             fontWeight: titleFontWeight,
+            fontFamily: 'inherit',
             textAlign: titleAlign
         }
     };
@@ -508,7 +517,7 @@ export default function ProductGridWidget({ config }) {
                                 className="font-semibold transition-colors whitespace-nowrap ml-4 hover:opacity-70"
                                 style={{
                                     color: styles.title.color,
-                                    fontSize: `calc(${styles.title.fontSize} * 0.75)`,
+                                    fontSize: `clamp(0.875rem, 0.75rem + 0.4vw, 1rem)`,
                                     fontWeight: styles.title.fontWeight
                                 }}
                             >
@@ -529,7 +538,28 @@ export default function ProductGridWidget({ config }) {
                             key={product.id}
                             delayIndex={index % 4}
                             enabled={enableEntryAnimation}
-                            className="group block h-full"
+                            className="group block h-full cursor-pointer"
+                            onClick={(e) => {
+                                if (isMobile) {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    setActiveOverlay(product.id);
+                                } else {
+                                    window.location.href = `/products/${product.slug || product.id}?ref_type=widget&ref_id=${widgetId}`;
+                                }
+                                trackClick({
+                                    entity_type: 'product',
+                                    entity_id: product.id,
+                                    placement_id: widgetId,
+                                    placement_type: config.placement_type || 'widget',
+                                    position: index + 1,
+                                    metadata: {
+                                        widget_title: displayTitle || title,
+                                        product_name: product.name,
+                                        product_slug: product.slug
+                                    }
+                                });
+                            }}
                         >
                             <div
                                 className={`h-full overflow-hidden transition-all duration-300 relative flex flex-col`}
@@ -547,31 +577,14 @@ export default function ProductGridWidget({ config }) {
                                 }}
                             >
                                 {/* Product Image */}
-                                <Link
-                                    href={`/products/${product.slug || product.id}?ref_type=widget&ref_id=${widgetId}`}
-                                    className={`relative bg-gray-100 overflow-hidden block`}
-                                    onClick={() => trackClick({
-                                        entity_type: 'product',
-                                        entity_id: product.id,
-                                        placement_id: widgetId,
-                                        placement_type: config.placement_type || 'widget',
-                                        position: index + 1,
-                                        metadata: {
-                                            widget_title: displayTitle || title,
-                                            product_name: product.name,
-                                            product_slug: product.slug
-                                        },
-                                        source: 'image_click'
-                                    })}
-                                    style={{
-                                        paddingBottom: scale < 0.8 ? '75%' : '100%' // Switch to 4:3 aspect ratio in dense mode to save height
-                                    }}
+                                <div
+                                    className={`relative bg-gray-100 overflow-hidden block aspect-square transition-transform duration-500`}
                                 >
-                                    {product.image_url ? (
+                                    {(product.image_url || product.thumbnail_url || product.image) ? (
                                         <img
-                                            src={product.image_url}
+                                            src={product.image_url || product.thumbnail_url || product.image}
                                             alt={product.name}
-                                            className="absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                                            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                                             loading="lazy"
                                         />
                                     ) : (
@@ -608,45 +621,35 @@ export default function ProductGridWidget({ config }) {
 
                                     {/* Overlay Actions (Desktop) */}
                                     <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300" />
-                                </Link>
+                                </div>
 
                                 {/* Product Info */}
                                 <div className="flex flex-col flex-grow" style={{ padding: `${1.1 * scale}rem` }}>
-                                    <Link
-                                        href={`/products/${product.slug || product.id}?ref_type=widget&ref_id=${widgetId}`}
-                                        onClick={() => trackClick({
-                                            entity_type: 'product',
-                                            entity_id: product.id,
-                                            placement_id: widgetId,
-                                            placement_type: config.placement_type || 'widget',
-                                            position: index + 1,
-                                            metadata: { source: 'title_click' }
-                                        })}
-                                    >
+                                    <div>
                                         <h3
                                             className={`font-semibold mb-2 transition-colors hover:text-blue-600 ${scale < 0.8 ? 'line-clamp-1' : 'line-clamp-2'}`}
                                             style={{
                                                 color: colors.text,
-                                                fontSize: `${1.125 * scale}rem`,
-                                                lineHeight: `${1.5 * scale}rem`
+                                                fontSize: `clamp(${0.875 * scale}rem, ${0.75 * scale}rem + ${0.5 * scale}vw, ${1.125 * scale}rem)`,
+                                                lineHeight: `clamp(${1.1 * scale}rem, ${1 * scale}rem + ${0.5 * scale}vw, ${1.5 * scale}rem)`
                                             }}
                                         >
                                             {product.name}
                                         </h3>
-                                    </Link>
+                                    </div>
 
                                     <div className="space-y-2" style={{ marginTop: `${0.4 * scale}rem` }}>
                                         {showDescription && product.description && (
-                                            <p className={`text-gray-500 ${scale < 0.8 ? 'line-clamp-1' : 'line-clamp-2'}`} style={{ fontSize: `${0.875 * scale}rem` }}>
+                                            <p className={`text-gray-500 ${scale < 0.8 ? 'line-clamp-1' : 'line-clamp-2'}`} style={{ fontSize: `clamp(${0.75 * scale}rem, ${0.7 * scale}rem + ${0.2 * scale}vw, ${0.875 * scale}rem)` }}>
                                                 {product.description}
                                             </p>
                                         )}
 
                                         {showAttributes && product.attributes && Object.keys(product.attributes).length > 0 && (
                                             <div className="flex flex-wrap gap-1 mt-1">
-                                                {Object.entries(product.attributes).slice(0, 2).map(([key, value], i) => (
-                                                    <span key={i} className="px-2 py-0.5 bg-gray-50 border border-gray-100 text-gray-600 rounded" style={{ fontSize: `${0.75 * scale}rem` }}>
-                                                        <span className="font-medium">{key}:</span> {value}
+                                                {Object.values(product.attributes).slice(0, 2).map((value, i) => (
+                                                    <span key={i} className="px-2 py-0.5 bg-gray-50 border border-gray-100 text-gray-600 rounded" style={{ fontSize: `clamp(${0.65 * scale}rem, ${0.6 * scale}rem + ${0.1 * scale}vw, ${0.75 * scale}rem)` }}>
+                                                        {value}
                                                     </span>
                                                 ))}
                                             </div>
@@ -655,7 +658,7 @@ export default function ProductGridWidget({ config }) {
                                         {showTags && product.tags && Array.isArray(product.tags) && product.tags.length > 0 && (
                                             <div className="flex flex-wrap gap-1">
                                                 {product.tags.slice(0, 3).map((tag, i) => (
-                                                    <span key={i} className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full" style={{ fontSize: `${0.75 * scale}rem` }}>
+                                                    <span key={i} className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full" style={{ fontSize: `clamp(${0.65 * scale}rem, ${0.6 * scale}rem + ${0.1 * scale}vw, ${0.75 * scale}rem)` }}>
                                                         {tag}
                                                     </span>
                                                 ))}
@@ -680,7 +683,7 @@ export default function ProductGridWidget({ config }) {
                                             {showPrice && (
                                                 <span className="font-bold" style={{
                                                     color: colors.price,
-                                                    fontSize: `${1.25 * scale}rem`
+                                                    fontSize: `clamp(${1 * scale}rem, ${0.9 * scale}rem + ${0.6 * scale}vw, ${1.25 * scale}rem)`
                                                 }}>
                                                     ${parseFloat(product.price).toFixed(2)}
                                                 </span>
@@ -690,7 +693,7 @@ export default function ProductGridWidget({ config }) {
                                         <div className="flex items-center gap-2">
                                             {showChat && (
                                                 <button
-                                                    className="rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
+                                                    className="hidden md:block rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
                                                     title="Chat with Seller"
                                                     onClick={(e) => {
                                                         e.preventDefault();
@@ -704,7 +707,7 @@ export default function ProductGridWidget({ config }) {
                                             {showViewDetails && (
                                                 <Link
                                                     href={`/products/${product.slug || product.id}?ref_type=widget&ref_id=${widgetId}`}
-                                                    className="rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
+                                                    className="hidden md:block rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
                                                     onClick={() => trackClick({
                                                         entity_type: 'product',
                                                         entity_id: product.id,
@@ -745,6 +748,49 @@ export default function ProductGridWidget({ config }) {
                                         </div>
                                     </div>
                                 </div>
+
+                                {/* Mobile Overlay */}
+                                {activeOverlay === product.id && (
+                                    <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+                                        <button
+                                            onClick={(e) => {
+                                                e.preventDefault();
+                                                e.stopPropagation();
+                                                setActiveOverlay(null);
+                                            }}
+                                            className="absolute top-2 right-2 p-1 rounded-full bg-white/20 text-white hover:bg-white/30 transition-colors"
+                                        >
+                                            <X className="w-5 h-5" />
+                                        </button>
+
+                                        <div className="flex flex-col gap-3 w-full px-4">
+                                            <Link
+                                                href={`/products/${product.slug || product.id}?ref_type=widget&ref_id=${widgetId}`}
+                                                className="flex items-center justify-center gap-2 w-full py-3 bg-white text-gray-900 rounded-full font-semibold shadow-xl active:scale-95 transition-transform"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setActiveOverlay(null);
+                                                }}
+                                            >
+                                                <Eye className="w-5 h-5 text-blue-600" />
+                                                View
+                                            </Link>
+
+                                            <button
+                                                onClick={(e) => {
+                                                    e.preventDefault();
+                                                    e.stopPropagation();
+                                                    openChat('product', product.id, product.name);
+                                                    setActiveOverlay(null);
+                                                }}
+                                                className="flex items-center justify-center gap-2 w-full py-3 bg-blue-600 text-white rounded-full font-semibold shadow-xl active:scale-95 transition-transform"
+                                            >
+                                                <MessageCircle className="w-5 h-5" />
+                                                Chat Seller
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </AnimatedItem>
                     ))}
@@ -755,12 +801,6 @@ export default function ProductGridWidget({ config }) {
             {enableEntryAnimation && <AnimationStyles />}
 
             <style jsx>{`
-                @media (min-width: 640px) {
-                    .grid { grid-template-columns: repeat(${columns?.tablet || 2}, minmax(0, 1fr)) !important; }
-                }
-                @media (min-width: 1024px) {
-                    .grid { grid-template-columns: repeat(${columns?.desktop || 4}, minmax(0, 1fr)) !important; }
-                }
                 .group:hover > div {
                     transform: ${cardStyle?.hoverLift ? 'translateY(-8px)' : 'none'} !important;
                 }
@@ -798,7 +838,7 @@ function AnimationStyles() {
     );
 }
 
-function AnimatedItem({ children, delayIndex = 0, enabled = false, className = '', style = {} }) {
+function AnimatedItem({ children, delayIndex = 0, enabled = false, className = '', style = {}, onClick }) {
     const [inView, setInView] = useState(false);
     const ref = useRef(null);
 
@@ -826,6 +866,7 @@ function AnimatedItem({ children, delayIndex = 0, enabled = false, className = '
             ref={ref}
             className={`${className} ${shouldAnimate ? `animate-entry delay-${delayIndex}` : (enabled ? 'opacity-0' : '')}`}
             style={style}
+            onClick={onClick}
         >
             {children}
         </div>

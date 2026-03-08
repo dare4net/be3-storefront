@@ -221,6 +221,7 @@ export default function InteractiveSection({ config }) {
                                     color: title.color,
                                     fontSize: title.fontSize?.desktop || '3.5rem',
                                     fontWeight: title.fontWeight || '700',
+                                    fontFamily: 'inherit',
                                     animationDelay: `${title.animation?.delay || 0}ms`
                                 }}
                             >
@@ -236,6 +237,7 @@ export default function InteractiveSection({ config }) {
                                 style={{
                                     color: subtitle.color,
                                     fontSize: subtitle.fontSize?.desktop || '1.25rem',
+                                    fontFamily: 'inherit',
                                     animationDelay: `${subtitle.animation?.delay || 200}ms`
                                 }}
                             >

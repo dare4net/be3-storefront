@@ -42,7 +42,7 @@ async function getMenu(location, tenantId) {
     return [];
 }
 
-import { Inter, Roboto, Open_Sans, Lato, Raleway, Montserrat } from 'next/font/google';
+import { Inter, Roboto, Open_Sans, Lato, Raleway, Montserrat, Manrope } from 'next/font/google';
 
 // Font configurations
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter', display: 'swap' });
@@ -51,6 +51,7 @@ const openSans = Open_Sans({ subsets: ['latin'], variable: '--font-open-sans', d
 const lato = Lato({ weight: ['400', '700'], subsets: ['latin'], variable: '--font-lato', display: 'swap' });
 const raleway = Raleway({ subsets: ['latin'], variable: '--font-raleway', display: 'swap' });
 const montserrat = Montserrat({ subsets: ['latin'], variable: '--font-montserrat', display: 'swap' });
+const manrope = Manrope({ subsets: ['latin'], variable: '--font-manrope', display: 'swap' });
 
 const fonts = {
     'Inter': inter,
@@ -58,7 +59,8 @@ const fonts = {
     'Open Sans': openSans,
     'Lato': lato,
     'Raleway': raleway,
-    'Montserrat': montserrat
+    'Montserrat': montserrat,
+    'Manrope': manrope
 };
 
 export default async function RootLayout({ children }) {

@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useMemo, useRef } from 'react';
 import Link from 'next/link';
-import { ChevronLeft, ChevronRight, Heart, Check, ShoppingCart, Eye, MessageCircle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Heart, Check, ShoppingCart, Eye, MessageCircle, X } from 'lucide-react';
 import { useChatContext } from '@/components/providers/ChatContext';
 import { proxyApi as api } from '@/lib/axios';
 import { useRandomizationContext } from '@/lib/contexts/RandomizationContext';
@@ -47,6 +47,13 @@ export default function ProductCarouselWidget({ config }) {
         columns = { desktop: 5, tablet: 3, mobile: 2 },
         cardStyle, // Keep existing cardStyle prop
         gridGap = '12px',
+        colors = {
+            text: '#111827',
+            price: '#111827',
+            accent: '#3b82f6',
+            badgeBackground: '#fbbf24',
+            badgeText: '#ffffff'
+        },
 
         // New Dynamic Features
         autogenerateTitle = false,
@@ -79,16 +86,15 @@ export default function ProductCarouselWidget({ config }) {
     const [metadata, setMetadata] = useState({});
     const [loading, setLoading] = useState(true);
     const [itemsToShow, setItemsToShow] = useState(4);
-    const [currentIndex, setCurrentIndex] = useState(0);
-    const [touchStart, setTouchStart] = useState(null);
-    const [touchEnd, setTouchEnd] = useState(null);
-    const minSwipeDistance = 50;
+    const scrollContainerRef = useRef(null);
 
     const { toggleWishlist, isInWishlist } = useWishlist();
     const { openChat } = useChatContext();
     const [addingToCart, setAddingToCart] = useState(null);
     const { addToCart } = useCart();
     const { trackImpression, trackClick } = useAnalytics();
+    const [activeOverlay, setActiveOverlay] = useState(null);
+    const [isMobile, setIsMobile] = useState(false);
 
     // Generate a stable ID if config.id is missing
     const generatedId = useRef(`widget_${Math.random().toString(36).substr(2, 9)}`);
@@ -272,27 +278,22 @@ export default function ProductCarouselWidget({ config }) {
             }
 
             setItemsToShow(cols);
+            setIsMobile(width < 768);
         };
         handleResize();
         window.addEventListener('resize', handleResize);
         return () => window.removeEventListener('resize', handleResize);
     }, [columns, sneakPeek, products.length]);
 
-    const prevSlide = () => {
-        const newIndex = currentIndex - itemsToShow;
-        setCurrentIndex(newIndex < 0 ? 0 : newIndex);
-    };
-
-    const nextSlide = () => {
-        const newIndex = currentIndex + itemsToShow;
-        if (newIndex < products.length) {
-            setCurrentIndex(newIndex);
-        }
-    };
-
     const scroll = (direction) => {
-        if (direction === 'left') prevSlide();
-        else nextSlide();
+        if (scrollContainerRef.current) {
+            const container = scrollContainerRef.current;
+            const scrollAmount = container.clientWidth * 0.8;
+            container.scrollBy({
+                left: direction === 'left' ? -scrollAmount : scrollAmount,
+                behavior: 'smooth'
+            });
+        }
     };
 
     // Calculate scale factor based on column count (EXACTLY like ProductGridWidget)
@@ -331,28 +332,6 @@ export default function ProductCarouselWidget({ config }) {
         toggleWishlist(product);
     };
 
-    // Touch Handlers
-    const onTouchStart = (e) => {
-        setTouchEnd(null);
-        setTouchStart(e.targetTouches[0].clientX);
-    };
-
-    const onTouchMove = (e) => setTouchEnd(e.targetTouches[0].clientX);
-
-    const onTouchEnd = () => {
-        if (!touchStart || !touchEnd) return;
-        const distance = touchStart - touchEnd;
-        const isLeftSwipe = distance > minSwipeDistance;
-        const isRightSwipe = distance < -minSwipeDistance;
-        if (isLeftSwipe) scroll('right');
-        if (isRightSwipe) scroll('left');
-    };
-
-    // Reset index if itemsToShow changes to prevent empty space
-    useEffect(() => {
-        const maxIndex = Math.max(0, products.length - Math.floor(itemsToShow));
-        if (currentIndex > maxIndex) setCurrentIndex(maxIndex);
-    }, [itemsToShow, products.length]);
 
     // Auto-generate title based on metadata
     const getDisplayTitle = () => {
@@ -433,8 +412,9 @@ export default function ProductCarouselWidget({ config }) {
         },
         title: {
             color: titleColor,
-            fontSize: formatCSSValue(titleFontSize),
+            fontSize: `clamp(1.1rem, 0.9rem + 0.8vw, ${formatCSSValue(titleFontSize)})`,
             fontWeight: titleFontWeight,
+            fontFamily: 'inherit',
             textAlign: titleAlign
         }
     };
@@ -530,7 +510,7 @@ export default function ProductCarouselWidget({ config }) {
                             className="font-semibold transition-colors whitespace-nowrap ml-4 hover:opacity-70"
                             style={{
                                 color: styles.title.color,
-                                fontSize: `calc(${styles.title.fontSize} * 0.75)`,
+                                fontSize: `clamp(0.875rem, 0.75rem + 0.4vw, 1rem)`,
                                 fontWeight: styles.title.fontWeight
                             }}
                         >
@@ -555,7 +535,7 @@ export default function ProductCarouselWidget({ config }) {
                                 className="font-semibold transition-colors whitespace-nowrap ml-4 hover:opacity-70"
                                 style={{
                                     color: styles.title.color,
-                                    fontSize: `calc(${styles.title.fontSize} * 0.75)`,
+                                    fontSize: `clamp(0.875rem, 0.75rem + 0.4vw, 1rem)`,
                                     fontWeight: styles.title.fontWeight
                                 }}
                             >
@@ -571,16 +551,14 @@ export default function ProductCarouselWidget({ config }) {
                         <>
                             <button
                                 onClick={() => scroll('left')}
-                                className="absolute left-1 md:left-0 top-1/2 -translate-y-1/2 -translate-x-1 md:-translate-x-4 z-10 bg-white p-2 md:p-3 rounded-full shadow-lg hover:bg-gray-100 disabled:opacity-50 disabled:hidden block"
-                                disabled={currentIndex === 0}
+                                className="absolute left-1 md:left-0 top-1/2 -translate-y-1/2 -translate-x-1 md:-translate-x-4 z-10 bg-white p-2 md:p-3 rounded-full shadow-lg hover:bg-gray-100 block"
                             >
                                 <ChevronLeft className="w-5 h-5 md:w-6 md:h-6" />
                             </button>
 
                             <button
                                 onClick={() => scroll('right')}
-                                className="absolute right-1 md:right-0 top-1/2 -translate-y-1/2 translate-x-1 md:translate-x-4 z-10 bg-white p-2 md:p-3 rounded-full shadow-lg hover:bg-gray-100 disabled:opacity-50 disabled:hidden block"
-                                disabled={currentIndex >= products.length - itemsToShow}
+                                className="absolute right-1 md:right-0 top-1/2 -translate-y-1/2 translate-x-1 md:translate-x-4 z-10 bg-white p-2 md:p-3 rounded-full shadow-lg hover:bg-gray-100 block"
                             >
                                 <ChevronRight className="w-5 h-5 md:w-6 md:h-6" />
                             </button>
@@ -589,27 +567,34 @@ export default function ProductCarouselWidget({ config }) {
 
                     {/* Products - Add padding to container to prevent shadow clipping */}
                     <div
-                        className="overflow-hidden p-1"
-                        onTouchStart={onTouchStart}
-                        onTouchMove={onTouchMove}
-                        onTouchEnd={onTouchEnd}
+                        ref={scrollContainerRef}
+                        className="overflow-x-auto scroll-smooth scrollbar-hide py-4 px-1"
+                        style={{
+                            scrollSnapType: 'x mandatory'
+                        }}
                     >
                         <div
-                            className="flex transition-transform duration-300 ease-out"
+                            className="flex"
                             style={{
-                                transform: `translateX(-${currentIndex * (100 / itemsToShow)}%)`,
                                 gap: formatCSSValue(gridGap)
                             }}
                         >
                             {products.map((product, index) => (
-                                <Link
+                                <div
                                     key={product.id}
-                                    href={`/products/${product.slug || product.id}?ref_type=widget&ref_id=${widgetId}`}
-                                    className="flex-shrink-0 group"
+                                    className="carousel-item flex-shrink-0 group cursor-pointer"
                                     style={{
-                                        width: `calc(${100 / itemsToShow}% - ${(parseFloat(gridGap) * (itemsToShow - 1)) / itemsToShow}px)`
+                                        width: `calc(${100 / itemsToShow}% - ${(parseFloat(gridGap) * (itemsToShow - 1)) / itemsToShow}px)`,
+                                        scrollSnapAlign: 'start'
                                     }}
-                                    onClick={() => {
+                                    onClick={(e) => {
+                                        if (isMobile) {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                            setActiveOverlay(product.id);
+                                        } else {
+                                            window.location.href = `/products/${product.slug || product.id}?ref_type=widget&ref_id=${widgetId}`;
+                                        }
                                         trackClick({
                                             entity_type: 'product',
                                             entity_id: product.id,
@@ -625,7 +610,7 @@ export default function ProductCarouselWidget({ config }) {
                                     }}
                                 >
                                     <div
-                                        className="bg-white overflow-hidden transition h-full flex flex-col"
+                                        className="bg-white overflow-hidden transition h-full flex flex-col relative"
                                         style={{
                                             backgroundColor: cardStyle?.backgroundColor || '#ffffff',
                                             borderColor: cardStyle?.borderColor || 'transparent',
@@ -639,9 +624,9 @@ export default function ProductCarouselWidget({ config }) {
                                         }}
                                     >
                                         <div className="aspect-square bg-gray-100 relative overflow-hidden">
-                                            {product.image_url ? (
+                                            {(product.image_url || product.thumbnail_url || product.image) ? (
                                                 <img
-                                                    src={product.image_url}
+                                                    src={product.image_url || product.thumbnail_url || product.image}
                                                     alt={product.name}
                                                     className="w-full h-full object-cover group-hover:scale-110 transition duration-500"
                                                     loading="lazy"
@@ -669,8 +654,9 @@ export default function ProductCarouselWidget({ config }) {
                                                     className="absolute top-3 right-3 font-bold rounded-full shadow-sm z-10"
                                                     style={{
                                                         backgroundColor: '#fbbf24',
-                                                        color: '#ffffff',
-                                                        fontSize: `${0.75 * scale}rem`,
+                                                        color: colors.text,
+                                                        fontSize: `clamp(${0.875 * scale}rem, ${0.75 * scale}rem + ${0.5 * scale}vw, ${1.125 * scale}rem)`,
+                                                        lineHeight: `clamp(${1.1 * scale}rem, ${1 * scale}rem + ${0.5 * scale}vw, ${1.5 * scale}rem)`,
                                                         padding: `${0.25 * scale}rem ${0.75 * scale}rem`
                                                     }}
                                                 >
@@ -681,25 +667,28 @@ export default function ProductCarouselWidget({ config }) {
                                         <div className="flex-1 flex flex-col" style={{ padding: `${1.1 * scale}rem` }}>
                                             <h3
                                                 className={`font-semibold mb-2 transition-colors group-hover:text-blue-600 ${scale < 0.8 ? 'line-clamp-1' : 'line-clamp-2'}`}
-                                                style={{ fontSize: `${1.125 * scale}rem`, lineHeight: `${1.5 * scale}rem` }}
+                                                style={{
+                                                    fontSize: `clamp(${0.875 * scale}rem, ${0.75 * scale}rem + ${0.5 * scale}vw, ${1.125 * scale}rem)`,
+                                                    lineHeight: `clamp(${1.1 * scale}rem, ${1 * scale}rem + ${0.5 * scale}vw, ${1.5 * scale}rem)`
+                                                }}
                                             >
                                                 {product.name}
                                             </h3>
 
                                             {/* Description */}
                                             {showDescription && product.description && (
-                                                <p className={`text-gray-500 ${scale < 0.8 ? 'line-clamp-1' : 'line-clamp-2'} mb-2`} style={{ fontSize: `${0.875 * scale}rem` }}>
+                                                <p className={`text-gray-500 ${scale < 0.8 ? 'line-clamp-1' : 'line-clamp-2'} mb-2`} style={{ fontSize: `clamp(${0.75 * scale}rem, ${0.7 * scale}rem + ${0.2 * scale}vw, ${0.875 * scale}rem)` }}>
                                                     {product.description}
                                                 </p>
                                             )}
 
                                             {/* Attributes */}
                                             {showAttributes && product.attributes && Object.keys(product.attributes).length > 0 && (
-                                                <div className="flex flex-wrap gap-1 mb-2">
-                                                    {Object.entries(product.attributes).slice(0, 2).map(([key, value], i) => (
-                                                        <span key={i} className="px-2 py-0.5 bg-gray-50 border border-gray-100 text-gray-600 rounded" style={{ fontSize: `${0.75 * scale}rem` }}>
-                                                            <span className="font-medium">{key}:</span> {value}
-                                                        </span>
+                                                <div className="flex flex-wrap items-center gap-1.5 mb-2">
+                                                    {Object.values(product.attributes).slice(0, 2).map((value, i) => (
+                                                        <div key={i} className="inline-flex items-center px-2 py-1 bg-gray-50 border border-gray-100 text-gray-600 rounded" style={{ fontSize: `clamp(${0.65 * scale}rem, ${0.6 * scale}rem + ${0.1 * scale}vw, ${0.75 * scale}rem)` }}>
+                                                            <span className="whitespace-nowrap">{value}</span>
+                                                        </div>
                                                     ))}
                                                 </div>
                                             )}
@@ -708,7 +697,7 @@ export default function ProductCarouselWidget({ config }) {
                                             {showTags && product.tags && Array.isArray(product.tags) && product.tags.length > 0 && (
                                                 <div className="flex flex-wrap gap-1 mb-2">
                                                     {product.tags.slice(0, 2).map((tag, i) => (
-                                                        <span key={i} className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full" style={{ fontSize: `${0.75 * scale}rem` }}>
+                                                        <span key={i} className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full" style={{ fontSize: `clamp(${0.65 * scale}rem, ${0.6 * scale}rem + ${0.1 * scale}vw, ${0.75 * scale}rem)` }}>
                                                             {tag}
                                                         </span>
                                                     ))}
@@ -717,7 +706,7 @@ export default function ProductCarouselWidget({ config }) {
 
                                             {/* Social Proof */}
                                             {showSocialProof && (
-                                                <div className="flex items-center gap-3 text-gray-400 mb-2" style={{ fontSize: `${0.75 * scale}rem` }}>
+                                                <div className="flex items-center gap-3 text-gray-400 mb-2" style={{ fontSize: `clamp(${0.65 * scale}rem, ${0.6 * scale}rem + ${0.1 * scale}vw, ${0.75 * scale}rem)` }}>
                                                     <span className="flex items-center gap-1">
                                                         <Eye style={{ width: `${0.8 * scale}rem`, height: `${0.8 * scale}rem` }} />
                                                         {Math.floor(Math.random() * 500) + 50}
@@ -730,7 +719,7 @@ export default function ProductCarouselWidget({ config }) {
 
                                             <div className="mt-auto flex items-center justify-between gap-2" style={{ paddingTop: `${1 * scale}rem` }}>
                                                 {showPrice !== false && (
-                                                    <p className="font-bold text-blue-600" style={{ fontSize: `${1.25 * scale}rem` }}>
+                                                    <p className="font-bold text-blue-600" style={{ fontSize: `clamp(${1 * scale}rem, ${0.9 * scale}rem + ${0.6 * scale}vw, ${1.25 * scale}rem)` }}>
                                                         ${product.price}
                                                     </p>
                                                 )}
@@ -738,10 +727,11 @@ export default function ProductCarouselWidget({ config }) {
                                                 <div className="flex items-center gap-2">
                                                     {showChat && (
                                                         <button
-                                                            className="bg-gray-100 text-gray-600 rounded-full hover:bg-gray-200 transition"
+                                                            className="hidden md:block bg-gray-100 text-gray-600 rounded-full hover:bg-gray-200 transition"
                                                             title="Chat with Seller"
                                                             onClick={(e) => {
                                                                 e.preventDefault();
+                                                                e.stopPropagation();
                                                                 openChat('product', product.id, product.name);
                                                             }}
                                                             style={{ padding: `${0.625 * scale}rem` }}
@@ -751,10 +741,11 @@ export default function ProductCarouselWidget({ config }) {
                                                     )}
                                                     {showViewDetails && (
                                                         <button
-                                                            className="bg-gray-100 text-gray-600 rounded-full hover:bg-gray-200 transition"
+                                                            className="hidden md:block bg-gray-100 text-gray-600 rounded-full hover:bg-gray-200 transition"
                                                             title="View Details"
                                                             onClick={(e) => {
                                                                 e.preventDefault();
+                                                                e.stopPropagation();
                                                                 window.location.href = `/products/${product.slug || product.id}`;
                                                             }}
                                                             style={{ padding: `${0.625 * scale}rem` }}
@@ -780,13 +771,79 @@ export default function ProductCarouselWidget({ config }) {
                                                 </div>
                                             </div>
                                         </div>
+
+                                        {/* Mobile Overlay */}
+                                        {activeOverlay === product.id && (
+                                            <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.preventDefault();
+                                                        e.stopPropagation();
+                                                        setActiveOverlay(null);
+                                                    }}
+                                                    className="absolute top-2 right-2 p-1 rounded-full bg-white/20 text-white hover:bg-white/30 transition-colors"
+                                                >
+                                                    <X className="w-5 h-5" />
+                                                </button>
+
+                                                <div className="flex flex-col gap-3 w-full px-4 text-center">
+                                                    <Link
+                                                        href={`/products/${product.slug || product.id}?ref_type=widget&ref_id=${widgetId}`}
+                                                        className="flex items-center justify-center gap-2 w-full py-3 bg-white text-gray-900 rounded-full font-semibold shadow-xl active:scale-95 transition-transform"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setActiveOverlay(null);
+                                                        }}
+                                                    >
+                                                        <Eye className="w-5 h-5 text-blue-600" />
+                                                        View
+                                                    </Link>
+
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.preventDefault();
+                                                            e.stopPropagation();
+                                                            openChat('product', product.id, product.name);
+                                                            setActiveOverlay(null);
+                                                        }}
+                                                        className="flex items-center justify-center gap-2 w-full py-3 bg-blue-600 text-white rounded-full font-semibold shadow-xl active:scale-95 transition-transform"
+                                                    >
+                                                        <MessageCircle className="w-5 h-5" />
+                                                        Chat Seller
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
-                                </Link>
+                                </div>
                             ))}
                         </div>
                     </div>
                 </div>
             </div>
-        </section>
+
+            <style jsx>{`
+                .carousel-item {
+                    width: calc(100% / ${columns.mobile || 2} - ${(parseFloat(gridGap) * ((columns.mobile || 2) - 1)) / (columns.mobile || 2)}px);
+                }
+                @media (min-width: 640px) {
+                    .carousel-item {
+                        width: calc(100% / ${columns.tablet || 3} - ${(parseFloat(gridGap) * ((columns.tablet || 3) - 1)) / (columns.tablet || 3)}px);
+                    }
+                }
+                @media (min-width: 1024px) {
+                    .carousel-item {
+                        width: calc(100% / ${columns.desktop || 5} - ${(parseFloat(gridGap) * ((columns.desktop || 5) - 1)) / (columns.desktop || 5)}px);
+                    }
+                }
+                ${sneakPeek && products.length > (columns.desktop || 5) ? `
+                @media (min-width: 1024px) {
+                    .carousel-item {
+                        width: calc(100% / ${(columns.desktop || 5) + 0.5} - ${(parseFloat(gridGap) * ((columns.desktop || 5) + 0.5 - 1)) / ((columns.desktop || 5) + 0.5)}px);
+                    }
+                }
+                ` : ''}
+            `}</style>
+        </section >
     );
 }

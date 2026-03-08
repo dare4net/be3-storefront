@@ -43,10 +43,11 @@ function CategoryCard({ category, config = {}, trackClick, widgetId, index }) {
     const fontSize = deviceType === 'mobile' ? titleFontSizeMobile : deviceType === 'tablet' ? titleFontSizeTablet : titleFontSizeDesktop;
 
     const textStyle = {
-        fontSize: `${fontSize}px`,
+        fontSize: `clamp(${titleFontSizeMobile}px, ${titleFontSizeMobile}px + 0.5vw, ${titleFontSizeDesktop}px)`,
         fontWeight: titleFontWeight,
         color: titleColor,
-        textAlign: titleAlignment === 'center' ? 'center' : titleAlignment === 'right' ? 'right' : 'left'
+        textAlign: titleAlignment === 'center' ? 'center' : titleAlignment === 'right' ? 'right' : 'left',
+        lineHeight: '1.2'
     };
 
     // Helper to convert gradient direction to CSS
@@ -320,8 +321,9 @@ export default function CategoryGridWidget({ config }) {
     const styles = {
         title: {
             color: titleColor,
-            fontSize: formatCSSValue(titleFontSize),
+            fontSize: `clamp(1rem, 0.8rem + 1vw, ${formatCSSValue(titleFontSize)})`,
             fontWeight: titleFontWeight,
+            fontFamily: 'inherit',
             textAlign: titleAlign,
             backgroundColor: titleBackgroundColor,
             padding: formatCSSValue(titlePadding),

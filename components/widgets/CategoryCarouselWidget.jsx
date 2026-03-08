@@ -494,8 +494,9 @@ export default function CategoryCarouselWidget({ config = {} }) {
                         className="font-bold"
                         style={{
                             color: settings.sectionTitleColor,
-                            fontSize: formatCSSValue(settings.titleFontSize),
+                            fontSize: `clamp(1rem, 0.8rem + 1vw, ${formatCSSValue(settings.titleFontSize)})`,
                             fontWeight: settings.titleFontWeight,
+                            fontFamily: 'inherit',
                             backgroundColor: settings.titleBackgroundColor,
                             padding: formatCSSValue(settings.titlePadding)
                         }}
@@ -522,7 +523,7 @@ export default function CategoryCarouselWidget({ config = {} }) {
                             className="font-bold"
                             style={{
                                 color: settings.sectionTitleColor,
-                                fontSize: formatCSSValue(settings.titleFontSize),
+                                fontSize: `clamp(1rem, 0.8rem + 1vw, ${formatCSSValue(settings.titleFontSize)})`,
                                 fontWeight: settings.titleFontWeight,
                                 backgroundColor: settings.titleBackgroundColor,
                                 padding: formatCSSValue(settings.titlePadding)
@@ -746,9 +747,9 @@ function CategoryCard({
         return (
             <>
                 <h3
-                    className={`font-bold mb-1`}
+                    className="font-bold mb-1"
                     style={{
-                        fontSize: finalFontSize,
+                        fontSize: `clamp(${settings.cardTitleFontSizeMobile}px, ${settings.cardTitleFontSizeMobile}px + 0.5vw, ${settings.cardTitleFontSizeDesktop}px)`,
                         fontWeight: settings.cardTitleFontWeight,
                         color: isBelow
                             ? (settings.cardTitleColor === '#ffffff' ? '#111827' : settings.cardTitleColor)
@@ -762,7 +763,7 @@ function CategoryCard({
                 {settings.showProductCount && (
                     <p className="opacity-90" style={{
                         color: isBelow ? settings.countColor : (settings.contentPositionDesktop === 'overlay' ? 'rgba(255,255,255,0.9)' : settings.countColor),
-                        fontSize: `${getScaledValue(14)}px`,
+                        fontSize: `clamp(${getScaledValue(12)}px, ${getScaledValue(10)}px + 0.2vw, ${getScaledValue(14)}px)`,
                         textAlign: settings.cardTitleAlignment,
                     }}>
                         {category.product_count || 0} {settings.countStyle === 'text' ? 'products' : ''}
