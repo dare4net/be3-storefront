@@ -4,11 +4,18 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/components/providers/AuthContext";
-import { Mail, Lock, User, UserPlus, Loader2 } from "lucide-react";
+import { useTenant } from "@/components/providers/TenantContext";
+import { useStorefront } from "@/components/providers/StorefrontProvider";
+import { Mail, Lock, User, UserPlus, ArrowRight } from "lucide-react";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/Card";
 
 export default function SignupPage() {
     const router = useRouter();
     const { register } = useAuth();
+    const tenant = useTenant();
+    const { theme } = useStorefront();
 
     const [formData, setFormData] = useState({
         name: "",
@@ -23,13 +30,11 @@ export default function SignupPage() {
         e.preventDefault();
         setError("");
 
-        // Validate passwords match
         if (formData.password !== formData.confirmPassword) {
             setError("Passwords do not match");
             return;
         }
 
-        // Validate password length
         if (formData.password.length < 8) {
             setError("Password must be at least 8 characters");
             return;
@@ -40,7 +45,6 @@ export default function SignupPage() {
         const result = await register(formData.name, formData.email, formData.password);
 
         if (result.success) {
-            // Redirect to account page
             router.push('/account');
         } else {
             setError(result.message);
@@ -57,127 +61,114 @@ export default function SignupPage() {
     };
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-100 flex items-center justify-center px-4 py-12">
-            <div className="max-w-md w-full">
-                <div className="bg-white rounded-2xl shadow-xl p-8">
-                    <div className="text-center mb-8">
-                        <div className="inline-flex items-center justify-center w-16 h-16 bg-purple-600 rounded-full mb-4">
-                            <UserPlus className="w-8 h-8 text-white" />
-                        </div>
-                        <h1 className="text-3xl font-bold text-gray-900 mb-2">Create Account</h1>
-                        <p className="text-gray-600">Join us and start shopping today</p>
-                    </div>
-
-                    {error && (
-                        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
-                            {error}
+        <div className="min-h-screen bg-gray-50/50 flex flex-col items-center justify-center p-4">
+            <div className="w-full max-w-[450px] space-y-6">
+                <div className="flex flex-col items-center text-center space-y-2">
+                    {theme?.variables?.logo ? (
+                        <img src={theme.variables.logo} alt={tenant.name} className="h-12 w-auto mb-4 object-contain" />
+                    ) : (
+                        <div className="w-12 h-12 bg-purple-600 rounded-xl flex items-center justify-center text-white font-bold text-xl mb-4">
+                            {tenant?.name?.[0] || 'S'}
                         </div>
                     )}
+                    <h1 className="text-2xl font-semibold tracking-tight text-gray-900">Create an account</h1>
+                    <p className="text-sm text-gray-500">
+                        Join us and start your shopping journey today
+                    </p>
+                </div>
 
-                    <form onSubmit={handleSubmit} className="space-y-6">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Full Name
-                            </label>
-                            <div className="relative">
-                                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                                <input
+                <Card className="border-none shadow-md">
+                    <CardHeader className="space-y-1 pb-4">
+                        <CardTitle className="text-xl">Sign up</CardTitle>
+                        <CardDescription>
+                            Enter your details to create your customer account
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        {error && (
+                            <div className="mb-4 p-3 bg-red-50 border border-red-100 rounded-lg text-red-600 text-sm font-medium">
+                                {error}
+                            </div>
+                        )}
+                        <form onSubmit={handleSubmit} className="space-y-4">
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium text-gray-700">Full Name</label>
+                                <Input
                                     type="text"
                                     name="name"
+                                    placeholder="John Doe"
+                                    icon={User}
                                     value={formData.name}
                                     onChange={handleChange}
-                                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition"
-                                    placeholder="John Doe"
                                     required
                                 />
                             </div>
-                        </div>
-
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Email Address
-                            </label>
-                            <div className="relative">
-                                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                                <input
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium text-gray-700">Email</label>
+                                <Input
                                     type="email"
                                     name="email"
+                                    placeholder="name@example.com"
+                                    icon={Mail}
                                     value={formData.email}
                                     onChange={handleChange}
-                                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition"
-                                    placeholder="you@example.com"
                                     required
                                 />
                             </div>
-                        </div>
-
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Password
-                            </label>
-                            <div className="relative">
-                                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                                <input
-                                    type="password"
-                                    name="password"
-                                    value={formData.password}
-                                    onChange={handleChange}
-                                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition"
-                                    placeholder="••••••••"
-                                    required
-                                    minLength={8}
-                                />
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium text-gray-700">Password</label>
+                                    <Input
+                                        type="password"
+                                        name="password"
+                                        placeholder="••••••••"
+                                        icon={Lock}
+                                        value={formData.password}
+                                        onChange={handleChange}
+                                        required
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium text-gray-700">Confirm</label>
+                                    <Input
+                                        type="password"
+                                        name="confirmPassword"
+                                        placeholder="••••••••"
+                                        icon={Lock}
+                                        value={formData.confirmPassword}
+                                        onChange={handleChange}
+                                        required
+                                    />
+                                </div>
                             </div>
-                            <p className="mt-1 text-xs text-gray-500">Must be at least 8 characters</p>
-                        </div>
-
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Confirm Password
-                            </label>
-                            <div className="relative">
-                                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                                <input
-                                    type="password"
-                                    name="confirmPassword"
-                                    value={formData.confirmPassword}
-                                    onChange={handleChange}
-                                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition"
-                                    placeholder="••••••••"
-                                    required
-                                />
-                            </div>
-                        </div>
-
-                        <button
-                            type="submit"
-                            disabled={loading}
-                            className="w-full bg-purple-600 text-white py-3 rounded-lg font-medium hover:bg-purple-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                        >
-                            {loading ? (
-                                <>
-                                    <Loader2 className="w-5 h-5 animate-spin" />
-                                    Creating account...
-                                </>
-                            ) : (
-                                <>
-                                    <UserPlus className="w-5 h-5" />
-                                    Create Account
-                                </>
-                            )}
-                        </button>
-                    </form>
-
-                    <div className="mt-6 text-center">
-                        <p className="text-gray-600">
+                            <Button type="submit" className="w-full bg-purple-600 hover:bg-purple-700" loading={loading}>
+                                Create Account
+                                <ArrowRight className="ml-2 h-4 w-4" />
+                            </Button>
+                        </form>
+                    </CardContent>
+                    <CardFooter className="flex flex-col space-y-4 text-center">
+                        <div className="text-sm text-gray-500">
                             Already have an account?{" "}
-                            <Link href="/login" className="text-purple-600 hover:text-purple-700 font-medium">
+                            <Link href="/login" className="font-medium text-purple-600 hover:underline">
                                 Sign in
                             </Link>
-                        </p>
-                    </div>
-                </div>
+                        </div>
+                    </CardFooter>
+                </Card>
+
+                <p className="px-8 text-center text-xs text-gray-500 leading-relaxed">
+                    By creating an account, you agree to our{" "}
+                    <Link href="/terms" className="underline underline-offset-4 hover:text-purple-600">
+                        Terms of Service
+                    </Link>{" "}
+                    and{" "}
+                    <Link href="/privacy" className="underline underline-offset-4 hover:text-purple-600">
+                        Privacy Policy
+                    </Link>.
+                </p>
             </div>
         </div>
     );
 }
+
