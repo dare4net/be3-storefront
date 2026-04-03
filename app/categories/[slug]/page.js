@@ -143,12 +143,7 @@ export default function CategoryPage({ params }) {
                 )}
 
                 {/* Advanced Search Layout */}
-                <SearchPageLayout config={{
-                    columns: { desktop: 4, tablet: 2, mobile: 1 },
-                    showFilters: true,
-                    sidebarEnabled: true,
-                    showCategoryFilter: true // Enable to show intelligent subcategory pills
-                }} />
+                <SearchPageLayout />
 
                 {/* Suggestions Section */}
                 <SuggestionsCarousel

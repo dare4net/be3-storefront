@@ -89,6 +89,11 @@ export default function ProductCardPremium({
                 metadata: { product_name: product.name }
             });
         }
+
+        // Desktop Navigation
+        if (!isMobile) {
+            window.location.href = productHref;
+        }
     };
 
     const productHref = `/products/${product.handle || product.slug || product.id}`;

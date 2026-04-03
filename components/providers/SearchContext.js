@@ -20,8 +20,10 @@ function normalizeFilters(filters) {
   return out;
 }
 
-function buildQueryString({ q, page, perPage, sort, filters }, exclude = []) {
+function buildQueryString(paramsObj, exclude = []) {
   const params = new URLSearchParams();
+  const { q, page, perPage, sort, filters, ...extra } = paramsObj;
+
   if (q && !exclude.includes("q")) params.set("q", q);
   if (page && page !== 1 && !exclude.includes("page")) params.set("page", String(page));
   if (perPage && !exclude.includes("per_page")) params.set("per_page", String(perPage));
@@ -31,6 +33,12 @@ function buildQueryString({ q, page, perPage, sort, filters }, exclude = []) {
     if (val === undefined || val === null || val === "" || exclude.includes(key)) return;
     params.set(key, String(val));
   });
+
+  Object.entries(extra || {}).forEach(([key, val]) => {
+    if (val === undefined || val === null || val === "" || exclude.includes(key)) return;
+    params.set(key, String(val));
+  });
+
   return params.toString();
 }
 
@@ -82,6 +90,7 @@ export function SearchProvider({ children, initialPerPage = 20, initialFilters =
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [isSearchActive, setIsSearchActive] = useState(false);
+  const [includeStats, setIncludeStats] = useState(false);
 
   const lastRequestKeyRef = useRef("");
 
@@ -134,11 +143,12 @@ export function SearchProvider({ children, initialPerPage = 20, initialFilters =
 
   const runSearch = useCallback(
     async (overrides = {}) => {
+      const statsPref = overrides.includeStats !== undefined ? overrides.includeStats : includeStats;
       if (!tenant?.id) return;
       const oq = overrides.q ?? q;
       const cleanFilters = normalizeFilters(overrides.filters ?? filters);
 
-      const requestParams = { q: oq, page, perPage, sort, filters: cleanFilters };
+      const requestParams = { q: oq, page, perPage, sort, filters: cleanFilters, include_stats: statsPref ? 'true' : 'false' };
       const requestKey = JSON.stringify(requestParams);
 
       // Deduplicate: If we already have this data or a request for it is in flight
@@ -183,7 +193,7 @@ export function SearchProvider({ children, initialPerPage = 20, initialFilters =
         if (lastRequestKeyRef.current === requestKey) setLoading(false);
       }
     },
-    [tenant?.id, q, page, perPage, sort, filters]
+    [tenant?.id, q, page, perPage, sort, filters, includeStats]
   );
 
   // Sync URL + schema + results when on /search. Use q from URL so search works after
@@ -249,7 +259,7 @@ export function SearchProvider({ children, initialPerPage = 20, initialFilters =
     const cleanFilters = normalizeFilters(filters);
     loadSchema(cleanFilters.category_id || null).catch(() => { });
     runSearch();
-  }, [tenant?.id, pathname, q, page, perPage, sort, filters, runSearch, loadSchema]);
+  }, [tenant?.id, pathname, q, page, perPage, sort, filters, runSearch, loadSchema, includeStats]);
 
   // 4. Dynamic SEO Generation
   useEffect(() => {
@@ -343,9 +353,11 @@ export function SearchProvider({ children, initialPerPage = 20, initialFilters =
       setIsSearchActive,
       loading,
       error,
+      includeStats,
+      setIncludeStats,
       refresh: runSearch,
     }),
-    [q, sort, page, perPage, filters, setFilters, setFilter, clearFilters, schema, results, facets, pagination, category, seo, setSeo, isSearchActive, setIsSearchActive, loading, error, runSearch]
+    [q, sort, page, perPage, filters, setFilters, setFilter, clearFilters, schema, results, facets, pagination, category, seo, setSeo, isSearchActive, setIsSearchActive, loading, error, includeStats, runSearch]
   );
 
   return <SearchContext.Provider value={value}>{children}</SearchContext.Provider>;

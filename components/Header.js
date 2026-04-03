@@ -241,47 +241,48 @@ export default function Header({ menuItems = [] }) {
                     </div>
 
                     {/* Bottom Bar: Navigation */}
-                    {!isScrolled && (
-                        <div className="mt-6 border-t border-gray-50 pt-4 hidden lg:block">
-                            <nav className="flex items-center gap-10">
-                                {menuItems.length > 0 ? (
-                                    menuItems.map((item) => (
-                                        <Link
-                                            key={item.id}
-                                            href={item.url || '#'}
-                                            className="text-sm font-bold text-gray-600 hover:text-blue-600 transition-all uppercase tracking-wider relative group"
-                                        >
-                                            {item.label}
-                                            <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-blue-600 transition-all group-hover:w-full" />
-                                        </Link>
-                                    ))
-                                ) : (
-                                    <>
-                                        <Link href="/products" className="text-sm font-bold text-gray-900 hover:text-blue-600 transition-all uppercase tracking-widest relative group">
-                                            Shop All
-                                            <span className="absolute -bottom-1 left-0 w-full h-0.5 bg-blue-600" />
-                                        </Link>
-                                        <Link href="/categories/electronics" className="text-sm font-bold text-gray-600 hover:text-blue-600 transition-all uppercase tracking-widest relative group">
-                                            Electronics
-                                            <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-blue-600 transition-all group-hover:w-full" />
-                                        </Link>
-                                        <Link href="/categories/fashion" className="text-sm font-bold text-gray-600 hover:text-blue-600 transition-all uppercase tracking-widest relative group">
-                                            Fashion
-                                            <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-blue-600 transition-all group-hover:w-full" />
-                                        </Link>
-                                        <Link href="/categories/home" className="text-sm font-bold text-gray-600 hover:text-blue-600 transition-all uppercase tracking-widest relative group">
-                                            Home & Living
-                                            <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-blue-600 transition-all group-hover:w-full" />
-                                        </Link>
-                                        <Link href="/deals" className="text-sm font-bold text-red-600 hover:text-red-700 transition-all uppercase tracking-widest relative group">
-                                            Clearance
-                                            <span className="absolute -bottom-1 left-0 w-0 h-px bg-red-600 transition-all group-hover:w-full" />
-                                        </Link>
-                                    </>
-                                )}
-                            </nav>
-                        </div>
-                    )}
+                    <div className={cn(
+                        "hidden lg:block overflow-hidden transition-all duration-300 ease-in-out",
+                        isScrolled ? "max-h-0 opacity-0 mt-0 pt-0 border-t-0" : "max-h-[100px] opacity-100 mt-6 border-t border-gray-50 pt-4"
+                    )}>
+                        <nav className="flex items-center gap-10">
+                            {menuItems.length > 0 ? (
+                                menuItems.map((item) => (
+                                    <Link
+                                        key={item.id}
+                                        href={item.url || '#'}
+                                        className="text-sm font-bold text-gray-600 hover:text-blue-600 transition-all uppercase tracking-wider relative group"
+                                    >
+                                        {item.label}
+                                        <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-blue-600 transition-all group-hover:w-full" />
+                                    </Link>
+                                ))
+                            ) : (
+                                <>
+                                    <Link href="/products" className="text-sm font-bold text-gray-900 hover:text-blue-600 transition-all uppercase tracking-widest relative group">
+                                        Shop All
+                                        <span className="absolute -bottom-1 left-0 w-full h-0.5 bg-blue-600" />
+                                    </Link>
+                                    <Link href="/categories/electronics" className="text-sm font-bold text-gray-600 hover:text-blue-600 transition-all uppercase tracking-widest relative group">
+                                        Electronics
+                                        <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-blue-600 transition-all group-hover:w-full" />
+                                    </Link>
+                                    <Link href="/categories/fashion" className="text-sm font-bold text-gray-600 hover:text-blue-600 transition-all uppercase tracking-widest relative group">
+                                        Fashion
+                                        <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-blue-600 transition-all group-hover:w-full" />
+                                    </Link>
+                                    <Link href="/categories/home" className="text-sm font-bold text-gray-600 hover:text-blue-600 transition-all uppercase tracking-widest relative group">
+                                        Home & Living
+                                        <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-blue-600 transition-all group-hover:w-full" />
+                                    </Link>
+                                    <Link href="/deals" className="text-sm font-bold text-red-600 hover:text-red-700 transition-all uppercase tracking-widest relative group">
+                                        Clearance
+                                        <span className="absolute -bottom-1 left-0 w-0 h-px bg-red-600 transition-all group-hover:w-full" />
+                                    </Link>
+                                </>
+                            )}
+                        </nav>
+                    </div>
                 </div>
             </div>
         </header>

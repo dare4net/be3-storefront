@@ -16,6 +16,8 @@ export default function CategoryCarouselWidget({ config = {} }) {
     const autoPlayRef = useRef(null);
     const [deviceType, setDeviceType] = useState('desktop'); // 'mobile', 'tablet', 'desktop'
     const [touchStart, setTouchStart] = useState(null);
+    const [touchEnd, setTouchEnd] = useState(null);
+    const minSwipeDistance = 50;
     const { trackImpression, trackClick } = useAnalytics();
     const { masterPlan, registerWidget, getStableWidgetId } = useRandomizationContext();
     const widgetId = useMemo(() => config.id || (getStableWidgetId ? getStableWidgetId(config) : `cat_carousel_${Math.random().toString(36).substr(2, 9)}`), [config.id, getStableWidgetId, config]);

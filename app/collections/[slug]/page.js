@@ -140,12 +140,7 @@ export default function CollectionPage({ params }) {
                         </div>
                     </div>
 
-                    <SearchPageLayout config={{
-                        columns: { desktop: 4, tablet: 2, mobile: 1 },
-                        showFilters: true,
-                        sidebarEnabled: true,
-                        showCategoryFilter: true
-                    }} />
+                    <SearchPageLayout />
                 </div>
             </div>
         </SearchProvider>

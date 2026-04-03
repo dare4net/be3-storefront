@@ -26,9 +26,9 @@ function colsClass(n) {
   }
 }
 
-function LoadingSkeleton({ columns }) {
+function LoadingSkeleton({ columns = {} }) {
   return (
-    <div className={`grid gap-6 ${colsClass(columns.mobile || 1)} md:${colsClass(columns.tablet || 2)} lg:${colsClass(columns.desktop || 4)}`}>
+    <div className={`grid gap-6 ${colsClass(columns.mobile || 2)} md:${colsClass(columns.tablet || 3)} lg:${colsClass(columns.desktop || 5)}`}>
       {[...Array(8)].map((_, i) => (
         <div key={i} className="bg-white border border-gray-200 rounded-2xl overflow-hidden animate-pulse">
           <div className="aspect-square bg-gray-200" />
@@ -98,13 +98,27 @@ function NoResultsState({ query }) {
 }
 
 export default function SearchResultsWidget({ config = {} }) {
-  const { results, pagination, loading, error, sort, setSort, setPage, schema, q, filters, setFilter, clearFilters } = useSearch();
+  const {
+    results, pagination, loading, error, sort, setSort, setPage, schema, q, filters, setFilter, clearFilters, setIncludeStats
+  } = useSearch();
   const { trackImpression, trackClick } = useAnalytics();
   const impressionTrackedRef = useRef(new Set());
 
   const supportedSorts = schema?.supportedSorts || ["relevance", "price_asc", "price_desc", "date_desc", "date_asc"];
   const showHeader = config.showHeader !== false;
-  const gridCols = config.columns || { desktop: 5, tablet: 3, mobile: 2 };
+  const rawCols = config.columns;
+  const gridCols = typeof rawCols === 'number'
+    ? { desktop: rawCols, tablet: Math.max(2, rawCols - 2), mobile: 2 }
+    : {
+      desktop: rawCols?.desktop || 5,
+      tablet: rawCols?.tablet || 3,
+      mobile: rawCols?.mobile || 2
+    };
+  // Enable stats for this widget
+  useEffect(() => {
+    setIncludeStats(true);
+    return () => setIncludeStats(false); // Cleanup when unmounting
+  }, [setIncludeStats]);
 
   // Calculate active filters list
   const activeFilters = useMemo(() => {
@@ -267,9 +281,9 @@ export default function SearchResultsWidget({ config = {} }) {
         <>
           <div className={cn(
             "grid gap-2",
-            colsClass(gridCols.mobile || 1),
-            `md:${colsClass(gridCols.tablet || 2)}`,
-            `lg:${colsClass(gridCols.desktop || 4)}`
+            colsClass(gridCols.mobile),
+            `md:${colsClass(gridCols.tablet)}`,
+            `lg:${colsClass(gridCols.desktop)}`
           )}>
             {results.map((item) => (
               <ProductCardPremium
@@ -300,33 +314,28 @@ export default function SearchResultsWidget({ config = {} }) {
                 Previous
               </button>
 
-              <div className="hidden sm:flex items-center gap-2">
-                {[...Array(pagination.totalPages)].map((_, i) => {
-                  const p = i + 1;
-                  if (p === 1 || p === pagination.totalPages || (p >= pagination.page - 1 && p <= pagination.page + 1)) {
-                    return (
-                      <button
-                        key={p}
-                        onClick={() => setPage(p)}
-                        className={cn(
-                          "w-10 h-10 rounded-xl text-sm font-black transition-all",
-                          p === pagination.page ? "bg-blue-600 text-white shadow-lg shadow-blue-200" : "bg-white text-gray-500 border border-gray-100 hover:border-blue-200"
-                        )}
-                      >
-                        {p}
-                      </button>
-                    );
-                  }
-                  if (p === 2 || p === pagination.totalPages - 1) return <span key={p} className="text-gray-300">...</span>;
-                  return null;
-                })}
+              <div className="hidden md:flex items-center gap-1">
+                {[...Array(pagination.totalPages)].map((_, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setPage(i + 1)}
+                    className={cn(
+                      "w-10 h-10 rounded-xl text-sm font-bold transition-all",
+                      pagination.page === i + 1
+                        ? "bg-blue-600 text-white shadow-lg shadow-blue-200"
+                        : "text-gray-500 hover:bg-gray-100"
+                    )}
+                  >
+                    {i + 1}
+                  </button>
+                ))}
               </div>
 
               <button
                 type="button"
                 onClick={() => setPage(Math.min(pagination.totalPages, pagination.page + 1))}
                 disabled={pagination.page >= pagination.totalPages}
-                className="flex items-center gap-2 px-6 py-2.5 rounded-xl border border-gray-200 text-sm font-bold text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gray-900 text-sm font-bold text-white hover:bg-black disabled:opacity-40 disabled:cursor-not-allowed transition-all"
               >
                 Next
                 <ChevronRight className="w-4 h-4" />
