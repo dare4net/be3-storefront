@@ -1,0 +1,31 @@
+# Product Details Page (PDP) Audit
+
+Based on a review of [app/products/[handle]/page.js](file:///c:/Users/chatz/Downloads/eCommerce/storefront-web/app/products/%5Bhandle%5D/page.js) and its supporting components, the following standard e-commerce features are currently missing from the user interface:
+
+## 1. Variant & Option Selectors (Critical)
+- **Current State:** The page assumes a unified product with no selectable variants. [AddToCartButton.jsx](file:///c:/Users/chatz/Downloads/eCommerce/storefront-web/components/products/AddToCartButton.jsx) simply pushes the main product to the cart.
+- **Missing:** The user interface needs Color Swatches and Size Dropdowns (or pill buttons) to allow buyers to select specific variations.
+
+## 2. Real Product Reviews & Ratings (Critical)
+- **Current State:** The layout features a hardcoded static rating snippet below the title (`<Star />` icons rendering 4.5 visually, with the text "(4.2)").
+- **Missing:** There is no module integration to fetch real aggregated review scores from the backend, nor is there a "Write a Review" interactive mechanism.
+
+## 3. Inventory Urgency & Stock Level Indicators (High Priority)
+- **Current State:** The product object exposes details from the database, but the UI never reflects if an item is running out.
+- **Missing:** Dynamic badges or text indicating "In Stock", "Out of Stock", or urgency markers like "Only 3 left in stock!".
+
+## 4. SKU or Product ID Display (Medium Priority)
+- **Current State:** Product identifiers are not rendered anywhere on the front-end string.
+- **Missing:** Displaying the specific SKU (likely above the title or below the price) so customers or support agents can cross-reference the exact item in the catalog.
+
+## 5. Dynamic Delivery & Shipping Estimates (Medium Priority)
+- **Current State:** The feature badge statically states "Free Shipping On orders over $100".
+- **Missing:** A widget calculating estimated transit times based on the user's location and the `product.vendor_location`, such as "Order within 2 hours to receive it by Thursday".
+
+## 6. Sizing Guide or Fit Helper (Optional Add-on)
+- **Current State:** Non-existent.
+- **Missing:** If selling apparel, a modal link near the variant selectors linking out to universal sizing definitions.
+
+## 7. Direct Bundling or "Frequently Bought Together" (Optional Add-on)
+- **Current State:** Non-existent. The page has "You Might Also Like" (Related Alternatives) and "Trending Now" (Global Suggestions), but no cart-bundling mechanism.
+- **Missing:** A one-click "Add all 3 to Cart" feature for physically complementary products (e.g., adding a battery pack with a camera).

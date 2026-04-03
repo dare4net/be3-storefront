@@ -20,18 +20,18 @@ export default function ProductTabs({ description, attributes, resolvedAttribute
         : Object.entries(attributes).map(([key, value]) => ({ code: key, label: key.replace(/_/g, ' '), value, icon: null }));
 
     return (
-        <div className="mt-12 bg-white rounded-2xl border overflow-hidden">
+        <div className="mt-16 bg-white border-t border-gray-100">
             {/* Tab Headers */}
-            <div className="flex border-b overflow-x-auto scrollbar-hide">
+            <div className="flex border-b border-gray-100 overflow-x-auto scrollbar-hide">
                 {tabs.map(tab => (
                     <button
                         key={tab.id}
                         onClick={() => setActiveTab(tab.id)}
                         className={cn(
-                            "px-8 py-4 text-sm font-medium transition-colors whitespace-nowrap",
+                            "px-8 py-5 text-sm font-semibold transition-colors whitespace-nowrap border-b-2",
                             activeTab === tab.id
-                                ? "border-b-2 border-blue-600 text-blue-600 bg-blue-50/50"
-                                : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
+                                ? "border-blue-600 text-blue-600"
+                                : "border-transparent text-gray-500 hover:text-gray-900"
                         )}
                     >
                         {tab.label}
@@ -40,7 +40,7 @@ export default function ProductTabs({ description, attributes, resolvedAttribute
             </div>
 
             {/* Tab Content */}
-            <div className="p-8 min-h-[300px]">
+            <div className="py-12 min-h-[300px]">
                 {activeTab === 'description' && (
                     <div className="prose max-w-none text-gray-600 leading-relaxed">
                         <p>{description}</p>

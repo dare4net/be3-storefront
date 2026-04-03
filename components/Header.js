@@ -39,10 +39,17 @@ export default function Header({ menuItems = [] }) {
     const [isScrolled, setIsScrolled] = useState(false);
     const menuRef = useRef(null);
 
-    // Track scroll for header transition
+    // Track scroll for header transition — uses hysteresis to prevent feedback loop
     useEffect(() => {
-        const handleScroll = () => setIsScrolled(window.scrollY > 20);
-        window.addEventListener("scroll", handleScroll);
+        const handleScroll = () => {
+            const y = window.scrollY;
+            setIsScrolled(prev => {
+                if (!prev && y > 60) return true;   // hide top bar after 60px
+                if (prev && y < 30) return false;   // re-show only when back under 30px
+                return prev;                         // dead zone: 30–60px, no change
+            });
+        };
+        window.addEventListener("scroll", handleScroll, { passive: true });
         return () => window.removeEventListener("scroll", handleScroll);
     }, []);
 
@@ -187,9 +194,12 @@ export default function Header({ menuItems = [] }) {
 
     return (
         <header className="z-50 sticky top-0">
-            {/* Top Bar / Announcement Support */}
-            <div className="bg-gray-900 text-white py-2 px-4 hidden sm:block">
-                <div className="max-w-7xl mx-auto flex justify-between items-center text-[11px] font-bold uppercase tracking-[0.1em]">
+            {/* Top Bar — inside sticky so it never shifts page layout */}
+            <div className={cn(
+                "bg-gray-900 text-white overflow-hidden transition-all duration-300 hidden sm:block",
+                isScrolled ? "max-h-0 py-0" : "max-h-[40px] py-2"
+            )}>
+                <div className="px-4 max-w-7xl mx-auto flex justify-between items-center text-[11px] font-bold uppercase tracking-[0.1em]">
                     <div className="flex items-center gap-4">
                         <span className="flex items-center gap-1"><Headset className="w-3 h-3" /> Support 24/7</span>
                         <span className="text-gray-500">|</span>
