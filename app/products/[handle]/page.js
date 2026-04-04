@@ -8,6 +8,7 @@ import ProductGallery from "@/components/products/ProductGallery";
 import RelatedProducts from "@/components/products/RelatedProducts";
 import ProductDetailsStacked from "@/components/products/ProductDetailsStacked";
 import DynamicMetaTags from "@/components/DynamicMetaTags";
+import VariantSelector from "@/components/products/VariantSelector";
 import ProductInfoSidebar from "@/components/products/ProductInfoSidebar";
 import SuggestionsCarousel from "@/components/products/SuggestionsCarousel";
 import StickyAddToCart from "@/components/products/StickyAddToCart";
@@ -34,6 +35,39 @@ async function getProduct(handle, tenant) {
     }
 }
 
+async function getRelatedVariants(productId, parentId, tenant) {
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3000';
+    const effectiveParentId = parentId || productId;
+
+    try {
+        const [variantsRes, parentRes] = await Promise.all([
+            fetch(`${apiUrl}/products/${effectiveParentId}/variants`, {
+                headers: { 'x-tenant-id': tenant.id },
+                cache: 'no-store'
+            }),
+            parentId ? fetch(`${apiUrl}/products/storefront/products/by-id/${parentId}`, {
+                headers: { 'x-tenant-id': tenant.id },
+                cache: 'no-store'
+            }) : Promise.resolve(null)
+        ]);
+
+        const variantsData = await variantsRes.json();
+        let parentProduct = null;
+        if (parentRes) {
+            const parentData = await parentRes.json();
+            parentProduct = parentData.product;
+        }
+
+        return {
+            variants: variantsData.variants || [],
+            parentProduct
+        };
+    } catch (e) {
+        console.error("[ProductPage] Variants Fetch Exception:", e);
+        return { variants: [], parentProduct: null };
+    }
+}
+
 
 export default async function ProductPage({ params }) {
     const { handle } = await params;
@@ -48,6 +82,8 @@ export default async function ProductPage({ params }) {
     if (!product) {
         notFound();
     }
+
+    const { variants, parentProduct } = await getRelatedVariants(product.id, product.parent_id, tenant);
 
     const { name, price, compare_at_price, description, images = [], attributes = {}, resolved_attributes = [], categories = [], tags = [] } = product;
 
@@ -143,6 +179,11 @@ export default async function ProductPage({ params }) {
                             <ProductLocation location={product.vendor_location} otherLocations={product.other_locations} />
                         </div>
                     )}
+
+                    {/* Variant Selector */}
+                    <div className="px-6">
+                        <VariantSelector currentHandle={product.handle} variants={variants} parentProduct={parentProduct} currentProduct={product} />
+                    </div>
 
                     {/* Actions */}
                     <div className="px-6 py-6 space-y-3">
