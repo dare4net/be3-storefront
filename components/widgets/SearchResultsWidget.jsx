@@ -4,7 +4,7 @@ import { useEffect, useState, useRef, useMemo } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import {
-  ChevronLeft, ChevronRight, Search, TrendingUp, Sparkles, Tag, Calendar, Package, Filter, X
+  ChevronLeft, ChevronRight, Search, TrendingUp, Sparkles, Tag, Calendar, Package, Filter, X, Eye
 } from "lucide-react";
 import { useSearch } from "@/components/providers/SearchContext";
 import api from "@/lib/axios";
@@ -99,7 +99,8 @@ function NoResultsState({ query }) {
 
 export default function SearchResultsWidget({ config = {} }) {
   const {
-    results, pagination, loading, error, sort, setSort, setPage, schema, q, filters, setFilter, clearFilters, setIncludeStats
+    results, pagination, loading, error, sort, setSort, setPage, schema, q, filters, setFilter, clearFilters, setIncludeStats,
+    imageMode, imageSource, runImageSearch
   } = useSearch();
   const { trackImpression, trackClick } = useAnalytics();
   const impressionTrackedRef = useRef(new Set());
@@ -201,6 +202,33 @@ export default function SearchResultsWidget({ config = {} }) {
 
   return (
     <section className={cn("pb-20", config.container === false ? "" : "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8")}>
+      {/* Image Search Mode Banner */}
+      {imageMode && imageSource && (
+        <div className="mb-6 flex items-center gap-4 p-4 bg-gradient-to-r from-violet-50 to-indigo-50 border border-indigo-100 rounded-2xl">
+          <div className="w-14 h-14 flex-shrink-0 rounded-xl overflow-hidden border-2 border-indigo-200 shadow">
+            <img src={typeof imageSource === 'string' && imageSource.startsWith('http') ? imageSource : undefined}
+              alt="Search image" className="w-full h-full object-cover"
+              onError={(e) => { e.target.style.display = 'none'; }} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-0.5">
+              <Eye className="w-4 h-4 text-indigo-600" />
+              <span className="text-sm font-bold text-indigo-900">Visual Search Results</span>
+            </div>
+            <p className="text-xs text-indigo-600 truncate">
+              Showing products visually similar to your image
+            </p>
+          </div>
+          <button
+            onClick={() => runImageSearch(null)}
+            className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-indigo-600 hover:text-red-600 hover:bg-red-50 bg-white border border-indigo-100 rounded-lg transition-all"
+          >
+            <X className="w-3.5 h-3.5" />
+            Clear
+          </button>
+        </div>
+      )}
+
       {showHeader && (
         <div className="mb-8">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-6 border-b border-gray-100">

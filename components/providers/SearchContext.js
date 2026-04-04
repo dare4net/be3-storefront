@@ -92,6 +92,11 @@ export function SearchProvider({ children, initialPerPage = 20, initialFilters =
   const [isSearchActive, setIsSearchActive] = useState(false);
   const [includeStats, setIncludeStats] = useState(false);
 
+  // --- Image Search State ---
+  const [imageSource, setImageSource] = useState(null); // URL or base64
+  const [imageMode, setImageMode] = useState(false);    // true when searching by image
+  const [activeVector, setActiveVector] = useState(null); // Cached embedding from backend
+
   const lastRequestKeyRef = useRef("");
 
   const setFilter = useCallback((key, value) => {
@@ -145,10 +150,26 @@ export function SearchProvider({ children, initialPerPage = 20, initialFilters =
     async (overrides = {}) => {
       const statsPref = overrides.includeStats !== undefined ? overrides.includeStats : includeStats;
       if (!tenant?.id) return;
+
       const oq = overrides.q ?? q;
       const cleanFilters = normalizeFilters(overrides.filters ?? filters);
+      const currentPage = overrides.page ?? page;
+      const effectiveImageSource = overrides.imageSource ?? imageSource;
+      const effectiveImageMode = overrides.imageMode ?? imageMode;
+      // OPTIMIZATION: Use the cached vector if we have one and the source hasn't changed
+      const effectiveImage = (effectiveImageMode && !overrides.imageSource) ? (activeVector || effectiveImageSource) : effectiveImageSource;
 
-      const requestParams = { q: oq, page, perPage, sort, filters: cleanFilters, include_stats: statsPref ? 'true' : 'false' };
+      const requestParams = {
+        q: oq,
+        page: currentPage,
+        perPage,
+        sort,
+        filters: cleanFilters,
+        include_stats: statsPref ? "true" : "false",
+        mode: effectiveImageMode ? "image" : (overrides.mode ?? "keyword"),
+        image: effectiveImage,
+      };
+
       const requestKey = JSON.stringify(requestParams);
 
       // Deduplicate: If we already have this data or a request for it is in flight
@@ -159,8 +180,19 @@ export function SearchProvider({ children, initialPerPage = 20, initialFilters =
       setError(null);
 
       try {
-        const qs = buildQueryString(requestParams);
-        const res = await api.get(`/search${qs ? `?${qs}` : ""}`, { headers: { "X-Tenant-ID": tenant.id } });
+        let res;
+        if (effectiveImageMode && effectiveImageSource) {
+          // Use POST for image search (handles large base64)
+          res = await api.post("/search", requestParams, {
+            headers: { "X-Tenant-ID": tenant.id, "Content-Type": "application/json" },
+          });
+        } else {
+          // Use GET for standard text search
+          const qs = buildQueryString(requestParams);
+          res = await api.get(`/search${qs ? `?${qs}` : ""}`, {
+            headers: { "X-Tenant-ID": tenant.id },
+          });
+        }
 
         // If another request started while this one was pending, ignore this result
         if (lastRequestKeyRef.current !== requestKey) return;
@@ -168,18 +200,23 @@ export function SearchProvider({ children, initialPerPage = 20, initialFilters =
         if (res.data?.success) {
           setResults(res.data.results || []);
           setFacets(res.data.facets || null);
-          setPagination(res.data.pagination || { page, perPage, total: 0, totalPages: 0 });
+          setPagination(res.data.pagination || { page: currentPage, perPage, total: 0, totalPages: 0 });
           setCategory(res.data.category || null);
 
+          // STORE VECTOR FOR ROUND-TRIP OPTIMIZATION
+          if (res.data.query_vector) {
+            setActiveVector(res.data.query_vector);
+          }
+
           // Only update SEO if not currently locked by a branded page
-          setSeo(prev => {
+          setSeo((prev) => {
             if (prev?.is_branded) return prev;
             return res.data.seo || null;
           });
         } else {
           setResults([]);
           setFacets(null);
-          setPagination({ page, perPage, total: 0, totalPages: 0 });
+          setPagination({ page: currentPage, perPage, total: 0, totalPages: 0 });
           setSeo(null);
         }
       } catch (e) {
@@ -187,13 +224,45 @@ export function SearchProvider({ children, initialPerPage = 20, initialFilters =
         setError(e?.response?.data?.message || e.message || "Search failed");
         setResults([]);
         setFacets(null);
-        setPagination({ page, perPage, total: 0, totalPages: 0 });
+        setPagination({ page: currentPage, perPage, total: 0, totalPages: 0 });
         setSeo(null);
       } finally {
         if (lastRequestKeyRef.current === requestKey) setLoading(false);
       }
     },
-    [tenant?.id, q, page, perPage, sort, filters, includeStats]
+    [tenant?.id, q, page, perPage, sort, filters, includeStats, imageMode, imageSource]
+  );
+
+  /**
+   * Run a visual/image-based search.
+   * Pass null to clear image mode and revert to text search.
+   */
+  const runImageSearch = useCallback(
+    async (source) => {
+      if (!source) {
+        // Clear image mode
+        setImageSource(null);
+        setImageMode(false);
+        setPage(1);
+        // runSearch will be triggered by useEffect due to imageMode change
+        return;
+      }
+
+      if (!tenant?.id) return;
+      setImageSource(source);
+      setImageMode(true);
+      setActiveVector(null); // Reset cached vector for new image
+      setPage(1);
+
+      // Explicitly trigger to ensure immediate feedback even before useEffect
+      runSearch({
+        imageSource: source,
+        imageMode: true,
+        page: 1,
+        force: true,
+      });
+    },
+    [tenant?.id, perPage, runSearch]
   );
 
   // Sync URL + schema + results when on /search. Use q from URL so search works after
@@ -356,8 +425,12 @@ export function SearchProvider({ children, initialPerPage = 20, initialFilters =
       includeStats,
       setIncludeStats,
       refresh: runSearch,
+      // Image search
+      imageMode,
+      imageSource,
+      runImageSearch,
     }),
-    [q, sort, page, perPage, filters, setFilters, setFilter, clearFilters, schema, results, facets, pagination, category, seo, setSeo, isSearchActive, setIsSearchActive, loading, error, includeStats, runSearch]
+    [q, sort, page, perPage, filters, setFilters, setFilter, clearFilters, schema, results, facets, pagination, category, seo, setSeo, isSearchActive, setIsSearchActive, loading, error, includeStats, runSearch, imageMode, imageSource, runImageSearch]
   );
 
   return <SearchContext.Provider value={value}>{children}</SearchContext.Provider>;

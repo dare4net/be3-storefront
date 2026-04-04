@@ -25,6 +25,7 @@ import SearchBarWidget from './SearchBarWidget';
 import SearchFiltersWidget from './SearchFiltersWidget';
 import SearchResultsWidget from './SearchResultsWidget';
 import SearchPageLayout from './SearchPageLayout';
+import ImageSearchWidget from './ImageSearchWidget';
 
 // New Primitives
 import HeadingWidget from './primitive/HeadingWidget';
@@ -76,6 +77,7 @@ const WIDGET_MAP = {
     search_filters: SearchFiltersWidget,
     search_results: SearchResultsWidget,
     search_page_layout: SearchPageLayout,
+    image_search: ImageSearchWidget,
 
     // Primitives
     heading: HeadingWidget,

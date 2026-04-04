@@ -5,6 +5,7 @@ import { Filter, X } from "lucide-react";
 import SearchBarWidget from "./SearchBarWidget";
 import SearchFiltersWidget from "./SearchFiltersWidget";
 import SearchResultsWidget from "./SearchResultsWidget";
+import ImageSearchWidget from "./ImageSearchWidget";
 
 export default function SearchPageLayout({ config = {} }) {
     const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
@@ -20,6 +21,11 @@ export default function SearchPageLayout({ config = {} }) {
             {/* Search Bar */}
             <div className="bg-white border-b border-gray-200">
                 <SearchBarWidget config={{}} />
+            </div>
+
+            {/* Image Search */}
+            <div className="bg-white border-b border-gray-100 shadow-sm">
+                <ImageSearchWidget config={{}} />
             </div>
 
             {/* Main Content */}
