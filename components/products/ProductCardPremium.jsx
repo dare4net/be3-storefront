@@ -7,7 +7,7 @@ import { useChatContext } from '@/components/providers/ChatContext';
 import { useCart } from '@/components/providers/CartContext';
 import { useWishlist } from '@/components/providers/WishlistContext';
 import { useAnalytics } from '@/lib/hooks/useAnalytics';
-import { cn } from '@/lib/utils';
+import { cn, formatAttributeValue } from '@/lib/utils';
 
 export default function ProductCardPremium({
     product,
@@ -196,7 +196,7 @@ export default function ProductCardPremium({
                                     className="inline-flex items-center px-2 py-1 bg-gray-50 border border-gray-100 text-gray-600 rounded"
                                     style={{ fontSize: `clamp(${0.65 * scale}rem, ${0.6 * scale}rem + ${0.1 * scale}vw, ${0.75 * scale}rem)` }}
                                 >
-                                    <span className="whitespace-nowrap">{value}</span>
+                                    <span className="whitespace-nowrap">{formatAttributeValue(value)}</span>
                                 </div>
                             ))}
                         </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from 'react';
-import { cn } from "@/lib/utils";
+import { cn, formatAttributeValue } from "@/lib/utils";
 
 export default function ProductTabs({ description, attributes, resolvedAttributes = [], reviews = [] }) {
     const [activeTab, setActiveTab] = useState('description');
@@ -58,7 +58,7 @@ export default function ProductTabs({ description, attributes, resolvedAttribute
                                         )}
                                         <span className="capitalize">{attr.label}</span>
                                     </div>
-                                    <span className="font-medium text-gray-900">{attr.value}</span>
+                                    <span className="font-medium text-gray-900">{formatAttributeValue(attr.value)}</span>
                                 </div>
                             ))
                         ) : (
