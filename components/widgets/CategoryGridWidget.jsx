@@ -7,6 +7,13 @@ import { proxyApi as api } from '@/lib/axios';
 import { useRandomizationContext } from '@/lib/contexts/RandomizationContext';
 import { useAnalytics } from '@/lib/hooks/useAnalytics';
 
+// Helper to format CSS values (append px if numeric)
+const formatCSSValue = (val) => {
+    if (!val || val === '0') return '0';
+    if (/^\d+(\.\d+)?$/.test(val.toString())) return `${val}px`;
+    return val;
+};
+
 function CategoryCard({ category, config = {}, trackClick, widgetId, index }) {
     const { isBento = false } = config;
     const [imageError, setImageError] = useState(false);
@@ -43,7 +50,7 @@ function CategoryCard({ category, config = {}, trackClick, widgetId, index }) {
     const fontSize = deviceType === 'mobile' ? titleFontSizeMobile : deviceType === 'tablet' ? titleFontSizeTablet : titleFontSizeDesktop;
 
     const textStyle = {
-        fontSize: `clamp(${titleFontSizeMobile}px, ${titleFontSizeMobile}px + 0.5vw, ${titleFontSizeDesktop}px)`,
+        fontSize: `clamp(0.9rem, 0.75rem + 1vw, ${formatCSSValue(titleFontSizeDesktop)})`,
         fontWeight: titleFontWeight,
         color: titleColor,
         textAlign: titleAlignment === 'center' ? 'center' : titleAlignment === 'right' ? 'right' : 'left',
@@ -311,17 +318,11 @@ export default function CategoryGridWidget({ config }) {
         }
     };
 
-    // Helper to format CSS values (append px if numeric)
-    const formatCSSValue = (val) => {
-        if (!val || val === '0') return '0';
-        if (/^\d+(\.\d+)?$/.test(val.toString())) return `${val}px`;
-        return val;
-    };
 
     const styles = {
         title: {
             color: titleColor,
-            fontSize: `clamp(1rem, 0.8rem + 1vw, ${formatCSSValue(titleFontSize)})`,
+            fontSize: `clamp(1rem, 0.75rem + 1vw, ${formatCSSValue(titleFontSize)})`,
             fontWeight: titleFontWeight,
             fontFamily: 'inherit',
             textAlign: titleAlign,

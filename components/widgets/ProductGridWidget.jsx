@@ -385,7 +385,7 @@ export default function ProductGridWidget({ config }) {
         },
         title: {
             color: titleColor || colors.text,
-            fontSize: `clamp(1.1rem, 0.9rem + 0.8vw, ${formatCSSValue(titleFontSize)})`,
+            fontSize: `clamp(1rem, 0.75rem + 1vw, ${formatCSSValue(titleFontSize)})`,
             fontWeight: titleFontWeight,
             fontFamily: 'inherit',
             textAlign: titleAlign

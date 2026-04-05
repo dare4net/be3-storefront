@@ -7,6 +7,13 @@ import { proxyApi as api } from '@/lib/axios';
 import { useRandomizationContext } from '@/lib/contexts/RandomizationContext';
 import { useAnalytics } from '@/lib/hooks/useAnalytics';
 
+// Helper to format CSS values (append px if numeric)
+const formatCSSValue = (val) => {
+    if (!val || val === '0') return '0';
+    if (/^\d+(\.\d+)?$/.test(val.toString())) return `${val}px`;
+    return val;
+};
+
 export default function CategoryCarouselWidget({ config = {} }) {
     const [categories, setCategories] = useState([]);
     const [currentIndex, setCurrentIndex] = useState(0);
@@ -468,12 +475,6 @@ export default function CategoryCarouselWidget({ config = {} }) {
         );
     }
 
-    // Helper to format CSS values (append px if numeric)
-    const formatCSSValue = (val) => {
-        if (!val || val === '0') return '0';
-        if (/^\d+(\.\d+)?$/.test(val.toString())) return `${val}px`;
-        return val;
-    };
 
     return (
         <div
@@ -496,7 +497,7 @@ export default function CategoryCarouselWidget({ config = {} }) {
                         className="font-bold"
                         style={{
                             color: settings.sectionTitleColor,
-                            fontSize: `clamp(1rem, 0.8rem + 1vw, ${formatCSSValue(settings.titleFontSize)})`,
+                            fontSize: `clamp(1rem, 0.75rem + 1vw, ${formatCSSValue(settings.titleFontSize)})`,
                             fontWeight: settings.titleFontWeight,
                             fontFamily: 'inherit',
                             backgroundColor: settings.titleBackgroundColor,
@@ -525,7 +526,7 @@ export default function CategoryCarouselWidget({ config = {} }) {
                             className="font-bold"
                             style={{
                                 color: settings.sectionTitleColor,
-                                fontSize: `clamp(1rem, 0.8rem + 1vw, ${formatCSSValue(settings.titleFontSize)})`,
+                                fontSize: `clamp(1rem, 0.75rem + 1vw, ${formatCSSValue(settings.titleFontSize)})`,
                                 fontWeight: settings.titleFontWeight,
                                 backgroundColor: settings.titleBackgroundColor,
                                 padding: formatCSSValue(settings.titlePadding)
@@ -751,7 +752,7 @@ function CategoryCard({
                 <h3
                     className="font-bold mb-1"
                     style={{
-                        fontSize: `clamp(${settings.cardTitleFontSizeMobile}px, ${settings.cardTitleFontSizeMobile}px + 0.5vw, ${settings.cardTitleFontSizeDesktop}px)`,
+                        fontSize: `clamp(0.9rem, 0.75rem + 1vw, ${formatCSSValue(settings.cardTitleFontSizeDesktop)})`,
                         fontWeight: settings.cardTitleFontWeight,
                         color: isBelow
                             ? (settings.cardTitleColor === '#ffffff' ? '#111827' : settings.cardTitleColor)
@@ -765,7 +766,7 @@ function CategoryCard({
                 {settings.showProductCount && (
                     <p className="opacity-90" style={{
                         color: isBelow ? settings.countColor : (settings.contentPositionDesktop === 'overlay' ? 'rgba(255,255,255,0.9)' : settings.countColor),
-                        fontSize: `clamp(${getScaledValue(12)}px, ${getScaledValue(10)}px + 0.2vw, ${getScaledValue(14)}px)`,
+                        fontSize: `clamp(0.65rem, 0.6rem + 0.3vw, 0.8rem)`,
                         textAlign: settings.cardTitleAlignment,
                     }}>
                         {category.product_count || 0} {settings.countStyle === 'text' ? 'products' : ''}
@@ -841,8 +842,8 @@ function CategoryCard({
                                 'bottom-2 left-2'
                             } bg-red-500 text-white font-bold rounded-full`}
                         style={{
-                            padding: `${getScaledValue(4)}px ${getScaledValue(12)}px`,
-                            fontSize: `${getScaledValue(12)}px`,
+                            padding: `clamp(0.15rem, 0.1rem + 0.2vw, 0.25rem) clamp(0.5rem, 0.4rem + 0.5vw, 0.75rem)`,
+                            fontSize: `clamp(0.55rem, 0.45rem + 0.2vw, 0.75rem)`,
                         }}
                     >
                         {settings.badgeLabel}

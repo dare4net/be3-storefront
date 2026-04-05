@@ -8,17 +8,20 @@ export default function HeadingWidget({ config }) {
         right: 'text-right'
     }[config.align || 'left'];
 
-    const sizeClass = {
-        h1: 'text-4xl md:text-5xl font-extrabold mb-6',
-        h2: 'text-3xl md:text-4xl font-bold mb-5',
-        h3: 'text-2xl md:text-3xl font-bold mb-4',
-        h4: 'text-xl md:text-2xl font-semibold mb-3',
-        h5: 'text-lg font-semibold mb-2',
-        h6: 'text-base font-semibold mb-2',
-    }[Tag];
+    const fontSizes = {
+        h1: 'clamp(2rem, 1.5rem + 2.5vw, 4.5rem)',
+        h2: 'clamp(1.75rem, 1.25rem + 2vw, 3.5rem)',
+        h3: 'clamp(1.5rem, 1rem + 1.5vw, 2.5rem)',
+        h4: 'clamp(1.25rem, 0.9rem + 1vw, 2rem)',
+        h5: '1.125rem',
+        h6: '1rem'
+    };
 
     return (
-        <Tag className={`${alignClass} ${sizeClass} text-gray-900`}>
+        <Tag 
+            className={`${alignClass} font-bold mb-5 text-gray-900`}
+            style={{ fontSize: fontSizes[Tag] }}
+        >
             {config.text || 'Heading'}
         </Tag>
     );

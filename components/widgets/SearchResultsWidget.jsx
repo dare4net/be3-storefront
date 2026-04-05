@@ -209,7 +209,10 @@ export default function SearchResultsWidget({ config = {} }) {
         <div className="mb-8">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-6 border-b border-gray-100">
             <div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-1">
+              <h2 
+                className="font-bold text-gray-900 mb-1"
+                style={{ fontSize: `clamp(1.1rem, 0.9rem + 0.8vw, 1.5rem)` }}
+              >
                 {q ? `Search Results` : "Browse Products"}
               </h2>
               <div className="flex items-center gap-2 text-sm text-gray-500">

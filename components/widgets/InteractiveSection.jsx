@@ -328,8 +328,8 @@ export default function InteractiveSection({ config }) {
             <style jsx>{`
                 @media (max-width: 768px) {
                     section { height: ${height.mobile} !important; }
-                    h1, h2, h3, h4 { font-size: ${title.fontSize?.mobile || '1.8rem'} !important; }
-                    p { font-size: ${subtitle.fontSize?.mobile || '1rem'} !important; }
+                    h1, h2, h3, h4 { font-size: clamp(1.2rem, 1rem + 1.5vw, ${title.fontSize?.mobile || '1.8rem'}) !important; }
+                    p { font-size: clamp(0.9rem, 0.8rem + 0.5vw, ${subtitle.fontSize?.mobile || '1rem'}) !important; }
                 }
                 @media (min-width: 769px) and (max-width: 1024px) {
                     section { height: ${height.tablet} !important; }
