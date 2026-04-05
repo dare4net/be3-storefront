@@ -14,6 +14,7 @@ import {
     Heart,
     Menu,
     Search as SearchIcon,
+    X,
     Headset
 } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
@@ -37,6 +38,8 @@ export default function Header({ menuItems = [] }) {
     const [widgets, setWidgets] = useState([]);
     const [loading, setLoading] = useState(true);
     const [isScrolled, setIsScrolled] = useState(false);
+    const [isMenuOpen, setIsMenuOpen] = useState(false);
+    const [isSearchOpen, setIsSearchOpen] = useState(false);
     const menuRef = useRef(null);
 
     // Track scroll for header transition — uses hysteresis to prevent feedback loop
@@ -93,9 +96,10 @@ export default function Header({ menuItems = [] }) {
 
     // Common Action Icons Wrapper
     const ActionIcons = () => (
-        <div className="flex items-center gap-2 sm:gap-4">
-            {/* Account */}
-            {isAuthenticated ? (
+        <div className="flex items-center gap-1 sm:gap-4">
+            {/* Account - Only on Desktop, Mobile has it in Drawer */}
+            <div className="hidden lg:block">
+                {isAuthenticated ? (
                 <div className="relative" ref={menuRef}>
                     <button
                         onClick={() => setShowAccountMenu(!showAccountMenu)}
@@ -141,12 +145,13 @@ export default function Header({ menuItems = [] }) {
                     </div>
                 </Link>
             )}
+            </div>
 
             {/* Wishlist */}
-            <Link href="/wishlist" className="p-2 text-gray-600 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all relative group">
-                <Heart className="w-6 h-6 group-hover:fill-current" />
+            <Link href="/wishlist" className="p-1.5 sm:p-2 text-gray-600 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all relative group">
+                <Heart className="w-5 h-5 sm:w-6 sm:h-6 group-hover:fill-current" />
                 {wishlist.length > 0 && (
-                    <span className="absolute top-1.5 right-1.5 bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center ring-2 ring-white">
+                    <span className="absolute top-1 sm:top-1.5 right-1 sm:right-1.5 bg-red-500 text-white text-[9px] sm:text-[10px] font-bold rounded-full min-w-[16px] sm:min-w-[18px] h-[16px] sm:h-[18px] flex items-center justify-center ring-2 ring-white">
                         {wishlist.length}
                     </span>
                 )}
@@ -155,11 +160,11 @@ export default function Header({ menuItems = [] }) {
             {/* Cart */}
             <button
                 onClick={() => setIsOpen(true)}
-                className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all relative group"
+                className="p-1.5 sm:p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all relative group"
             >
-                <ShoppingBag className="w-6 h-6" />
+                <ShoppingBag className="w-5 h-5 sm:w-6 sm:h-6" />
                 {cartCount > 0 && (
-                    <span className="absolute top-1.5 right-1.5 bg-blue-600 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center ring-2 ring-white">
+                    <span className="absolute top-1 sm:top-1.5 right-1 sm:right-1.5 bg-blue-600 text-white text-[9px] sm:text-[10px] font-bold rounded-full min-w-[16px] sm:min-w-[18px] h-[16px] sm:h-[18px] flex items-center justify-center ring-2 ring-white">
                         {cartCount}
                     </span>
                 )}
@@ -179,7 +184,7 @@ export default function Header({ menuItems = [] }) {
                 ))}
 
                 <header className={cn(
-                    "bg-white sticky top-0 z-50 transition-all duration-300 border-b border-gray-100",
+                    "bg-white sticky top-0 z-[100] transition-all duration-300 border-b border-gray-100",
                     isScrolled ? "shadow-md py-1" : "py-2"
                 )}>
                     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4">
@@ -193,7 +198,7 @@ export default function Header({ menuItems = [] }) {
     }
 
     return (
-        <header className="z-50 sticky top-0">
+        <header className="z-[100] sticky top-0">
             {/* Top Bar — inside sticky so it never shifts page layout */}
             <div className={cn(
                 "bg-gray-900 text-white overflow-hidden transition-all duration-300 hidden sm:block",
@@ -219,10 +224,18 @@ export default function Header({ menuItems = [] }) {
             )}>
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     {/* Main Bar */}
-                    <div className="flex items-center justify-between gap-8 h-12">
+                    <div className="flex items-center justify-between gap-2 md:gap-8 h-12">
+                        {/* Hamburger Button */}
+                        <button
+                            onClick={() => setIsMenuOpen(true)}
+                            className="lg:hidden p-2 -ml-2 text-gray-600 hover:text-blue-600 transition-colors"
+                            aria-label="Toggle Menu"
+                        >
+                            <Menu className="w-6 h-6" />
+                        </button>
+
                         {/* Logo */}
-                        <Link href="/" className="flex-shrink-0 flex items-center gap-2 group">
-                            <Menu className="w-6 h-6 lg:hidden text-gray-600 mr-2" />
+                        <Link href="/" className="flex-shrink-0 flex items-center gap-2 group mr-auto lg:mr-0">
                             {theme?.variables?.logo ? (
                                 <img
                                     src={theme.variables.logo}
@@ -243,12 +256,24 @@ export default function Header({ menuItems = [] }) {
                         </div>
 
                         {/* Mobile Search Toggle */}
-                        <button className="lg:hidden p-2 text-gray-600 hover:text-blue-600 transition-colors">
-                            <SearchIcon className="w-6 h-6" />
+                        <button
+                            onClick={() => setIsSearchOpen(!isSearchOpen)}
+                            className={cn(
+                                "lg:hidden p-2 rounded-xl transition-all",
+                                isSearchOpen ? "bg-blue-50 text-blue-600" : "text-gray-600 hover:text-blue-600"
+                            )}>
+                            {isSearchOpen ? <X className="w-6 h-6" /> : <SearchIcon className="w-6 h-6" />}
                         </button>
 
                         <ActionIcons />
                     </div>
+
+                    {/* Mobile Search Bar Expansion */}
+                    {isSearchOpen && (
+                        <div className="lg:hidden py-3 animate-in slide-in-from-top-2 duration-200">
+                            <SearchBar />
+                        </div>
+                    )}
 
                     {/* Bottom Bar: Navigation */}
                     <div className={cn(
@@ -293,6 +318,99 @@ export default function Header({ menuItems = [] }) {
                             )}
                         </nav>
                     </div>
+                </div>
+            </div>
+
+            {/* Mobile Drawer Overlay */}
+            {isMenuOpen && (
+                <div
+                    className="fixed inset-0 bg-black/50 z-[100] animate-in fade-in duration-300"
+                    onClick={() => setIsMenuOpen(false)}
+                />
+            )}
+
+            {/* Mobile Drawer */}
+            <div className={cn(
+                "fixed top-0 left-0 bottom-0 w-[280px] bg-white z-[101] shadow-2xl transition-transform duration-300 ease-out flex flex-col lg:hidden",
+                isMenuOpen ? "translate-x-0" : "-translate-x-full"
+            )}>
+                {/* Drawer Header */}
+                <div className="p-4 border-b border-gray-100 flex items-center justify-between bg-gray-50">
+                    <span className="text-sm font-black text-gray-900 tracking-tighter">
+                        {tenant?.name?.toUpperCase() || 'MENU'}
+                    </span>
+                    <button onClick={() => setIsMenuOpen(false)} className="p-2 text-gray-400 hover:text-gray-900">
+                        <X className="w-5 h-5" />
+                    </button>
+                </div>
+
+                {/* Account Section in Drawer */}
+                <div className="p-4 border-b border-gray-100">
+                    {isAuthenticated ? (
+                        <div className="flex flex-col gap-3">
+                            <div className="flex items-center gap-3 mb-2">
+                                <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center text-white font-bold">
+                                    {user?.email?.[0]?.toUpperCase() || 'U'}
+                                </div>
+                                <div className="flex flex-col">
+                                    <span className="text-sm font-bold text-gray-900">{user?.first_name || 'My Profile'}</span>
+                                    <span className="text-xs text-gray-500 truncate max-w-[180px]">{user?.email}</span>
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2 text-xs font-bold uppercase tracking-wider">
+                                <Link href="/account" className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg text-gray-600" onClick={() => setIsMenuOpen(false)}>
+                                    <User className="w-3.5 h-3.5" /> Account
+                                </Link>
+                                <Link href="/account/orders" className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg text-gray-600" onClick={() => setIsMenuOpen(false)}>
+                                    <Package className="w-3.5 h-3.5" /> Orders
+                                </Link>
+                            </div>
+                            <button onClick={handleLogout} className="text-sm font-bold text-red-600 text-left pt-1">
+                                Sign Out
+                            </button>
+                        </div>
+                    ) : (
+                        <Link href="/login" className="flex items-center gap-3 p-3 bg-blue-600 text-white rounded-xl font-bold" onClick={() => setIsMenuOpen(false)}>
+                            <User className="w-5 h-5" /> Sign In / Register
+                        </Link>
+                    )}
+                </div>
+
+                {/* Nav Links in Drawer */}
+                <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-1">
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 px-2">Navigation</p>
+                    {menuItems.length > 0 ? (
+                        menuItems.map((item) => (
+                            <Link
+                                key={item.id}
+                                href={item.url || '#'}
+                                className="px-3 py-3 text-sm font-bold text-gray-700 hover:bg-blue-50 hover:text-blue-600 rounded-lg transition-colors flex items-center justify-between"
+                                onClick={() => setIsMenuOpen(false)}
+                            >
+                                {item.label}
+                                <ChevronDown className="w-4 h-4 -rotate-90 text-gray-300" />
+                            </Link>
+                        ))
+                    ) : (
+                        <>
+                            <Link href="/products" className="px-3 py-3 text-sm font-bold text-blue-600 bg-blue-50 rounded-lg flex items-center justify-between" onClick={() => setIsMenuOpen(false)}>
+                                Shop All <ChevronDown className="w-4 h-4 -rotate-90 text-blue-400" />
+                            </Link>
+                            {['Electronics', 'Fashion', 'Home & Living'].map(cat => (
+                                <Link key={cat} href={`/categories/${cat.toLowerCase().replace(/\s+/g, '-')}`} className="px-3 py-3 text-sm font-bold text-gray-700 hover:bg-gray-50 rounded-lg flex items-center justify-between" onClick={() => setIsMenuOpen(false)}>
+                                    {cat} <ChevronDown className="w-4 h-4 -rotate-90 text-gray-300" />
+                                </Link>
+                            ))}
+                            <Link href="/deals" className="px-3 py-3 text-sm font-bold text-red-600 hover:bg-red-50 rounded-lg flex items-center justify-between" onClick={() => setIsMenuOpen(false)}>
+                                Clearance <span className="px-1.5 py-0.5 bg-red-100 text-[10px] rounded animate-pulse">HOT</span>
+                            </Link>
+                        </>
+                    )}
+                </div>
+
+                {/* Footer Drawer */}
+                <div className="p-4 border-t border-gray-100 bg-gray-50 text-center">
+                    <p className="text-[10px] text-gray-400 font-medium">Need help? 24/7 Support</p>
                 </div>
             </div>
         </header>
