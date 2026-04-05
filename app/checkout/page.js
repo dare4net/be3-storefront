@@ -318,13 +318,15 @@ export default function CheckoutPage() {
                             {items.map((item) => (
                                 <div key={item.id} className="flex gap-4">
                                     <div className="w-16 h-16 bg-gray-100 rounded-md relative flex-shrink-0">
+                                        {item.image_url || item.image ? (
+                                            <img src={item.image_url || item.image} alt={item.product_name || `Product`} className="w-full h-full object-cover rounded-md" />
+                                        ) : null}
                                         <span className="absolute -top-2 -right-2 bg-gray-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">
                                             {item.quantity}
                                         </span>
                                     </div>
                                     <div className="flex-1">
-                                        <h3 className="text-sm font-medium text-gray-900"> Product {item.id.substring(0, 6)}</h3>
-                                        <p className="text-xs text-gray-500">{item.product_name}</p>
+                                        <h3 className="text-sm font-medium text-gray-900">{item.product_name || `Product ${item.id?.substring(0, 6)}`}</h3>
                                     </div>
                                     <p className="text-sm font-medium text-gray-900">
                                         ${(parseFloat(item.price) * item.quantity).toFixed(2)}

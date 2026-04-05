@@ -1,6 +1,7 @@
 "use client";
 
 import { MapPin, Truck, ShieldCheck, Star, Store, RefreshCw, ChevronRight, Clock, Award, Package } from 'lucide-react';
+import Link from 'next/link';
 
 export default function ProductInfoSidebar({ product }) {
     return (
@@ -67,32 +68,42 @@ export default function ProductInfoSidebar({ product }) {
                 </div>
                 <div className="px-5 py-4">
                     <div className="flex items-center gap-3 mb-4">
-                        <div className="w-12 h-12 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 font-bold text-lg">
-                            {product?.vendor?.charAt(0)?.toUpperCase() || 'S'}
-                        </div>
+                        {product?.store_collection?.image_url ? (
+                            <img src={product.store_collection.image_url} alt={product.vendor} className="w-12 h-12 rounded-xl object-cover border border-gray-200 flex-shrink-0" />
+                        ) : (
+                            <div className="w-12 h-12 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 font-bold text-lg flex-shrink-0">
+                                {product?.vendor?.charAt(0)?.toUpperCase() || 'S'}
+                            </div>
+                        )}
                         <div>
                             <p className="font-bold text-gray-900 text-sm">{product?.vendor || 'Official Store'}</p>
                             <div className="flex items-center gap-1 mt-0.5">
                                 <Star className="w-3.5 h-3.5 fill-yellow-400 text-yellow-400" />
-                                <span className="text-xs font-semibold text-gray-700">4.8</span>
-                                <span className="text-xs text-gray-400">(2,341 ratings)</span>
+                                <span className="text-xs font-semibold text-gray-700">{product?.vendor_stats?.rating_score || '4.8'}</span>
+                                <span className="text-xs text-gray-400">({product?.vendor_stats?.total_ratings || 0} ratings)</span>
                             </div>
                         </div>
-                        <button className="ml-auto flex items-center gap-1 text-xs text-blue-600 font-semibold border border-blue-200 rounded-lg px-3 py-1.5 hover:bg-blue-50 transition-colors">
-                            Visit Store <ChevronRight className="w-3 h-3" />
-                        </button>
+                        {product?.store_collection?.slug && (
+                            <Link href={`/collections/${product.store_collection.slug}`} className="ml-auto flex items-center gap-1 text-xs text-blue-600 font-semibold border border-blue-200 rounded-lg px-3 py-1.5 hover:bg-blue-50 transition-colors">
+                                Visit Store <ChevronRight className="w-3 h-3" />
+                            </Link>
+                        )}
                     </div>
                     <div className="grid grid-cols-3 gap-3 border-t border-gray-100 pt-4">
                         <div className="text-center">
-                            <p className="text-lg font-bold text-gray-900">98%</p>
+                            <p className="text-lg font-bold text-gray-900">{product?.vendor_stats?.positive_ratings || 0}%</p>
                             <p className="text-[11px] text-gray-500 mt-0.5">Positive ratings</p>
                         </div>
                         <div className="text-center border-x border-gray-100">
-                            <p className="text-lg font-bold text-gray-900">12K+</p>
+                            <p className="text-lg font-bold text-gray-900">
+                                {product?.vendor_stats?.items_sold >= 1000
+                                    ? (product.vendor_stats.items_sold / 1000).toFixed(1) + 'K+'
+                                    : (product?.vendor_stats?.items_sold || 0)}
+                            </p>
                             <p className="text-[11px] text-gray-500 mt-0.5">Items sold</p>
                         </div>
                         <div className="text-center">
-                            <p className="text-lg font-bold text-gray-900">3 yrs</p>
+                            <p className="text-lg font-bold text-gray-900">{product?.vendor_stats?.years_on_platform || 0} yrs</p>
                             <p className="text-[11px] text-gray-500 mt-0.5">On platform</p>
                         </div>
                     </div>
