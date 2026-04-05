@@ -93,8 +93,7 @@ export default function ProductCarouselWidget({ config }) {
     const [addingToCart, setAddingToCart] = useState(null);
     const { addToCart } = useCart();
     const { trackImpression, trackClick } = useAnalytics();
-    const [activeOverlay, setActiveOverlay] = useState(null);
-    const [isMobile, setIsMobile] = useState(false);
+    const [activeAddToCart, setActiveAddToCart] = useState(null);
 
     // Generate a stable ID if config.id is missing
     const generatedId = useRef(`widget_${Math.random().toString(36).substr(2, 9)}`);
@@ -278,7 +277,6 @@ export default function ProductCarouselWidget({ config }) {
             }
 
             setItemsToShow(cols);
-            setIsMobile(width < 768);
         };
         handleResize();
         window.addEventListener('resize', handleResize);
@@ -587,14 +585,8 @@ export default function ProductCarouselWidget({ config }) {
                                         width: `calc(${100 / itemsToShow}% - ${(parseFloat(gridGap) * (itemsToShow - 1)) / itemsToShow}px)`,
                                         scrollSnapAlign: 'start'
                                     }}
-                                    onClick={(e) => {
-                                        if (isMobile) {
-                                            e.preventDefault();
-                                            e.stopPropagation();
-                                            setActiveOverlay(product.id);
-                                        } else {
-                                            window.location.href = `/products/${product.slug || product.id}?ref_type=widget&ref_id=${widgetId}`;
-                                        }
+                                    onClick={() => {
+                                        window.location.href = `/products/${product.slug || product.id}?ref_type=widget&ref_id=${widgetId}`;
                                         trackClick({
                                             entity_type: 'product',
                                             entity_id: product.id,
@@ -772,49 +764,6 @@ export default function ProductCarouselWidget({ config }) {
                                                 </div>
                                             </div>
                                         </div>
-
-                                        {/* Mobile Overlay */}
-                                        {activeOverlay === product.id && (
-                                            <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-                                                <button
-                                                    onClick={(e) => {
-                                                        e.preventDefault();
-                                                        e.stopPropagation();
-                                                        setActiveOverlay(null);
-                                                    }}
-                                                    className="absolute top-2 right-2 p-1 rounded-full bg-white/20 text-white hover:bg-white/30 transition-colors"
-                                                >
-                                                    <X className="w-5 h-5" />
-                                                </button>
-
-                                                <div className="flex flex-col gap-3 w-full px-4 text-center">
-                                                    <Link
-                                                        href={`/products/${product.slug || product.id}?ref_type=widget&ref_id=${widgetId}`}
-                                                        className="flex items-center justify-center gap-2 w-full py-3 bg-white text-gray-900 rounded-full font-semibold shadow-xl active:scale-95 transition-transform"
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            setActiveOverlay(null);
-                                                        }}
-                                                    >
-                                                        <Eye className="w-5 h-5 text-blue-600" />
-                                                        View
-                                                    </Link>
-
-                                                    <button
-                                                        onClick={(e) => {
-                                                            e.preventDefault();
-                                                            e.stopPropagation();
-                                                            openChat('product', product.id, product.name);
-                                                            setActiveOverlay(null);
-                                                        }}
-                                                        className="flex items-center justify-center gap-2 w-full py-3 bg-blue-600 text-white rounded-full font-semibold shadow-xl active:scale-95 transition-transform"
-                                                    >
-                                                        <MessageCircle className="w-5 h-5" />
-                                                        Chat Seller
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        )}
                                     </div>
                                 </div>
                             ))}
