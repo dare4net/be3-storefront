@@ -21,16 +21,6 @@ export default function ProductCarouselWidget({ config }) {
         attributeClause = null, // e.g. "processor:high_end" (attribute_code:clause_name)
         sourceType = 'all',
         showFeaturedOnly = false,
-        // Default all display toggles to TRUE to match Admin UI "ON" state for undefined keys
-        showPrice: _showPrice = true,
-        showAddToCart: _showAddToCart = true,
-        showFeaturedBadge: _showFeaturedBadge = true,
-        showViewDetails: _showViewDetails = true,
-        showChat: _showChat = true,
-        showTags: _showTags = true,
-        showDescription: _showDescription = true,
-        showAttributes: _showAttributes = true,
-        showSocialProof: _showSocialProof = true,
         // New Styling & Spacing
         showTitle = true,
         fullWidthTitle = true,
@@ -72,15 +62,43 @@ export default function ProductCarouselWidget({ config }) {
         return !!val;
     };
 
-    const showPrice = resolveBool(config.showPrice, true);
-    const showAddToCart = resolveBool(config.showAddToCart, true);
-    const showFeaturedBadge = resolveBool(config.showFeaturedBadge, true);
-    const showViewDetails = resolveBool(config.showViewDetails, true);
-    const showChat = resolveBool(config.showChat, true);
-    const showTags = resolveBool(config.showTags, true);
-    const showDescription = resolveBool(config.showDescription, true);
-    const showAttributes = resolveBool(config.showAttributes, true);
-    const showSocialProof = resolveBool(config.showSocialProof, true);
+    const [deviceType, setDeviceType] = useState('desktop');
+
+    // Viewport Detection for Responsive Display
+    useEffect(() => {
+        const handleResize = () => {
+            const width = window.innerWidth;
+            if (width < 768) setDeviceType('mobile');
+            else if (width < 1024) setDeviceType('tablet');
+            else setDeviceType('desktop');
+        };
+
+        handleResize();
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
+
+    // Resolve responsive display elements
+    const getDisplaySetting = (key, defaultValue = true) => {
+        const override = config.responsiveDisplay?.[deviceType]?.[key];
+        if (override !== undefined) return override;
+        
+        const baseVal = config[key];
+        if (baseVal === 'false') return false;
+        if (baseVal === 'true') return true;
+        if (baseVal === undefined || baseVal === null) return defaultValue;
+        return !!baseVal;
+    };
+
+    const effectiveShowPrice = getDisplaySetting('showPrice', true);
+    const effectiveShowAddToCart = getDisplaySetting('showAddToCart', true);
+    const effectiveShowFeaturedBadge = getDisplaySetting('showFeaturedBadge', true);
+    const effectiveShowViewDetails = getDisplaySetting('showViewDetails', true);
+    const effectiveShowChat = getDisplaySetting('showChat', true);
+    const effectiveShowTags = getDisplaySetting('showTags', true);
+    const effectiveShowDescription = getDisplaySetting('showDescription', true);
+    const effectiveShowAttributes = getDisplaySetting('showAttributes', true);
+    const effectiveShowSocialProof = getDisplaySetting('showSocialProof', true);
 
     const [products, setProducts] = useState([]);
     const [metadata, setMetadata] = useState({});
@@ -94,10 +112,6 @@ export default function ProductCarouselWidget({ config }) {
     const { addToCart } = useCart();
     const { trackImpression, trackClick } = useAnalytics();
     const [activeAddToCart, setActiveAddToCart] = useState(null);
-
-    // Generate a stable ID if config.id is missing
-    const generatedId = useRef(`widget_${Math.random().toString(36).substr(2, 9)}`);
-    // Old widgetId removed to prevent duplicate declaration
 
     // Use Randomization Context
     const {
@@ -459,16 +473,16 @@ export default function ProductCarouselWidget({ config }) {
                                 <div className="aspect-square bg-gray-200 animate-pulse"></div>
                                 <div className="p-4 space-y-3">
                                     <div className="h-4 bg-gray-200 rounded w-3/4 animate-pulse"></div>
-                                    {showDescription && (
+                                    {effectiveShowDescription && (
                                         <div className="space-y-2">
                                             <div className="h-3 bg-gray-200 rounded w-full animate-pulse"></div>
                                             <div className="h-3 bg-gray-200 rounded w-5/6 animate-pulse"></div>
                                         </div>
                                     )}
-                                    {showPrice && (
+                                    {effectiveShowPrice && (
                                         <div className="h-5 bg-gray-200 rounded w-20 animate-pulse"></div>
                                     )}
-                                    {showAddToCart && (
+                                    {effectiveShowAddToCart && (
                                         <div className="h-10 bg-gray-200 rounded animate-pulse"></div>
                                     )}
                                 </div>
@@ -641,14 +655,13 @@ export default function ProductCarouselWidget({ config }) {
                                                 />
                                             </button>
 
-                                            {showFeaturedBadge !== false && product.is_featured && (
+                                            {effectiveShowFeaturedBadge && product.is_featured && (
                                                 <div
                                                     className="absolute top-3 right-3 font-bold rounded-full shadow-sm z-10"
                                                     style={{
-                                                        backgroundColor: '#fbbf24',
-                                                        color: colors.text,
-                                                        fontSize: `clamp(${0.875 * scale}rem, ${0.75 * scale}rem + ${0.5 * scale}vw, ${1.125 * scale}rem)`,
-                                                        lineHeight: `clamp(${1.1 * scale}rem, ${1 * scale}rem + ${0.5 * scale}vw, ${1.5 * scale}rem)`,
+                                                        backgroundColor: colors.badgeBackground || '#fbbf24',
+                                                        color: colors.badgeText || '#ffffff',
+                                                        fontSize: `${0.75 * scale}rem`,
                                                         padding: `${0.25 * scale}rem ${0.75 * scale}rem`
                                                     }}
                                                 >
@@ -667,60 +680,59 @@ export default function ProductCarouselWidget({ config }) {
                                                 {product.name}
                                             </h3>
 
-                                            {/* Description */}
-                                            {showDescription && product.description && (
-                                                <p className={`text-gray-500 ${scale < 0.8 ? 'line-clamp-1' : 'line-clamp-2'} mb-2`} style={{ fontSize: `clamp(${0.75 * scale}rem, ${0.7 * scale}rem + ${0.2 * scale}vw, ${0.875 * scale}rem)` }}>
-                                                    {product.description}
-                                                </p>
-                                            )}
-
-                                            {/* Attributes */}
-                                            {showAttributes && product.attributes && Object.keys(product.attributes).length > 0 && (
-                                                <div className="flex flex-wrap items-center gap-1.5 mb-2">
-                                                    {Object.values(product.attributes).slice(0, 2).map((value, i) => (
-                                                        <div key={i} className="inline-flex items-center px-2 py-1 bg-gray-50 border border-gray-100 text-gray-600 rounded" style={{ fontSize: `clamp(${0.65 * scale}rem, ${0.6 * scale}rem + ${0.1 * scale}vw, ${0.75 * scale}rem)` }}>
-                                                            <span className="whitespace-nowrap">{value}</span>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            )}
-
-                                            {/* Tags */}
-                                            {showTags && product.tags && Array.isArray(product.tags) && product.tags.length > 0 && (
-                                                <div className="flex flex-wrap gap-1 mb-2">
-                                                    {product.tags.slice(0, 2).map((tag, i) => (
-                                                        <span key={i} className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full" style={{ fontSize: `clamp(${0.65 * scale}rem, ${0.6 * scale}rem + ${0.1 * scale}vw, ${0.75 * scale}rem)` }}>
-                                                            {tag}
-                                                        </span>
-                                                    ))}
-                                                </div>
-                                            )}
-
-                                            {/* Social Proof */}
-                                            {showSocialProof && (
-                                                <div className="flex items-center gap-3 text-gray-400 mb-2" style={{ fontSize: `clamp(${0.65 * scale}rem, ${0.6 * scale}rem + ${0.1 * scale}vw, ${0.75 * scale}rem)` }}>
-                                                    <span className="flex items-center gap-1">
-                                                        <Eye style={{ width: `${0.8 * scale}rem`, height: `${0.8 * scale}rem` }} />
-                                                        {product.stats?.impressions || 0}
-                                                    </span>
-                                                    <span className="flex items-center gap-1">
-                                                        <Heart style={{ width: `${0.8 * scale}rem`, height: `${0.8 * scale}rem` }} />
-                                                        {product.stats?.wishlist_count || 0}
-                                                    </span>
-                                                </div>
-                                            )}
-
-                                            <div className="mt-auto flex items-center justify-between gap-2" style={{ paddingTop: `${1 * scale}rem` }}>
-                                                {showPrice !== false && (
-                                                    <p className="font-bold text-blue-600" style={{ fontSize: `clamp(${1 * scale}rem, ${0.9 * scale}rem + ${0.6 * scale}vw, ${1.25 * scale}rem)` }}>
-                                                        ${product.price}
+                                            <div className="space-y-2" style={{ marginTop: `${0.4 * scale}rem` }}>
+                                                {effectiveShowDescription && product.description && (
+                                                    <p className={`text-gray-500 ${scale < 0.8 ? 'line-clamp-1' : 'line-clamp-2'}`} style={{ fontSize: `clamp(${0.75 * scale}rem, ${0.7 * scale}rem + ${0.2 * scale}vw, ${0.875 * scale}rem)` }}>
+                                                        {product.description}
                                                     </p>
                                                 )}
+                                                {effectiveShowAttributes && product.attributes && Object.keys(product.attributes).length > 0 && (
+                                                    <div className="flex flex-wrap gap-1 mt-1">
+                                                        {Object.values(product.attributes).slice(0, 2).map((value, i) => (
+                                                            <span key={i} className="px-2 py-0.5 bg-gray-50 border border-gray-100 text-gray-600 rounded" style={{ fontSize: `clamp(${0.65 * scale}rem, ${0.6 * scale}rem + ${0.1 * scale}vw, ${0.75 * scale}rem)` }}>
+                                                                {value}
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                                {effectiveShowTags && product.tags && Array.isArray(product.tags) && product.tags.length > 0 && (
+                                                    <div className="flex flex-wrap gap-1">
+                                                        {product.tags.slice(0, 3).map((tag, i) => (
+                                                            <span key={i} className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full" style={{ fontSize: `clamp(${0.65 * scale}rem, ${0.6 * scale}rem + ${0.1 * scale}vw, ${0.75 * scale}rem)` }}>
+                                                                {tag}
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                                {effectiveShowSocialProof && (
+                                                    <div className="flex items-center gap-3 text-gray-400 mt-2" style={{ fontSize: `${0.75 * scale}rem` }}>
+                                                        <span className="flex items-center gap-1">
+                                                            <Eye className="w-3 h-3" style={{ width: `${0.75 * scale}rem`, height: `${0.75 * scale}rem` }} />
+                                                            {product.stats?.impressions || 0}
+                                                        </span>
+                                                        <span className="flex items-center gap-1">
+                                                            <Heart className="w-3 h-3" style={{ width: `${0.75 * scale}rem`, height: `${0.75 * scale}rem` }} />
+                                                            {product.stats?.wishlist_count || 0}
+                                                        </span>
+                                                    </div>
+                                                )}
+                                            </div>
 
+                                            <div className="mt-auto flex items-center justify-between gap-2" style={{ paddingTop: `${1 * scale}rem` }}>
+                                                <div className="flex flex-col">
+                                                    {effectiveShowPrice && (
+                                                        <span className="font-bold" style={{
+                                                            color: colors.price,
+                                                            fontSize: `clamp(${1 * scale}rem, ${0.9 * scale}rem + ${0.6 * scale}vw, ${1.25 * scale}rem)`
+                                                        }}>
+                                                            ${parseFloat(product.price).toFixed(2)}
+                                                        </span>
+                                                    )}
+                                                </div>
                                                 <div className="flex items-center gap-2">
-                                                    {showChat && (
+                                                    {effectiveShowChat && (
                                                         <button
-                                                            className="hidden md:block bg-gray-100 text-gray-600 rounded-full hover:bg-gray-200 transition"
+                                                            className="hidden md:block rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
                                                             title="Chat with Seller"
                                                             onClick={(e) => {
                                                                 e.preventDefault();
@@ -732,30 +744,42 @@ export default function ProductCarouselWidget({ config }) {
                                                             <MessageCircle style={{ width: `${1.25 * scale}rem`, height: `${1.25 * scale}rem` }} />
                                                         </button>
                                                     )}
-                                                    {showViewDetails && (
-                                                        <button
-                                                            className="hidden md:block bg-gray-100 text-gray-600 rounded-full hover:bg-gray-200 transition"
-                                                            title="View Details"
+                                                    {effectiveShowViewDetails && (
+                                                        <Link
+                                                            href={`/products/${product.slug || product.id}?ref_type=widget&ref_id=${widgetId}`}
+                                                            className="hidden md:block rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
                                                             onClick={(e) => {
-                                                                e.preventDefault();
                                                                 e.stopPropagation();
-                                                                window.location.href = `/products/${product.slug || product.id}`;
+                                                                trackClick({
+                                                                    entity_type: 'product',
+                                                                    entity_id: product.id,
+                                                                    placement_id: widgetId,
+                                                                    placement_type: 'widget',
+                                                                    position: index + 1,
+                                                                    metadata: { type: 'quick_view' }
+                                                                });
                                                             }}
                                                             style={{ padding: `${0.625 * scale}rem` }}
+                                                            aria-label="View Details"
                                                         >
                                                             <Eye style={{ width: `${1.25 * scale}rem`, height: `${1.25 * scale}rem` }} />
-                                                        </button>
+                                                        </Link>
                                                     )}
-                                                    {showAddToCart !== false && (
+                                                    {effectiveShowAddToCart && (
                                                         <button
-                                                            className="bg-blue-50 text-blue-600 rounded-full hover:bg-blue-100 transition flex items-center gap-2"
-                                                            title="Add to Cart"
                                                             onClick={(e) => handleAddToCart(e, product)}
                                                             disabled={addingToCart === product.id}
-                                                            style={{ padding: `${0.625 * scale}rem` }}
+                                                            className="rounded-full bg-blue-50 text-blue-600 hover:bg-blue-100 transition-all duration-200 flex items-center justify-center shadow-sm"
+                                                            style={{
+                                                                width: `${2.5 * scale}rem`,
+                                                                height: `${2.5 * scale}rem`,
+                                                                padding: `${0.625 * scale}rem`
+                                                            }}
+                                                            aria-label="Add to Cart"
+                                                            title="Add to Cart"
                                                         >
                                                             {addingToCart === product.id ? (
-                                                                <Check className="animate-pulse" style={{ width: `${1.25 * scale}rem`, height: `${1.25 * scale}rem` }} />
+                                                                <Check className="animate-in zoom-in" style={{ width: `${1.25 * scale}rem`, height: `${1.25 * scale}rem` }} />
                                                             ) : (
                                                                 <ShoppingCart style={{ width: `${1.25 * scale}rem`, height: `${1.25 * scale}rem` }} />
                                                             )}

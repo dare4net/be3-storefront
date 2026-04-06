@@ -23,15 +23,6 @@ export default function ProductGridWidget({ config }) {
         limit = 8,
         showFeaturedOnly = false,
         columns = { desktop: 4, tablet: 2, mobile: 1 },
-        showAddToCart = true,
-        showPrice = true,
-        showFeaturedBadge = true,
-        showViewDetails = true,
-        showChat = true,
-        showTags = false,
-        showDescription = false,
-        showAttributes = false,
-        showSocialProof = false,
         sectionBackground = { type: 'solid', color: '#ffffff' },
         cardStyle = {
             backgroundColor: '#ffffff',
@@ -79,10 +70,44 @@ export default function ProductGridWidget({ config }) {
     const { trackImpression, trackClick } = useAnalytics();
     const { openChat } = useChatContext();
     const [activeAddToCart, setActiveAddToCart] = useState(null);
+    const [deviceType, setDeviceType] = useState('desktop');
 
-    // Generate a stable ID if config.id is missing
-    const generatedId = useRef(`widget_${Math.random().toString(36).substr(2, 9)}`);
-    // Old widgetId removed to prevent duplicate declaration
+    // Viewport Detection for Responsive Display
+    useEffect(() => {
+        const handleResize = () => {
+            const width = window.innerWidth;
+            if (width < 768) setDeviceType('mobile');
+            else if (width < 1024) setDeviceType('tablet');
+            else setDeviceType('desktop');
+        };
+
+        handleResize();
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
+
+    // Resolve responsive display elements
+    const getDisplaySetting = (key, defaultValue = true) => {
+        const override = config.responsiveDisplay?.[deviceType]?.[key];
+        if (override !== undefined) return override;
+        
+        const baseVal = config[key];
+        if (baseVal === 'false') return false;
+        if (baseVal === 'true') return true;
+        if (baseVal === undefined || baseVal === null) return defaultValue;
+        return !!baseVal;
+    };
+
+    const effectiveShowPrice = getDisplaySetting('showPrice', true);
+    const effectiveShowAddToCart = getDisplaySetting('showAddToCart', true);
+    const effectiveShowViewDetails = getDisplaySetting('showViewDetails', true);
+    const effectiveShowFeaturedBadge = getDisplaySetting('showFeaturedBadge', true);
+    const effectiveShowTags = getDisplaySetting('showTags', true);
+    const effectiveShowDescription = getDisplaySetting('showDescription', true);
+    const effectiveShowAttributes = getDisplaySetting('showAttributes', true);
+    const effectiveShowSocialProof = getDisplaySetting('showSocialProof', true);
+    const effectiveShowRating = getDisplaySetting('showRating', true);
+    const effectiveShowChat = getDisplaySetting('showChat', true);
 
     // Use Randomization Context
     const {
@@ -434,16 +459,16 @@ export default function ProductGridWidget({ config }) {
                                 <div className="aspect-square bg-gray-200 animate-pulse"></div>
                                 <div className="p-4 flex-1 flex flex-col space-y-3">
                                     <div className="h-4 bg-gray-200 rounded w-3/4 animate-pulse"></div>
-                                    {showDescription && (
+                                    {effectiveShowDescription && (
                                         <div className="space-y-2">
                                             <div className="h-3 bg-gray-200 rounded w-full animate-pulse"></div>
                                             <div className="h-3 bg-gray-200 rounded w-5/6 animate-pulse"></div>
                                         </div>
                                     )}
-                                    {showPrice && (
+                                    {effectiveShowPrice && (
                                         <div className="h-5 bg-gray-200 rounded w-20 animate-pulse"></div>
                                     )}
-                                    {showAddToCart && (
+                                    {effectiveShowAddToCart && (
                                         <div className="h-10 bg-gray-200 rounded animate-pulse mt-auto"></div>
                                     )}
                                 </div>
@@ -590,7 +615,7 @@ export default function ProductGridWidget({ config }) {
                                         />
                                     </button>
 
-                                    {showFeaturedBadge && product.is_featured && (
+                                    {effectiveShowFeaturedBadge && product.is_featured && (
                                         <div
                                             className="absolute top-3 right-3 font-bold rounded-full shadow-sm z-10"
                                             style={{
@@ -622,15 +647,13 @@ export default function ProductGridWidget({ config }) {
                                             {product.name}
                                         </h3>
                                     </div>
-
                                     <div className="space-y-2" style={{ marginTop: `${0.4 * scale}rem` }}>
-                                        {showDescription && product.description && (
+                                        {effectiveShowDescription && product.description && (
                                             <p className={`text-gray-500 ${scale < 0.8 ? 'line-clamp-1' : 'line-clamp-2'}`} style={{ fontSize: `clamp(${0.75 * scale}rem, ${0.7 * scale}rem + ${0.2 * scale}vw, ${0.875 * scale}rem)` }}>
                                                 {product.description}
                                             </p>
                                         )}
-
-                                        {showAttributes && product.attributes && Object.keys(product.attributes).length > 0 && (
+                                        {effectiveShowAttributes && product.attributes && Object.keys(product.attributes).length > 0 && (
                                             <div className="flex flex-wrap gap-1 mt-1">
                                                 {Object.values(product.attributes).slice(0, 2).map((value, i) => (
                                                     <span key={i} className="px-2 py-0.5 bg-gray-50 border border-gray-100 text-gray-600 rounded" style={{ fontSize: `clamp(${0.65 * scale}rem, ${0.6 * scale}rem + ${0.1 * scale}vw, ${0.75 * scale}rem)` }}>
@@ -639,8 +662,7 @@ export default function ProductGridWidget({ config }) {
                                                 ))}
                                             </div>
                                         )}
-
-                                        {showTags && product.tags && Array.isArray(product.tags) && product.tags.length > 0 && (
+                                        {effectiveShowTags && product.tags && Array.isArray(product.tags) && product.tags.length > 0 && (
                                             <div className="flex flex-wrap gap-1">
                                                 {product.tags.slice(0, 3).map((tag, i) => (
                                                     <span key={i} className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full" style={{ fontSize: `clamp(${0.65 * scale}rem, ${0.6 * scale}rem + ${0.1 * scale}vw, ${0.75 * scale}rem)` }}>
@@ -649,8 +671,7 @@ export default function ProductGridWidget({ config }) {
                                                 ))}
                                             </div>
                                         )}
-
-                                        {showSocialProof && (
+                                        {effectiveShowSocialProof && (
                                             <div className="flex items-center gap-3 text-gray-400 mt-2" style={{ fontSize: `${0.75 * scale}rem` }}>
                                                 <span className="flex items-center gap-1">
                                                     <Eye className="w-3 h-3" style={{ width: `${0.75 * scale}rem`, height: `${0.75 * scale}rem` }} />
@@ -663,10 +684,9 @@ export default function ProductGridWidget({ config }) {
                                             </div>
                                         )}
                                     </div>
-
                                     <div className="mt-auto flex items-center justify-between gap-2" style={{ paddingTop: `${1 * scale}rem` }}>
                                         <div className="flex flex-col">
-                                            {showPrice && (
+                                            {effectiveShowPrice && (
                                                 <span className="font-bold" style={{
                                                     color: colors.price,
                                                     fontSize: `clamp(${1 * scale}rem, ${0.9 * scale}rem + ${0.6 * scale}vw, ${1.25 * scale}rem)`
@@ -675,9 +695,8 @@ export default function ProductGridWidget({ config }) {
                                                 </span>
                                             )}
                                         </div>
-
                                         <div className="flex items-center gap-2">
-                                            {showChat && (
+                                            {effectiveShowChat && (
                                                 <button
                                                     className="hidden md:block rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
                                                     title="Chat with Seller"
@@ -690,7 +709,7 @@ export default function ProductGridWidget({ config }) {
                                                     <MessageCircle style={{ width: `${1.25 * scale}rem`, height: `${1.25 * scale}rem` }} />
                                                 </button>
                                             )}
-                                            {showViewDetails && (
+                                            {effectiveShowViewDetails && (
                                                 <Link
                                                     href={`/products/${product.slug || product.id}?ref_type=widget&ref_id=${widgetId}`}
                                                     className="hidden md:block rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
@@ -708,8 +727,7 @@ export default function ProductGridWidget({ config }) {
                                                     <Eye style={{ width: `${1.25 * scale}rem`, height: `${1.25 * scale}rem` }} />
                                                 </Link>
                                             )}
-
-                                            {showAddToCart && (
+                                            {effectiveShowAddToCart && (
                                                 <button
                                                     onClick={(e) => handleAddToCart(e, product)}
                                                     disabled={addingToCart === product.id}
