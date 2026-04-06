@@ -95,6 +95,12 @@ export default function ProductGridWidget({ config }) {
         if (baseVal === 'false') return false;
         if (baseVal === 'true') return true;
         if (baseVal === undefined || baseVal === null) return defaultValue;
+        
+        // If it's a number (or string that looks like one), return it as a number
+        if (typeof baseVal === 'number' || (typeof baseVal === 'string' && /^\d+$/.test(baseVal))) {
+            return parseInt(baseVal);
+        }
+        
         return !!baseVal;
     };
 
@@ -102,12 +108,15 @@ export default function ProductGridWidget({ config }) {
     const effectiveShowAddToCart = getDisplaySetting('showAddToCart', true);
     const effectiveShowViewDetails = getDisplaySetting('showViewDetails', true);
     const effectiveShowFeaturedBadge = getDisplaySetting('showFeaturedBadge', true);
+    const effectiveShowVendor = getDisplaySetting('showVendor', false);
     const effectiveShowTags = getDisplaySetting('showTags', true);
     const effectiveShowDescription = getDisplaySetting('showDescription', true);
     const effectiveShowAttributes = getDisplaySetting('showAttributes', true);
     const effectiveShowSocialProof = getDisplaySetting('showSocialProof', true);
     const effectiveShowRating = getDisplaySetting('showRating', true);
     const effectiveShowChat = getDisplaySetting('showChat', true);
+    const attributesCount = getDisplaySetting('attributesCount', 2);
+    const tagsCount = getDisplaySetting('tagsCount', 3);
 
     // Use Randomization Context
     const {
@@ -653,22 +662,40 @@ export default function ProductGridWidget({ config }) {
                                                 {product.description}
                                             </p>
                                         )}
-                                        {effectiveShowAttributes && product.attributes && Object.keys(product.attributes).length > 0 && (
+
+                                        {(effectiveShowVendor || effectiveShowAttributes) && product.attributes && (
                                             <div className="flex flex-wrap gap-1 mt-1">
-                                                {Object.values(product.attributes).slice(0, 2).map((value, i) => (
-                                                    <span key={i} className="px-2 py-0.5 bg-gray-50 border border-gray-100 text-gray-600 rounded" style={{ fontSize: `clamp(${0.65 * scale}rem, ${0.6 * scale}rem + ${0.1 * scale}vw, ${0.75 * scale}rem)` }}>
-                                                        {value}
+                                                {/* Dedicated Vendor Badge */}
+                                                {effectiveShowVendor && product.attributes.vendor && (
+                                                    <span className="px-2 py-0.5 bg-blue-50 border border-blue-100 text-blue-700 rounded font-medium flex items-center gap-1" style={{ fontSize: `clamp(${0.65 * scale}rem, ${0.6 * scale}rem + ${0.1 * scale}vw, ${0.75 * scale}rem)` }}>
+                                                        {product.attributes.vendor}
                                                     </span>
-                                                ))}
+                                                )}
+
+                                                {/* Remaining Attributes (Excluding Vendor) */}
+                                                {effectiveShowAttributes && Object.entries(product.attributes)
+                                                    .filter(([key]) => key !== 'vendor')
+                                                    .slice(0, attributesCount)
+                                                    .map(([key, value], i) => (
+                                                        <span key={i} className="px-2 py-0.5 bg-gray-50 border border-gray-100 text-gray-600 rounded" style={{ fontSize: `clamp(${0.65 * scale}rem, ${0.6 * scale}rem + ${0.1 * scale}vw, ${0.75 * scale}rem)` }}>
+                                                            {value}
+                                                        </span>
+                                                    ))
+                                                }
                                             </div>
                                         )}
+
                                         {effectiveShowTags && product.tags && Array.isArray(product.tags) && product.tags.length > 0 && (
                                             <div className="flex flex-wrap gap-1">
-                                                {product.tags.slice(0, 3).map((tag, i) => (
-                                                    <span key={i} className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full" style={{ fontSize: `clamp(${0.65 * scale}rem, ${0.6 * scale}rem + ${0.1 * scale}vw, ${0.75 * scale}rem)` }}>
-                                                        {tag}
-                                                    </span>
-                                                ))}
+                                                {product.tags
+                                                    .filter(tag => !product.attributes?.vendor || tag.toLowerCase() !== product.attributes.vendor.toLowerCase())
+                                                    .slice(0, tagsCount)
+                                                    .map((tag, i) => (
+                                                        <span key={i} className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full" style={{ fontSize: `clamp(${0.65 * scale}rem, ${0.6 * scale}rem + ${0.1 * scale}vw, ${0.75 * scale}rem)` }}>
+                                                            {tag}
+                                                        </span>
+                                                    ))
+                                                }
                                             </div>
                                         )}
                                         {effectiveShowSocialProof && (
