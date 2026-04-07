@@ -177,7 +177,7 @@ export default function CategoryGridWidget({ config }) {
     const widgetId = useMemo(() => config.id || (getStableWidgetId ? getStableWidgetId(config) : `cat_grid_${Math.random().toString(36).substr(2, 9)}`), [config.id, getStableWidgetId, config]);
 
     const [categories, setCategories] = useState([]);
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(true);
 
     // Use modern randomization context
     const stableId = getStableWidgetId(config, widgetId);
@@ -458,25 +458,37 @@ export default function CategoryGridWidget({ config }) {
                         }} />
                     )}
 
-                    <div className={isBento ? 'bento-grid' : `category-grid-widget-${columns?.mobile || 2}-${columns?.tablet || 3}-${columns?.desktop || 4}`}>
-                        {displayCategories.map((category, index) => (
-                            <AnimatedItem
-                                key={category.id}
-                                delayIndex={index % 6} // Slightly larger stagger loop for categories
-                                enabled={enableEntryAnimation}
-                                className={isBento ? `bento-item-${index % 8}` : ''}
-                                style={isBento ? { minHeight: '200px' } : {}}
-                            >
-                                <CategoryCard
-                                    category={category}
-                                    config={{ ...config, isBento }}
-                                    trackClick={trackClick}
-                                    widgetId={widgetId}
-                                    index={index}
-                                />
-                            </AnimatedItem>
-                        ))}
-                    </div>
+                    {(loading || (config.randomize?.enabled && !resolvedFromPlan)) ? (
+                        <div className={isBento ? 'bento-grid' : `category-grid-widget-${columns?.mobile || 2}-${columns?.tablet || 3}-${columns?.desktop || 4}`}>
+                            {Array.from({ length: isBento ? 8 : (columns?.desktop || 4) }).map((_, index) => (
+                                <div
+                                    key={index}
+                                    className={`bg-gray-200 animate-pulse rounded-2xl ${isBento ? `bento-item-${index % 8}` : 'aspect-square'}`}
+                                    style={isBento ? { minHeight: '200px' } : {}}
+                                ></div>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className={isBento ? 'bento-grid' : `category-grid-widget-${columns?.mobile || 2}-${columns?.tablet || 3}-${columns?.desktop || 4}`}>
+                            {displayCategories.map((category, index) => (
+                                <AnimatedItem
+                                    key={category.id}
+                                    delayIndex={index % 6} // Slightly larger stagger loop for categories
+                                    enabled={enableEntryAnimation}
+                                    className={isBento ? `bento-item-${index % 8}` : ''}
+                                    style={isBento ? { minHeight: '200px' } : {}}
+                                >
+                                    <CategoryCard
+                                        category={category}
+                                        config={{ ...config, isBento }}
+                                        trackClick={trackClick}
+                                        widgetId={widgetId}
+                                        index={index}
+                                    />
+                                </AnimatedItem>
+                            ))}
+                        </div>
+                    )}
                 </>
             </div>
         </section>

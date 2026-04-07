@@ -22,7 +22,7 @@ export async function POST(request) {
                 'Content-Type': 'application/json',
                 'X-Tenant-ID': tenantId
             },
-            timeout: 10000 // 10s timeout for batch requests
+            timeout: 30000 // 30s timeout for batch requests
         });
 
         return NextResponse.json(backendResponse.data);

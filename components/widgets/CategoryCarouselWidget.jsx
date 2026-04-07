@@ -16,6 +16,7 @@ const formatCSSValue = (val) => {
 
 export default function CategoryCarouselWidget({ config = {} }) {
     const [categories, setCategories] = useState([]);
+    const [loading, setLoading] = useState(true);
     const [currentIndex, setCurrentIndex] = useState(0);
     const [isHovered, setIsHovered] = useState(null);
     const [tooltipPosition, setTooltipPosition] = useState({});
@@ -251,7 +252,10 @@ export default function CategoryCarouselWidget({ config = {} }) {
     // Main data fetching effect (Now only for NON-randomized or initial loading)
     useEffect(() => {
         if (config.randomize?.enabled) {
-            if (resolvedFromPlan) {
+            if (!resolvedFromPlan) {
+                setLoading(true);
+            } else {
+                setLoading(false);
                 // Track impressions when plan is ready
                 displayCategories.forEach((cat, index) => {
                     trackImpression({
@@ -289,6 +293,7 @@ export default function CategoryCarouselWidget({ config = {} }) {
 
     const fetchCategories = async () => {
         try {
+            setLoading(true);
             const response = await api.get('/api/categories');
 
             if (response.data.success) {
@@ -351,6 +356,8 @@ export default function CategoryCarouselWidget({ config = {} }) {
             }
         } catch (error) {
             console.error('Failed to fetch categories:', error);
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -449,10 +456,58 @@ export default function CategoryCarouselWidget({ config = {} }) {
     const currentItemsPerRow = getItemsPerRow();
 
 
-    // Empty State
+    // Empty State & Loading State
+    const isLoading = loading || (config.randomize?.enabled && !resolvedFromPlan);
+
+    if (isLoading) {
+        const skeletonCount = settings.randomCount || 6;
+        return (
+            <div
+                className="w-full relative transition-colors duration-300"
+                style={{
+                    background: settings.sectionBackground,
+                    paddingTop: formatCSSValue(settings.sectionPaddingTop),
+                    paddingBottom: formatCSSValue(settings.sectionPaddingBottom)
+                }}
+            >
+                <div className="max-w-7xl mx-auto px-4">
+                    {settings.showSectionTitle && (
+                        <div
+                            className="mb-8"
+                            style={{
+                                textAlign: settings.titleAlign,
+                                marginBottom: formatCSSValue(settings.titleBottomMargin)
+                            }}
+                        >
+                            <div className={`h-8 bg-gray-200 rounded w-48 animate-pulse ${settings.titleAlign === 'center' ? 'mx-auto' : ''}`}></div>
+                        </div>
+                    )}
+                    <div className="flex gap-4 overflow-hidden">
+                        {Array.from({ length: skeletonCount }).map((_, idx) => (
+                            <div
+                                key={idx}
+                                className="flex-shrink-0"
+                                style={{
+                                    flex: `0 0 ${100 / currentItemsPerRow}%`,
+                                    padding: `${getGapPadding()}px`
+                                }}
+                            >
+                                <div className="aspect-square bg-gray-200 animate-pulse rounded-2xl"></div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
     if (displayCategories.length === 0) {
         return (
-            <div className={`w-full ${settings.sectionPadding}`} style={{ background: settings.sectionBackground }}>
+            <div className={`w-full`} style={{ 
+                background: settings.sectionBackground,
+                paddingTop: formatCSSValue(settings.sectionPaddingTop),
+                paddingBottom: formatCSSValue(settings.sectionPaddingBottom)
+             }}>
                 <div className="max-w-7xl mx-auto px-4">
                     <div
                         className="text-center py-16 rounded-xl"

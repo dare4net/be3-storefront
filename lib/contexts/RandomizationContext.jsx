@@ -75,14 +75,39 @@ export function RandomizationProvider({ children }) {
     const resolveTimerRef = useRef(null);
     const resolvedRef = useRef(false);
 
+    // Persistence Helpers
+    const getStorageKey = useCallback((pageHandle) => `widget_random_plan_${pageHandle || 'home'}`, []);
+
     /**
      * Resolve the master plan from the backend
+     * @param {boolean} applyToState - If true, updates active React state. If false, only saves to storage.
      */
-    /**
-     * Resolve the master plan from the backend
-     */
-    const resolveMasterPlan = useCallback(async () => {
-        if (registryRef.current.size === 0) return;
+    const resolveMasterPlan = useCallback(async (applyToState = true) => {
+        const pageHandle = window.location.pathname.split('/').pop() || 'home';
+        
+        // If we are refreshing persistence in the background, we might not have a registry yet,
+        // but we want to fetch the "canonical" resolution for this page from the backend.
+        const widgetsToResolve = [];
+        const snapshot = new Map(registryRef.current);
+        registryRef.current.clear();
+
+        snapshot.forEach((data, id) => {
+            widgetsToResolve.push({
+                id,
+                intent: data.intent,
+                config: data.config
+            });
+        });
+
+        // Optimization: if background sync called and we have nothing to resolve, 
+        // we should still send any existing master plan widget IDs to ensure we get a full refresh
+        if (widgetsToResolve.length === 0 && !applyToState) {
+            Object.values(masterPlanRef.current).forEach(item => {
+                widgetsToResolve.push({ id: item.widgetId, intent: {}, config: {} });
+            });
+        }
+
+        if (widgetsToResolve.length === 0) return;
         if (isResolvingRef.current) return;
 
         setIsResolving(true);
@@ -90,45 +115,47 @@ export function RandomizationProvider({ children }) {
         resolvedRef.current = true;
 
         try {
-            const widgetsToResolve = [];
-            const snapshot = new Map(registryRef.current);
-            registryRef.current.clear();
+            console.log(`[RandomizationContext] Resolving plan (applyToState: ${applyToState})...`);
 
-            snapshot.forEach((data, id) => {
-                widgetsToResolve.push({
-                    id,
-                    intent: data.intent,
-                    config: data.config
-                });
-            });
-
-            // Fetch from backend (which will use the same Global Snapshot logic)
+            // Fetch from backend
             const response = await axios.post('/api/search/randomization/resolve', {
                 widgets: widgetsToResolve,
-                pageHandle: window.location.pathname.split('/').pop() || 'home'
+                pageHandle
             });
 
             if (response.data.success) {
+                const { results, cacheId, expiresIn } = response.data;
                 const newPlanMap = {};
-                if (Array.isArray(response.data.results)) {
-                    response.data.results.forEach(res => {
+                if (Array.isArray(results)) {
+                    results.forEach(res => {
                         newPlanMap[res.widgetId] = res;
                     });
                 }
 
-                setMasterPlan(prev => {
-                    const updated = { ...prev, ...newPlanMap };
-                    masterPlanRef.current = updated;
-                    return updated;
-                });
+                // Persistence: Always save to localStorage for the NEXT load
+                const expiry = Date.now() + (expiresIn * 1000);
+                localStorage.setItem(getStorageKey(pageHandle), JSON.stringify({
+                    cacheId,
+                    expiresAt: expiry,
+                    data: newPlanMap
+                }));
+
+                // Only update current UI if explicitly requested
+                if (applyToState) {
+                    setMasterPlan(prev => {
+                        const updated = { ...prev, ...newPlanMap };
+                        masterPlanRef.current = updated;
+                        return updated;
+                    });
+                }
             }
         } catch (error) {
-            console.error("[RandomizationContext] Failed to resolve stragglers:", error);
+            console.error("[RandomizationContext] Master plan resolution failed:", error);
         } finally {
             setIsResolving(false);
             isResolvingRef.current = false;
         }
-    }, []);
+    }, [axios, getStorageKey]);
 
     /**
      * Register a widget and trigger plan resolution
@@ -320,8 +347,70 @@ export function RandomizationProvider({ children }) {
         registerWidget, getStableWidgetId, seedPlan, batchProducts, registerProductFetch
     ]);
 
-    // --- Initialization ---
-    // Zero frontend state management. Pure Global Snapshot.
+    // --- Initialization & Background Sync ---
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+
+        const hydrateFromStorage = () => {
+            const pageHandle = window.location.pathname.split('/').pop() || 'home';
+            const key = getStorageKey(pageHandle);
+            const stored = localStorage.getItem(key);
+
+            if (!stored) return false;
+
+            try {
+                const { data, expiresAt, cacheId } = JSON.parse(stored);
+                console.log(`[RandomizationContext] Hydrating from localStorage (CacheID: ${cacheId})`);
+
+                // Immediate Hydration
+                setMasterPlan(data);
+                masterPlanRef.current = data;
+
+                // Background Revalidation after a small delay
+                setTimeout(async () => {
+                    console.log(`[RandomizationContext] Background checking cache validity...`);
+                    try {
+                        const check = await axios.post('/api/search/randomization/validate', {
+                            cacheId,
+                            pageHandle
+                        });
+
+                        const isExpired = Date.now() > expiresAt;
+
+                        if (!check.data.valid || isExpired) {
+                            console.log(`[RandomizationContext] Cache invalid or expired. Fetching fresh resolution for NEXT load.`);
+                            resolveMasterPlan(false);
+                        } else {
+                            console.log(`[RandomizationContext] Cache still valid.`);
+                        }
+                    } catch (e) {
+                        console.warn("[RandomizationContext] Background validation failed:", e);
+                    }
+                }, 2000);
+
+                return true;
+            } catch (e) {
+                console.error("[RandomizationContext] Failed to parse stored plan", e);
+                localStorage.removeItem(getStorageKey(window.location.pathname.split('/').pop() || 'home'));
+                return false;
+            }
+        };
+
+        // Run on initial mount
+        hydrateFromStorage();
+
+        // Also run on bfcache restoration (back/forward navigation)
+        // persisted=true means the page was restored from bfcache
+        const handlePageShow = (e) => {
+            if (e.persisted) {
+                console.log('[RandomizationContext] bfcache restore detected — re-hydrating.');
+                hydrateFromStorage();
+            }
+        };
+
+        window.addEventListener('pageshow', handlePageShow);
+        return () => window.removeEventListener('pageshow', handlePageShow);
+    }, [resolveMasterPlan, getStorageKey, axios]);
 
     return (
         <RandomizationContext.Provider value={value}>
