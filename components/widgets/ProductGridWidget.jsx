@@ -61,9 +61,6 @@ export default function ProductGridWidget({ config }) {
         enableEntryAnimation = false
     } = config;
 
-    const [products, setProducts] = useState([]);
-    const [metadata, setMetadata] = useState({});
-    const [loading, setLoading] = useState(true);
     const { addToCart } = useCart();
     const [addingToCart, setAddingToCart] = useState(null);
     const { toggleWishlist, isInWishlist } = useWishlist();
@@ -135,6 +132,14 @@ export default function ProductGridWidget({ config }) {
         // Fallback: Use context helper if available, or temporary local relabel
         return getStableWidgetId ? getStableWidgetId(config) : (config.id || `temp_${Math.random()}`);
     }, [config.id, getStableWidgetId, config]);
+
+    // Check cache synchronously to avoid skeleton blink on navigation
+    const cachedBatch = batchProducts?.[widgetId];
+    const hasCache = cachedBatch && !cachedBatch.loading && cachedBatch.results;
+
+    const [products, setProducts] = useState(() => hasCache ? cachedBatch.results : []);
+    const [metadata, setMetadata] = useState(() => hasCache && cachedBatch.pagination ? { pagination: cachedBatch.pagination } : {});
+    const [loading, setLoading] = useState(!hasCache);
 
     // Register with Master Plan on mount if randomization is enabled
     useEffect(() => {

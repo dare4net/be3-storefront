@@ -109,9 +109,6 @@ export default function ProductCarouselWidget({ config }) {
     const attributesCount = getDisplaySetting('attributesCount', 2);
     const tagsCount = getDisplaySetting('tagsCount', 3);
 
-    const [products, setProducts] = useState([]);
-    const [metadata, setMetadata] = useState({});
-    const [loading, setLoading] = useState(true);
     const [itemsToShow, setItemsToShow] = useState(4);
     const scrollContainerRef = useRef(null);
 
@@ -139,6 +136,14 @@ export default function ProductCarouselWidget({ config }) {
         // Fallback: Use context helper if available, or temporary local relabel
         return getStableWidgetId ? getStableWidgetId(config) : (config.id || `temp_${Math.random()}`);
     }, [config.id, getStableWidgetId, config]);
+
+    // Check cache synchronously to avoid skeleton blink on navigation
+    const cachedBatch = batchProducts?.[widgetId];
+    const hasCache = cachedBatch && !cachedBatch.loading && cachedBatch.results;
+
+    const [products, setProducts] = useState(() => hasCache ? cachedBatch.results : []);
+    const [metadata, setMetadata] = useState(() => hasCache && cachedBatch.pagination ? { pagination: cachedBatch.pagination } : {});
+    const [loading, setLoading] = useState(!hasCache);
 
     useEffect(() => {
         if (config.randomize?.enabled) {
