@@ -19,6 +19,17 @@ import ChatWidget from "@/components/chat/ChatWidget";
 
 import { getTenantAndTheme } from "@/lib/context";
 
+export async function generateViewport() {
+    const { theme } = await getTenantAndTheme();
+    return {
+        width: 'device-width',
+        initialScale: 1,
+        maximumScale: 1,
+        userScalable: false,
+        themeColor: theme?.variables?.primary || '#2563eb'
+    };
+}
+
 export async function generateMetadata() {
     const { tenant, theme } = await getTenantAndTheme();
     const logoUrl = theme?.variables?.logo || tenant?.settings?.logo_url;
@@ -26,7 +37,6 @@ export async function generateMetadata() {
     return {
         title: tenant?.name || "Storefront",
         description: tenant?.description || "Multi-tenant eCommerce Store",
-        viewport: 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0',
         icons: logoUrl ? {
             icon: logoUrl,
             shortcut: logoUrl,

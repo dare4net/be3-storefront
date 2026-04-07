@@ -10,10 +10,6 @@ html,
 body {
   color: rgb(var(--foreground-rgb));
   background: white;
-  overflow-x: hidden !important;
-  width: 100vw;
-  max-width: 100%;
-  position: relative;
   margin: 0;
   padding: 0;
   -webkit-text-size-adjust: 100%;
