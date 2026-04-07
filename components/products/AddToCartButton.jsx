@@ -23,7 +23,7 @@ export default function AddToCartButton({ product }) {
     };
 
     return (
-        <div className="flex flex-col sm:flex-row gap-4">
+        <div className="flex flex-row gap-3">
             {/* Quantity Selector */}
             <div className="flex items-center h-12 border rounded-lg bg-gray-50">
                 <button

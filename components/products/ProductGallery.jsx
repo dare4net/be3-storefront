@@ -19,7 +19,7 @@ export default function ProductGallery({ images = [], title }) {
     return (
         <div className="flex flex-col gap-4">
             {/* Main Image Container */}
-            <div className="relative w-full bg-white border border-gray-100 flex items-center justify-center overflow-hidden" style={{ height: '480px' }}>
+            <div className="relative w-full bg-white border border-gray-100 flex items-center justify-center overflow-hidden rounded-2xl aspect-square md:aspect-auto md:h-[480px] lg:h-[560px]">
                 <img
                     src={selectedImage}
                     alt={title}

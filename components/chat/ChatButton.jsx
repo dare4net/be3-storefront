@@ -17,8 +17,9 @@ export default function ChatButton({ productId, productName, className }) {
             onClick={() => openChat('product', productId, productName)}
             className={className}
         >
-            <MessageCircle className="w-4 h-4" />
-            Chat with Seller
+            <MessageCircle className="w-4 h-4 flex-shrink-0" />
+            <span className="hidden sm:inline">Chat with Seller</span>
+            <span className="sm:hidden">Chat</span>
         </button>
     );
 }

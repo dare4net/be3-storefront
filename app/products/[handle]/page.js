@@ -122,7 +122,7 @@ export default async function ProductPage({ params }) {
                 <span className="text-gray-900 font-bold truncate max-w-[200px]">{name}</span>
             </nav>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-12 lg:gap-16">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-12 lg:gap-16">
                 {/* Left Column: Gallery */}
                 <div className="space-y-8">
                     <ProductGallery images={galleryImages} title={name} />
