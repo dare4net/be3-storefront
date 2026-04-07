@@ -17,13 +17,23 @@ import { RandomizationProvider } from "@/lib/contexts/RandomizationContext";
 import { ChatProvider } from "@/components/providers/ChatContext";
 import ChatWidget from "@/components/chat/ChatWidget";
 
-export const metadata = {
-    title: "Storefront",
-    description: "Multi-tenant eCommerce Store",
-    viewport: 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0'
-};
-
 import { getTenantAndTheme } from "@/lib/context";
+
+export async function generateMetadata() {
+    const { tenant, theme } = await getTenantAndTheme();
+    const logoUrl = theme?.variables?.logo || tenant?.settings?.logo_url;
+
+    return {
+        title: tenant?.name || "Storefront",
+        description: tenant?.description || "Multi-tenant eCommerce Store",
+        viewport: 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0',
+        icons: logoUrl ? {
+            icon: logoUrl,
+            shortcut: logoUrl,
+            apple: logoUrl,
+        } : undefined,
+    };
+}
 
 async function getMenu(location, tenantId) {
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3000';
