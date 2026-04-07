@@ -1,6 +1,8 @@
 // Removed Google Font import due to Turbopack compatibility issue
 // Using system fonts instead
 import "./globals.css";
+import NextTopLoader from 'nextjs-toploader';
+import { Toaster } from 'react-hot-toast';
 import { headers } from "next/headers";
 import { TenantProvider } from "@/components/providers/TenantContext";
 import { CartProvider } from "@/components/providers/CartContext";
@@ -110,6 +112,8 @@ export default async function RootLayout({ children }) {
     return (
         <html lang="en">
             <body className={`${selectedFont.className} ${selectedFont.variable}`}>
+                <NextTopLoader color="#1e40af" showSpinner={false} shadow={false} height={4} zIndex={9999} />
+                <Toaster position="bottom-center" />
                 {themeCss && (
                     <style dangerouslySetInnerHTML={{ __html: themeCss }} />
                 )}

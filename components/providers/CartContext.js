@@ -4,6 +4,7 @@ import { createContext, useContext, useState, useEffect, useCallback } from "rea
 import api from "@/lib/axios";
 import { useTenant } from "@/components/providers/TenantContext";
 import { useAnalytics } from "@/lib/hooks/useAnalytics";
+import { toast } from "react-hot-toast";
 
 
 const CartContext = createContext({});
@@ -81,7 +82,26 @@ export function CartProvider({ children }) {
                 });
 
                 await fetchCart();
-                setIsOpen(true); // Open drawer on add
+                
+                if (window.innerWidth < 1024) {
+                    toast(
+                        (t) => (
+                            <div className="flex items-center justify-between w-full">
+                                <div className="flex-1 text-sm font-medium">🛒 Added to cart</div>
+                                <button 
+                                    onClick={() => { setIsOpen(true); toast.dismiss(t.id); }}
+                                    className="text-white bg-black hover:bg-gray-800 px-3 py-1.5 rounded-full text-xs font-bold uppercase ml-3"
+                                >
+                                    View
+                                </button>
+                            </div>
+                        ), 
+                        { id: 'mobile-cart-toast', duration: 4000, style: { minWidth: '300px' } }
+                    );
+                } else {
+                    setIsOpen(true);
+                }
+                
                 return true;
             }
         } catch (err) {

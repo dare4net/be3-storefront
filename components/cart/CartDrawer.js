@@ -23,7 +23,7 @@ export default function CartDrawer() {
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-50 flex justify-end">
+        <div className="fixed inset-0 z-[200] flex justify-end">
             {/* Backdrop */}
             <div
                 className="absolute inset-0 bg-black/50"
