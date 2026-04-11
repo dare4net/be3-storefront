@@ -130,16 +130,56 @@ export default function ProductGridWidget({ config }) {
     const widgetId = useMemo(() => {
         if (config.id) return config.id;
         // Fallback: Use context helper if available, or temporary local relabel
-        return getStableWidgetId ? getStableWidgetId(config) : (config.id || `temp_${Math.random()}`);
+        return getStableWidgetId ? getStableWidgetId(config, 'prod_grid') : (config.id || `temp_${Math.random()}`);
     }, [config.id, getStableWidgetId, config]);
 
     // Check cache synchronously to avoid skeleton blink on navigation
     const cachedBatch = batchProducts?.[widgetId];
     const hasCache = cachedBatch && !cachedBatch.loading && cachedBatch.results;
 
-    const [products, setProducts] = useState(() => hasCache ? cachedBatch.results : []);
-    const [metadata, setMetadata] = useState(() => hasCache && cachedBatch.pagination ? { pagination: cachedBatch.pagination } : {});
-    const [loading, setLoading] = useState(!hasCache);
+    // 1. Synchronous Hydration from LocalStorage (Instant Text)
+    const sanitizeProducts = (list) => {
+        if (!Array.isArray(list)) return [];
+        const seen = new Set();
+        return list.filter(p => {
+            if (!p || (!p.id && !p.slug)) return false;
+            const key = p.id || p.slug;
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+        });
+    };
+
+    const getInitialData = () => {
+        if (typeof window === 'undefined') return { products: [], metadata: {}, loading: true };
+        
+        try {
+            const pageHandle = window.location.pathname.split('/').pop() || 'home';
+            const key = `widget_random_plan_${pageHandle}`;
+            const stored = localStorage.getItem(key);
+            
+            if (stored) {
+                const { products: cachedBatches } = JSON.parse(stored);
+                const cached = cachedBatches?.[widgetId];
+                if (cached?.results) {
+                    return {
+                        products: sanitizeProducts(cached.results),
+                        metadata: cached.pagination ? { pagination: cached.pagination } : {},
+                        loading: false
+                    };
+                }
+            }
+        } catch (e) {
+            console.warn("[ProductGridWidget] Sync hydration failed", e);
+        }
+        return { products: [], metadata: {}, loading: true };
+    };
+
+    const initialData = getInitialData();
+
+    const [products, setProducts] = useState(initialData.products);
+    const [metadata, setMetadata] = useState(initialData.metadata);
+    const [loading, setLoading] = useState(initialData.loading);
 
     // Register with Master Plan on mount if randomization is enabled
     useEffect(() => {
@@ -177,7 +217,7 @@ export default function ProductGridWidget({ config }) {
     useEffect(() => {
         if (batchData && !batchData.loading) {
             if (batchData.results) {
-                setProducts(batchData.results);
+                setProducts(sanitizeProducts(batchData.results));
                 setLoading(false);
             }
             if (batchData.pagination) {
@@ -251,9 +291,11 @@ export default function ProductGridWidget({ config }) {
                 if (collectionSlug) params.collection_slug = collectionSlug;
             }
 
-            const res = await api.get('/api/products', { params });
-            setProducts(res.data.data || []);
-            setMetadata(res.data);
+            const res = await api.get('/products', { params });
+            const fetchedProducts = res.data.data || [];
+            const sanitized = sanitizeProducts(fetchedProducts);
+            setProducts(sanitized);
+            setMetadata(res.data.metadata || {});
         } catch (error) {
             console.error('[ProductGridWidget] Failed to fetch products', error);
         } finally {
@@ -316,9 +358,7 @@ export default function ProductGridWidget({ config }) {
         }
 
         // If autogenerate is on but we couldn't resolve a base yet,
-        // and it's still loading or metadata is empty, we return nothing
-        // to avoid "flickering" to the manual title
-        if (!base && (loading || Object.keys(metadata).length === 0)) {
+        if (!base && loading) {
             return '';
         }
 
@@ -376,7 +416,7 @@ export default function ProductGridWidget({ config }) {
     };
 
 
-    // Calculate scale factor based on column count
+    // Calculate scale factor based on column count (Density Scaling)
     const getScaleFactor = () => {
         const cols = columns.desktop || 4;
         if (cols >= 7) return 0.75;
@@ -422,80 +462,11 @@ export default function ProductGridWidget({ config }) {
         }
     };
 
-    // Show skeleton loader if fetching randomization data or products
-    if (loading || (config.randomize?.enabled && isResolving)) {
-        const skeletonCount = limit || 8;
-        const gridCols = {
-            mobile: columns?.mobile || 1,
-            tablet: columns?.tablet || 2,
-            desktop: columns?.desktop || 4
-        };
-        return (
-            <section
-                className="transition-colors duration-300"
-                style={{
-                    ...getBackgroundStyle(),
-                    paddingTop: formatCSSValue(sectionPaddingTop),
-                    paddingBottom: formatCSSValue(sectionPaddingBottom)
-                }}
-            >
-                {showTitle && displayTitle && config.fullWidthTitle && (
-                    <div className="container mx-auto px-4 flex items-center justify-between mb-4" style={styles.titleContainer}>
-                        <div className="h-8 bg-gray-200 rounded w-48 animate-pulse"></div>
-                        {showSeeAll && (
-                            <div className="h-6 bg-gray-200 rounded w-20 animate-pulse"></div>
-                        )}
-                    </div>
-                )}
-                <div className="container mx-auto px-4">
-                    {showTitle && displayTitle && !config.fullWidthTitle && (
-                        <div className="flex items-center justify-between mb-4" style={styles.titleContainer}>
-                            <div className="h-8 bg-gray-200 rounded w-48 animate-pulse"></div>
-                            {showSeeAll && (
-                                <div className="h-6 bg-gray-200 rounded w-20 animate-pulse"></div>
-                            )}
-                        </div>
-                    )}
-                    <div
-                        className={`grid grid-cols-${gridCols.mobile} md:grid-cols-${gridCols.tablet} lg:grid-cols-${gridCols.desktop}`}
-                        style={{
-                            gap: formatCSSValue(gridGap)
-                        }}
-                    >
-                        {Array.from({ length: skeletonCount }).map((_, idx) => (
-                            <div
-                                key={idx}
-                                className="bg-white rounded-lg overflow-hidden h-full flex flex-col"
-                                style={{
-                                    boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'
-                                }}
-                            >
-                                <div className="aspect-square bg-gray-200 animate-pulse"></div>
-                                <div className="p-4 flex-1 flex flex-col space-y-3">
-                                    <div className="h-4 bg-gray-200 rounded w-3/4 animate-pulse"></div>
-                                    {effectiveShowDescription && (
-                                        <div className="space-y-2">
-                                            <div className="h-3 bg-gray-200 rounded w-full animate-pulse"></div>
-                                            <div className="h-3 bg-gray-200 rounded w-5/6 animate-pulse"></div>
-                                        </div>
-                                    )}
-                                    {effectiveShowPrice && (
-                                        <div className="h-5 bg-gray-200 rounded w-20 animate-pulse"></div>
-                                    )}
-                                    {effectiveShowAddToCart && (
-                                        <div className="h-10 bg-gray-200 rounded animate-pulse mt-auto"></div>
-                                    )}
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            </section>
-        );
-    }
+    // Show per-card skeleton if loading and no products in cache
+    const showSkeletons = products.length === 0 && (loading || (config.randomize?.enabled && isResolving));
 
-    // Don't render anything if no products found
-    if (!products || products.length === 0) {
+    // Don't render anything if no products found and not loading
+    if (!showSkeletons && products.length === 0) {
         return null;
     }
 
@@ -563,233 +534,261 @@ export default function ProductGridWidget({ config }) {
                         gap: formatCSSValue(gridGap)
                     }}
                 >
-                    {products.map((product, index) => (
-                        <AnimatedItem
-                            key={product.id}
-                            delayIndex={index % 4}
-                            enabled={enableEntryAnimation}
-                            className="group block h-full cursor-pointer"
-                            onClick={() => {
-                                window.location.href = `/products/${product.slug || product.id}?ref_type=widget&ref_id=${widgetId}`;
-                                trackClick({
-                                    entity_type: 'product',
-                                    entity_id: product.id,
-                                    placement_id: widgetId,
-                                    placement_type: config.placement_type || 'widget',
-                                    position: index + 1,
-                                    metadata: {
-                                        widget_title: displayTitle || title,
-                                        product_name: product.name,
-                                        product_slug: product.slug
-                                    }
-                                });
-                            }}
-                        >
+                    {showSkeletons ? (
+                         Array.from({ length: limit || 8 }).map((_, idx) => (
                             <div
-                                className={`h-full overflow-hidden transition-all duration-300 relative flex flex-col`}
+                                key={`skeleton-${idx}`}
+                                className="bg-white rounded-lg overflow-hidden h-full flex flex-col"
                                 style={{
-                                    backgroundColor: cardStyle.backgroundColor,
-                                    borderWidth: '1px',
-                                    borderStyle: 'solid',
-                                    borderColor: cardStyle.borderColor,
-                                    borderRadius: cardStyle.borderRadius,
-                                    transform: cardStyle.hoverLift ? 'translateY(0)' : 'none',
-                                    boxShadow: cardStyle.shadow === 'none' ? 'none' :
-                                        cardStyle.shadow === 'sm' ? '0 1px 2px 0 rgb(0 0 0 / 0.05)' :
-                                            cardStyle.shadow === 'md' ? '0 4px 6px -1px rgb(0 0 0 / 0.1)' :
-                                                cardStyle.shadow === 'lg' ? '0 10px 15px -3px rgb(0 0 0 / 0.1)' : '0 20px 25px -5px rgb(0 0 0 / 0.1)'
+                                    boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
+                                    borderRadius: cardStyle.borderRadius
                                 }}
                             >
-                                {/* Product Image */}
-                                <div
-                                    className={`relative bg-gray-100 overflow-hidden block aspect-square transition-transform duration-500`}
-                                >
-                                    {(product.image_url || product.thumbnail_url || product.image) ? (
-                                        <img
-                                            src={product.image_url || product.thumbnail_url || product.image}
-                                            alt={product.name}
-                                            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                                            loading="lazy"
-                                        />
-                                    ) : (
-                                        <div className="absolute inset-0 w-full h-full flex items-center justify-center text-gray-400">
-                                            No Image
+                                <div className="aspect-square bg-gray-200 animate-pulse"></div>
+                                <div className="p-4 flex-1 flex flex-col space-y-3">
+                                    <div className="h-4 bg-gray-200 rounded w-3/4 animate-pulse"></div>
+                                    {effectiveShowDescription && (
+                                        <div className="space-y-2">
+                                            <div className="h-3 bg-gray-200 rounded w-full animate-pulse"></div>
+                                            <div className="h-3 bg-gray-200 rounded w-5/6 animate-pulse"></div>
                                         </div>
                                     )}
-
-                                    {/* Wishlist Button */}
-                                    <button
-                                        onClick={(e) => handleWishlistToggle(e, product)}
-                                        className="absolute top-2 left-2 p-1.5 rounded-full bg-white/80 hover:bg-white text-gray-600 hover:text-red-500 transition-all shadow-sm z-10"
-                                        style={{ padding: `${0.35 * scale}rem` }}
-                                    >
-                                        <Heart
-                                            className={`transition-colors ${isInWishlist(product.id) ? 'fill-red-500 text-red-500' : ''}`}
-                                            style={{ width: `${1.2 * scale}rem`, height: `${1.2 * scale}rem` }}
-                                        />
-                                    </button>
-
-                                    {effectiveShowFeaturedBadge && product.is_featured && (
-                                        <div
-                                            className="absolute top-3 right-3 font-bold rounded-full shadow-sm z-10"
-                                            style={{
-                                                backgroundColor: colors.badgeBackground || '#fbbf24',
-                                                color: colors.badgeText || '#ffffff',
-                                                fontSize: `${0.75 * scale}rem`,
-                                                padding: `${0.25 * scale}rem ${0.75 * scale}rem`
-                                            }}
-                                        >
-                                            Featured
-                                        </div>
-                                    )}
-
-                                    {/* Overlay Actions (Desktop) */}
-                                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300" />
+                                    {effectiveShowPrice && <div className="h-5 bg-gray-200 rounded w-20 animate-pulse"></div>}
+                                    {effectiveShowAddToCart && <div className="h-10 bg-gray-200 rounded animate-pulse mt-auto"></div>}
                                 </div>
-
-                                {/* Product Info */}
-                                <div className="flex flex-col flex-grow" style={{ padding: `${1.1 * scale}rem` }}>
-                                    <div>
-                                        <h3
-                                            className={`font-semibold mb-2 transition-colors hover:text-blue-600 ${scale < 0.8 ? 'line-clamp-1' : 'line-clamp-2'}`}
-                                            style={{
-                                                color: colors.text,
-                                                fontSize: `clamp(${0.875 * scale}rem, ${0.75 * scale}rem + ${0.5 * scale}vw, ${1.125 * scale}rem)`,
-                                                lineHeight: `clamp(${1.1 * scale}rem, ${1 * scale}rem + ${0.5 * scale}vw, ${1.5 * scale}rem)`
-                                            }}
-                                        >
-                                            {product.name}
-                                        </h3>
-                                    </div>
-                                    <div className="space-y-2" style={{ marginTop: `${0.4 * scale}rem` }}>
-                                        {effectiveShowDescription && product.description && (
-                                            <p className={`text-gray-500 ${scale < 0.8 ? 'line-clamp-1' : 'line-clamp-2'}`} style={{ fontSize: `clamp(${0.75 * scale}rem, ${0.7 * scale}rem + ${0.2 * scale}vw, ${0.875 * scale}rem)` }}>
-                                                {product.description}
-                                            </p>
+                            </div>
+                        ))
+                    ) : (
+                        products.map((product, index) => (
+                            <AnimatedItem
+                                key={`${product.id || product.slug}-${index}`}
+                                delayIndex={index % 4}
+                                enabled={enableEntryAnimation}
+                                className="group block h-full cursor-pointer"
+                                onClick={() => {
+                                    window.location.href = `/products/${product.slug || product.id}?ref_type=widget&ref_id=${widgetId}`;
+                                    trackClick({
+                                        entity_type: 'product',
+                                        entity_id: product.id,
+                                        placement_id: widgetId,
+                                        placement_type: config.placement_type || 'widget',
+                                        position: index + 1,
+                                        metadata: {
+                                            widget_title: displayTitle || title,
+                                            product_name: product.name,
+                                            product_slug: product.slug
+                                        }
+                                    });
+                                }}
+                            >
+                                <div
+                                    className={`h-full overflow-hidden transition-all duration-300 relative flex flex-col`}
+                                    style={{
+                                        backgroundColor: cardStyle.backgroundColor,
+                                        borderWidth: '1px',
+                                        borderStyle: 'solid',
+                                        borderColor: cardStyle.borderColor,
+                                        borderRadius: cardStyle.borderRadius,
+                                        transform: cardStyle.hoverLift ? 'translateY(0)' : 'none',
+                                        boxShadow: cardStyle.shadow === 'none' ? 'none' :
+                                            cardStyle.shadow === 'sm' ? '0 1px 2px 0 rgb(0 0 0 / 0.05)' :
+                                                cardStyle.shadow === 'md' ? '0 4px 6px -1px rgb(0 0 0 / 0.1)' :
+                                                    cardStyle.shadow === 'lg' ? '0 10px 15px -3px rgb(0 0 0 / 0.1)' : '0 20px 25px -5px rgb(0 0 0 / 0.1)'
+                                    }}
+                                >
+                                    {/* Product Image */}
+                                    <div
+                                        className={`relative bg-gray-100 overflow-hidden block aspect-square transition-transform duration-500`}
+                                    >
+                                        {(product.image_url || product.thumbnail_url || product.image) ? (
+                                            <img
+                                                src={product.image_url || product.thumbnail_url || product.image}
+                                                alt={product.name}
+                                                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                                                loading="lazy"
+                                            />
+                                        ) : (
+                                            <div className="absolute inset-0 w-full h-full flex items-center justify-center text-gray-400">
+                                                No Image
+                                            </div>
                                         )}
 
-                                        {(effectiveShowVendor || effectiveShowAttributes) && product.attributes && (
-                                            <div className="flex flex-wrap gap-1 mt-1">
-                                                {/* Dedicated Vendor Badge */}
-                                                {effectiveShowVendor && product.attributes.vendor && (
-                                                    <span className="px-2 py-0.5 bg-blue-50 border border-blue-100 text-blue-700 rounded font-medium flex items-center gap-1" style={{ fontSize: `clamp(${0.65 * scale}rem, ${0.6 * scale}rem + ${0.1 * scale}vw, ${0.75 * scale}rem)` }}>
-                                                        {product.attributes.vendor}
+                                        {/* Wishlist Button */}
+                                        <button
+                                            onClick={(e) => handleWishlistToggle(e, product)}
+                                            className="absolute top-2 left-2 p-1.5 rounded-full bg-white/80 hover:bg-white text-gray-600 hover:text-red-500 transition-all shadow-sm z-10"
+                                            style={{ padding: `${0.35 * scale}rem` }}
+                                        >
+                                            <Heart
+                                                className={`transition-colors ${isInWishlist(product.id) ? 'fill-red-500 text-red-500' : ''}`}
+                                                style={{ width: `${1.2 * scale}rem`, height: `${1.2 * scale}rem` }}
+                                            />
+                                        </button>
+
+                                        {effectiveShowFeaturedBadge && product.is_featured && (
+                                            <div
+                                                className="absolute top-3 right-3 font-bold rounded-full shadow-sm z-10"
+                                                style={{
+                                                    backgroundColor: colors.badgeBackground || '#fbbf24',
+                                                    color: colors.badgeText || '#ffffff',
+                                                    fontSize: `${0.75 * scale}rem`,
+                                                    padding: `${0.25 * scale}rem ${0.75 * scale}rem`
+                                                }}
+                                            >
+                                                Featured
+                                            </div>
+                                        )}
+
+                                        {/* Overlay Actions (Desktop) */}
+                                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300" />
+                                    </div>
+
+                                    {/* Product Info */}
+                                    <div className="flex flex-col flex-grow" style={{ padding: `${1.1 * scale}rem` }}>
+                                        <div>
+                                            <h3
+                                                className={`font-semibold mb-2 transition-colors hover:text-blue-600 ${scale < 0.8 ? 'line-clamp-1' : 'line-clamp-2'}`}
+                                                style={{
+                                                    color: colors.text,
+                                                    fontSize: `clamp(${0.875 * scale}rem, ${0.75 * scale}rem + ${0.5 * scale}vw, ${1.125 * scale}rem)`,
+                                                    lineHeight: `clamp(${1.1 * scale}rem, ${1 * scale}rem + ${0.5 * scale}vw, ${1.5 * scale}rem)`
+                                                }}
+                                            >
+                                                {product.name}
+                                            </h3>
+                                        </div>
+                                        <div className="space-y-2" style={{ marginTop: `${0.4 * scale}rem` }}>
+                                            {effectiveShowDescription && product.description && (
+                                                <p className={`text-gray-500 ${scale < 0.8 ? 'line-clamp-1' : 'line-clamp-2'}`} style={{ fontSize: `clamp(${0.75 * scale}rem, ${0.7 * scale}rem + ${0.2 * scale}vw, ${0.875 * scale}rem)` }}>
+                                                    {product.description}
+                                                </p>
+                                            )}
+
+                                            {(effectiveShowVendor || effectiveShowAttributes) && product.attributes && (
+                                                <div className="flex flex-wrap gap-1 mt-1">
+                                                    {/* Dedicated Vendor Badge */}
+                                                    {effectiveShowVendor && product.attributes.vendor && (
+                                                        <span className="px-2 py-0.5 bg-blue-50 border border-blue-100 text-blue-700 rounded font-medium flex items-center gap-1" style={{ fontSize: `clamp(${0.65 * scale}rem, ${0.6 * scale}rem + ${0.1 * scale}vw, ${0.75 * scale}rem)` }}>
+                                                            {product.attributes.vendor}
+                                                        </span>
+                                                    )}
+
+                                                    {/* Remaining Attributes (Excluding Vendor) */}
+                                                    {effectiveShowAttributes && Object.entries(product.attributes)
+                                                        .filter(([key]) => key !== 'vendor')
+                                                        .slice(0, attributesCount)
+                                                        .map(([key, value], i) => (
+                                                            <span key={i} className="px-2 py-0.5 bg-gray-50 border border-gray-100 text-gray-600 rounded" style={{ fontSize: `clamp(${0.65 * scale}rem, ${0.6 * scale}rem + ${0.1 * scale}vw, ${0.75 * scale}rem)` }}>
+                                                                {value}
+                                                            </span>
+                                                        ))
+                                                    }
+                                                </div>
+                                            )}
+
+                                            {effectiveShowTags && product.tags && Array.isArray(product.tags) && product.tags.length > 0 && (
+                                                <div className="flex flex-wrap gap-1">
+                                                    {product.tags
+                                                        .filter(tag => !product.attributes?.vendor || tag.toLowerCase() !== product.attributes.vendor.toLowerCase())
+                                                        .slice(0, tagsCount)
+                                                        .map((tag, i) => (
+                                                            <span key={i} className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full" style={{ fontSize: `clamp(${0.65 * scale}rem, ${0.6 * scale}rem + ${0.1 * scale}vw, ${0.75 * scale}rem)` }}>
+                                                                {tag}
+                                                            </span>
+                                                        ))
+                                                    }
+                                                </div>
+                                            )}
+                                            {effectiveShowSocialProof && (
+                                                <div className="flex items-center gap-3 text-gray-400 mt-2" style={{ fontSize: `${0.75 * scale}rem` }}>
+                                                    <span className="flex items-center gap-1">
+                                                        <Eye className="w-3 h-3" style={{ width: `${0.75 * scale}rem`, height: `${0.75 * scale}rem` }} />
+                                                        {product.stats?.impressions || 0}
+                                                    </span>
+                                                    <span className="flex items-center gap-1">
+                                                        <Heart className="w-3 h-3" style={{ width: `${0.75 * scale}rem`, height: `${0.75 * scale}rem` }} />
+                                                        {product.stats?.wishlist_count || 0}
+                                                    </span>
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div className="mt-auto flex items-center justify-between gap-2" style={{ paddingTop: `${1 * scale}rem` }}>
+                                            <div className="flex flex-col">
+                                                {effectiveShowPrice && (
+                                                    <span className="font-bold" style={{
+                                                        color: colors.price,
+                                                        // Use scale for density, clamp for viewport (sync with name scaling)
+                                                        fontSize: `clamp(${0.95 * scale}rem, ${0.85 * scale}rem + ${0.5 * scale}vw, ${1.25 * scale}rem)`
+                                                    }}>
+                                                        ${parseFloat(product.price).toFixed(2)}
                                                     </span>
                                                 )}
-
-                                                {/* Remaining Attributes (Excluding Vendor) */}
-                                                {effectiveShowAttributes && Object.entries(product.attributes)
-                                                    .filter(([key]) => key !== 'vendor')
-                                                    .slice(0, attributesCount)
-                                                    .map(([key, value], i) => (
-                                                        <span key={i} className="px-2 py-0.5 bg-gray-50 border border-gray-100 text-gray-600 rounded" style={{ fontSize: `clamp(${0.65 * scale}rem, ${0.6 * scale}rem + ${0.1 * scale}vw, ${0.75 * scale}rem)` }}>
-                                                            {value}
-                                                        </span>
-                                                    ))
-                                                }
                                             </div>
-                                        )}
-
-                                        {effectiveShowTags && product.tags && Array.isArray(product.tags) && product.tags.length > 0 && (
-                                            <div className="flex flex-wrap gap-1">
-                                                {product.tags
-                                                    .filter(tag => !product.attributes?.vendor || tag.toLowerCase() !== product.attributes.vendor.toLowerCase())
-                                                    .slice(0, tagsCount)
-                                                    .map((tag, i) => (
-                                                        <span key={i} className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full" style={{ fontSize: `clamp(${0.65 * scale}rem, ${0.6 * scale}rem + ${0.1 * scale}vw, ${0.75 * scale}rem)` }}>
-                                                            {tag}
-                                                        </span>
-                                                    ))
-                                                }
+                                            <div className="flex items-center gap-2">
+                                                {effectiveShowChat && (
+                                                    <button
+                                                        className="hidden md:block rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
+                                                        title="Chat with Seller"
+                                                        onClick={(e) => {
+                                                            e.preventDefault();
+                                                            openChat('product', product.id, product.name);
+                                                        }}
+                                                        style={{ padding: `${0.625 * scale}rem` }}
+                                                    >
+                                                        <MessageCircle style={{ width: `${1.25 * scale}rem`, height: `${1.25 * scale}rem` }} />
+                                                    </button>
+                                                )}
+                                                {effectiveShowViewDetails && (
+                                                    <Link
+                                                        href={`/products/${product.slug || product.id}?ref_type=widget&ref_id=${widgetId}`}
+                                                        className="hidden md:block rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
+                                                        onClick={() => trackClick({
+                                                            entity_type: 'product',
+                                                            entity_id: product.id,
+                                                            placement_id: widgetId,
+                                                            placement_type: 'widget',
+                                                            position: index + 1,
+                                                            metadata: { type: 'quick_view' }
+                                                        })}
+                                                        style={{ padding: `${0.625 * scale}rem` }}
+                                                        aria-label="View Details"
+                                                    >
+                                                        <Eye style={{ width: `${1.25 * scale}rem`, height: `${1.25 * scale}rem` }} />
+                                                    </Link>
+                                                )}
+                                                {effectiveShowAddToCart && (
+                                                    <button
+                                                        onClick={(e) => handleAddToCart(e, product)}
+                                                        disabled={addingToCart === product.id}
+                                                        className="rounded-full transition-all duration-200 transform hover:scale-105 active:scale-95 shadow-md flex items-center gap-2"
+                                                        style={{
+                                                            backgroundColor: addingToCart === product.id ? '#10b981' : (colors.accent || '#3b82f6'),
+                                                            color: '#ffffff',
+                                                            padding: deviceType === 'mobile' 
+                                                                ? `${0.5 * scale}rem ${0.8 * scale}rem` 
+                                                                : `${0.625 * scale}rem ${1 * scale}rem`
+                                                        }}
+                                                        aria-label="Add to Cart"
+                                                    >
+                                                        {addingToCart === product.id ? (
+                                                            <Check className="animate-in zoom-in spin-in-50 duration-300" style={{ width: `${1.25 * scale}rem`, height: `${1.25 * scale}rem` }} />
+                                                        ) : (
+                                                            <>
+                                                                <ShoppingCart style={{ width: `${1.25 * scale}rem`, height: `${1.25 * scale}rem` }} />
+                                                                <span className="font-medium hidden md:inline" style={{ fontSize: `${0.875 * scale}rem` }}>Add</span>
+                                                            </>
+                                                        )}
+                                                    </button>
+                                                )}
                                             </div>
-                                        )}
-                                        {effectiveShowSocialProof && (
-                                            <div className="flex items-center gap-3 text-gray-400 mt-2" style={{ fontSize: `${0.75 * scale}rem` }}>
-                                                <span className="flex items-center gap-1">
-                                                    <Eye className="w-3 h-3" style={{ width: `${0.75 * scale}rem`, height: `${0.75 * scale}rem` }} />
-                                                    {product.stats?.impressions || 0}
-                                                </span>
-                                                <span className="flex items-center gap-1">
-                                                    <Heart className="w-3 h-3" style={{ width: `${0.75 * scale}rem`, height: `${0.75 * scale}rem` }} />
-                                                    {product.stats?.wishlist_count || 0}
-                                                </span>
-                                            </div>
-                                        )}
-                                    </div>
-                                    <div className="mt-auto flex items-center justify-between gap-2" style={{ paddingTop: `${1 * scale}rem` }}>
-                                        <div className="flex flex-col">
-                                            {effectiveShowPrice && (
-                                                <span className="font-bold" style={{
-                                                    color: colors.price,
-                                                    fontSize: `clamp(${1 * scale}rem, ${0.9 * scale}rem + ${0.6 * scale}vw, ${1.25 * scale}rem)`
-                                                }}>
-                                                    ${parseFloat(product.price).toFixed(2)}
-                                                </span>
-                                            )}
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            {effectiveShowChat && (
-                                                <button
-                                                    className="hidden md:block rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
-                                                    title="Chat with Seller"
-                                                    onClick={(e) => {
-                                                        e.preventDefault();
-                                                        openChat('product', product.id, product.name);
-                                                    }}
-                                                    style={{ padding: `${0.625 * scale}rem` }}
-                                                >
-                                                    <MessageCircle style={{ width: `${1.25 * scale}rem`, height: `${1.25 * scale}rem` }} />
-                                                </button>
-                                            )}
-                                            {effectiveShowViewDetails && (
-                                                <Link
-                                                    href={`/products/${product.slug || product.id}?ref_type=widget&ref_id=${widgetId}`}
-                                                    className="hidden md:block rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
-                                                    onClick={() => trackClick({
-                                                        entity_type: 'product',
-                                                        entity_id: product.id,
-                                                        placement_id: widgetId,
-                                                        placement_type: 'widget',
-                                                        position: index + 1,
-                                                        metadata: { type: 'quick_view' }
-                                                    })}
-                                                    style={{ padding: `${0.625 * scale}rem` }}
-                                                    aria-label="View Details"
-                                                >
-                                                    <Eye style={{ width: `${1.25 * scale}rem`, height: `${1.25 * scale}rem` }} />
-                                                </Link>
-                                            )}
-                                            {effectiveShowAddToCart && (
-                                                <button
-                                                    onClick={(e) => handleAddToCart(e, product)}
-                                                    disabled={addingToCart === product.id}
-                                                    className="rounded-full transition-all duration-200 transform hover:scale-105 active:scale-95 shadow-md flex items-center gap-2"
-                                                    style={{
-                                                        backgroundColor: addingToCart === product.id ? '#10b981' : (colors.accent || '#3b82f6'),
-                                                        color: '#ffffff',
-                                                        padding: `${0.625 * scale}rem ${1 * scale}rem`
-                                                    }}
-                                                    aria-label="Add to Cart"
-                                                >
-                                                    {addingToCart === product.id ? (
-                                                        <Check className="animate-in zoom-in spin-in-50 duration-300" style={{ width: `${1.25 * scale}rem`, height: `${1.25 * scale}rem` }} />
-                                                    ) : (
-                                                        <>
-                                                            <ShoppingCart style={{ width: `${1.25 * scale}rem`, height: `${1.25 * scale}rem` }} />
-                                                            <span className="font-medium hidden md:inline" style={{ fontSize: `${0.875 * scale}rem` }}>Add</span>
-                                                        </>
-                                                    )}
-                                                </button>
-                                            )}
                                         </div>
                                     </div>
+
                                 </div>
-
-                            </div>
-                        </AnimatedItem>
-                    ))}
-                </div>
-            </div>
+                            </AnimatedItem>
+                        ))
+                    )}
+                </div>            </div>
 
 
             {enableEntryAnimation && <AnimationStyles />}

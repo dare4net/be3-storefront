@@ -174,14 +174,24 @@ export default function CategoryGridWidget({ config }) {
     const isBento = layoutMode === 'bento';
     const { trackImpression, trackClick } = useAnalytics();
     const { masterPlan, registerWidget, getStableWidgetId } = useRandomizationContext();
-    const widgetId = useMemo(() => config.id || (getStableWidgetId ? getStableWidgetId(config) : `cat_grid_${Math.random().toString(36).substr(2, 9)}`), [config.id, getStableWidgetId, config]);
+    
+    // Generate stable ID for caching synchronization if not explicitly provided
+    // We use the context helper to ensure frontend/backend ID alignment
+    const widgetId = useMemo(() => {
+        if (config.id) return config.id;
+        // Fallback: Use context helper if available, or temporary local relabel
+        return getStableWidgetId ? getStableWidgetId(config, 'cat_grid') : (config.id || `temp_${Math.random()}`);
+    }, [config.id, getStableWidgetId, config]);
 
     const [categories, setCategories] = useState([]);
-    const [loading, setLoading] = useState(true);
+    
+    // 1. Initial State Resolution (Instant Text)
+    const stableId = getStableWidgetId(config, 'cat_grid');
+    const resolvedFromPlan = masterPlan?.[stableId];
+    
+    const [loading, setLoading] = useState(!resolvedFromPlan && config.randomize?.enabled);
 
     // Use modern randomization context
-    const stableId = getStableWidgetId(config, widgetId);
-    const resolvedFromPlan = masterPlan[stableId];
     const effectiveSourceType = resolvedFromPlan?.resolvedType || sourceType;
     const effectiveSettings = {
         ...config,
@@ -210,12 +220,24 @@ export default function CategoryGridWidget({ config }) {
     // 2. Computed Categories (Render-Phase Resolution)
     // This eliminates the flicker by calculating data immediately if the plan exists
     const displayCategories = useMemo(() => {
-        if (!config.randomize?.enabled) return categories;
-        if (!resolvedFromPlan) return [];
+        let list = [];
+        if (!config.randomize?.enabled) {
+            list = categories;
+        } else if (resolvedFromPlan) {
+            list = resolvedFromPlan.multiple
+                ? resolvedFromPlan.selections.map(s => s.selection).filter(Boolean)
+                : (resolvedFromPlan.selection ? [resolvedFromPlan.selection] : []);
+        }
 
-        return resolvedFromPlan.multiple
-            ? resolvedFromPlan.selections.map(s => s.selection).filter(Boolean)
-            : (resolvedFromPlan.selection ? [resolvedFromPlan.selection] : []);
+        // Deduplicate and sanitize
+        const seen = new Set();
+        return list.filter(cat => {
+            if (!cat || (!cat.id && !cat.slug)) return false;
+            const key = cat.id || cat.slug;
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+        });
     }, [categories, resolvedFromPlan, config.randomize?.enabled]);
 
     // Main data fetching effect (Now only for NON-randomized or initial loading)
@@ -458,7 +480,7 @@ export default function CategoryGridWidget({ config }) {
                         }} />
                     )}
 
-                    {(loading || (config.randomize?.enabled && !resolvedFromPlan)) ? (
+                    {displayCategories.length === 0 && (loading || (config.randomize?.enabled && !resolvedFromPlan)) ? (
                         <div className={isBento ? 'bento-grid' : `category-grid-widget-${columns?.mobile || 2}-${columns?.tablet || 3}-${columns?.desktop || 4}`}>
                             {Array.from({ length: isBento ? 8 : (columns?.desktop || 4) }).map((_, index) => (
                                 <div
@@ -472,7 +494,7 @@ export default function CategoryGridWidget({ config }) {
                         <div className={isBento ? 'bento-grid' : `category-grid-widget-${columns?.mobile || 2}-${columns?.tablet || 3}-${columns?.desktop || 4}`}>
                             {displayCategories.map((category, index) => (
                                 <AnimatedItem
-                                    key={category.id}
+                                    key={`${category.id || category.slug}-${index}`}
                                     delayIndex={index % 6} // Slightly larger stagger loop for categories
                                     enabled={enableEntryAnimation}
                                     className={isBento ? `bento-item-${index % 8}` : ''}

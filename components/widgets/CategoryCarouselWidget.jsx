@@ -15,8 +15,23 @@ const formatCSSValue = (val) => {
 };
 
 export default function CategoryCarouselWidget({ config = {} }) {
+    // 2. Context & Hooks
+    const { masterPlan, registerWidget, getStableWidgetId } = useRandomizationContext();
+    const { trackImpression, trackClick } = useAnalytics();
+    
+    // 1. Initial State Resolution (Instant Text)
+    const widgetId = useMemo(() => {
+        if (config.id) return config.id;
+        // Fallback: Use context helper if available, or temporary local relabel
+        return getStableWidgetId ? getStableWidgetId(config, 'cat_carousel') : (config.id || `temp_${Math.random()}`);
+    }, [config.id, getStableWidgetId, config]);
+    
+    // Ensure stableId is consistent with the prefix logic
+    const stableId = widgetId;
+    const resolvedFromPlan = masterPlan?.[stableId];
+
     const [categories, setCategories] = useState([]);
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(!resolvedFromPlan && config.randomize?.enabled);
     const [currentIndex, setCurrentIndex] = useState(0);
     const [isHovered, setIsHovered] = useState(null);
     const [tooltipPosition, setTooltipPosition] = useState({});
@@ -26,9 +41,6 @@ export default function CategoryCarouselWidget({ config = {} }) {
     const [touchStart, setTouchStart] = useState(null);
     const [touchEnd, setTouchEnd] = useState(null);
     const minSwipeDistance = 50;
-    const { trackImpression, trackClick } = useAnalytics();
-    const { masterPlan, registerWidget, getStableWidgetId } = useRandomizationContext();
-    const widgetId = useMemo(() => config.id || (getStableWidgetId ? getStableWidgetId(config) : `cat_carousel_${Math.random().toString(36).substr(2, 9)}`), [config.id, getStableWidgetId, config]);
 
     useEffect(() => {
         const handleResize = () => {
@@ -217,8 +229,6 @@ export default function CategoryCarouselWidget({ config = {} }) {
         return desktop;
     };
 
-    const stableId = getStableWidgetId(config, widgetId);
-    const resolvedFromPlan = masterPlan[stableId];
     const effectiveSourceType = resolvedFromPlan?.resolvedType || settings.sourceType;
     const effectiveSettings = {
         ...settings,
@@ -241,12 +251,24 @@ export default function CategoryCarouselWidget({ config = {} }) {
     // 2. Computed Categories (Render-Phase Resolution)
     // This eliminates the flicker by calculating data immediately if the plan exists
     const displayCategories = useMemo(() => {
-        if (!config.randomize?.enabled) return categories;
-        if (!resolvedFromPlan) return [];
+        let list = [];
+        if (!config.randomize?.enabled) {
+            list = categories;
+        } else if (resolvedFromPlan) {
+            list = resolvedFromPlan.multiple
+                ? resolvedFromPlan.selections.map(s => s.selection).filter(Boolean)
+                : (resolvedFromPlan.selection ? [resolvedFromPlan.selection] : []);
+        }
 
-        return resolvedFromPlan.multiple
-            ? resolvedFromPlan.selections.map(s => s.selection).filter(Boolean)
-            : (resolvedFromPlan.selection ? [resolvedFromPlan.selection] : []);
+        // Deduplicate and sanitize
+        const seen = new Set();
+        return list.filter(cat => {
+            if (!cat || (!cat.id && !cat.slug)) return false;
+            const key = cat.id || cat.slug;
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+        });
     }, [categories, resolvedFromPlan, config.randomize?.enabled]);
 
     // Main data fetching effect (Now only for NON-randomized or initial loading)
@@ -459,49 +481,7 @@ export default function CategoryCarouselWidget({ config = {} }) {
     // Empty State & Loading State
     const isLoading = loading || (config.randomize?.enabled && !resolvedFromPlan);
 
-    if (isLoading) {
-        const skeletonCount = settings.randomCount || 6;
-        return (
-            <div
-                className="w-full relative transition-colors duration-300"
-                style={{
-                    background: settings.sectionBackground,
-                    paddingTop: formatCSSValue(settings.sectionPaddingTop),
-                    paddingBottom: formatCSSValue(settings.sectionPaddingBottom)
-                }}
-            >
-                <div className="max-w-7xl mx-auto px-4">
-                    {settings.showSectionTitle && (
-                        <div
-                            className="mb-8"
-                            style={{
-                                textAlign: settings.titleAlign,
-                                marginBottom: formatCSSValue(settings.titleBottomMargin)
-                            }}
-                        >
-                            <div className={`h-8 bg-gray-200 rounded w-48 animate-pulse ${settings.titleAlign === 'center' ? 'mx-auto' : ''}`}></div>
-                        </div>
-                    )}
-                    <div className="flex gap-4 overflow-hidden">
-                        {Array.from({ length: skeletonCount }).map((_, idx) => (
-                            <div
-                                key={idx}
-                                className="flex-shrink-0"
-                                style={{
-                                    flex: `0 0 ${100 / currentItemsPerRow}%`,
-                                    padding: `${getGapPadding()}px`
-                                }}
-                            >
-                                <div className="aspect-square bg-gray-200 animate-pulse rounded-2xl"></div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            </div>
-        );
-    }
-
-    if (displayCategories.length === 0) {
+    if (displayCategories.length === 0 && !isLoading) {
         return (
             <div className={`w-full`} style={{ 
                 background: settings.sectionBackground,
@@ -607,40 +587,56 @@ export default function CategoryCarouselWidget({ config = {} }) {
                                 onTouchMove={onTouchMove}
                                 onTouchEnd={onTouchEnd}
                             >
-                                <div
-                                    className={`flex transition-transform duration-${settings.transitionDuration} ${settings.easingFunction}`}
-                                    style={{
-                                        transform: `translateX(-${currentIndex * (100 / currentItemsPerRow)}%)`
-                                    }}
-                                >
-                                    {displayCategories.map((category, index) => (
-                                        <div
-                                            key={category.id}
-                                            className="flex-shrink-0"
-                                            style={{
-                                                flex: `0 0 ${100 / currentItemsPerRow}%`,
-                                                padding: `${getGapPadding()}px`
-                                            }}
-                                        >
-                                            <CategoryCard
-                                                category={category}
-                                                index={index}
-                                                settings={settings}
-                                                deviceType={deviceType}
-                                                getScaledValue={getScaledValue}
-                                                getResponsiveValue={getResponsiveValue}
-                                                isHovered={isHovered === index}
-                                                onHover={() => setIsHovered(index)}
-                                                onLeave={() => setIsHovered(null)}
-                                                getShadowStyles={getShadowStyles}
-                                                getHoverTransform={getHoverTransform}
-                                                getEntranceAnimation={getEntranceAnimation}
-                                                trackClick={trackClick}
-                                                widgetId={widgetId}
-                                            />
-                                        </div>
-                                    ))}
-                                </div>
+                                    <div
+                                        className={`flex transition-transform duration-${settings.transitionDuration} ${settings.easingFunction}`}
+                                        style={{
+                                            transform: `translateX(-${currentIndex * (100 / currentItemsPerRow)}%)`
+                                        }}
+                                    >
+                                        {isLoading && displayCategories.length === 0 ? (
+                                            /* Render Skeletons in carousel view */
+                                            Array.from({ length: settings.randomCount || 6 }).map((_, idx) => (
+                                                <div
+                                                    key={`skeleton-${idx}`}
+                                                    className="flex-shrink-0"
+                                                    style={{
+                                                        flex: `0 0 ${100 / currentItemsPerRow}%`,
+                                                        padding: `${getGapPadding()}px`
+                                                    }}
+                                                >
+                                                    <div className="aspect-square bg-gray-200 animate-pulse rounded-2xl"></div>
+                                                </div>
+                                            ))
+                                        ) : (
+                                            displayCategories.map((category, index) => (
+                                                <div
+                                                    key={`${category.id || category.slug}-${index}`}
+                                                    className="flex-shrink-0"
+                                                    style={{
+                                                        flex: `0 0 ${100 / currentItemsPerRow}%`,
+                                                        padding: `${getGapPadding()}px`
+                                                    }}
+                                                >
+                                                    <CategoryCard
+                                                        category={category}
+                                                        index={index}
+                                                        settings={settings}
+                                                        deviceType={deviceType}
+                                                        getScaledValue={getScaledValue}
+                                                        getResponsiveValue={getResponsiveValue}
+                                                        isHovered={isHovered === index}
+                                                        onHover={() => setIsHovered(index)}
+                                                        onLeave={() => setIsHovered(null)}
+                                                        getShadowStyles={getShadowStyles}
+                                                        getHoverTransform={getHoverTransform}
+                                                        getEntranceAnimation={getEntranceAnimation}
+                                                        trackClick={trackClick}
+                                                        widgetId={widgetId}
+                                                    />
+                                                </div>
+                                            ))
+                                        )}
+                                    </div>
                             </div>
 
                             {/* Navigation Arrows */}
@@ -689,22 +685,32 @@ export default function CategoryCarouselWidget({ config = {} }) {
                                 `
                             }} />
                             <div className={`category-grid-${settings.itemsPerRowMobile}-${settings.itemsPerRowTablet}-${settings.itemsPerRowDesktop}`}>
-                                {displayCategories.map((category, index) => (
-                                    <CategoryCard
-                                        key={category.id}
-                                        category={category}
-                                        index={index}
-                                        settings={settings}
-                                        isHovered={isHovered === index}
-                                        onHover={() => setIsHovered(index)}
-                                        onLeave={() => setIsHovered(null)}
-                                        getShadowStyles={getShadowStyles}
-                                        getHoverTransform={getHoverTransform}
-                                        getEntranceAnimation={getEntranceAnimation}
-                                        trackClick={trackClick}
-                                        widgetId={widgetId}
-                                    />
-                                ))}
+                                {isLoading && displayCategories.length === 0 ? (
+                                    /* Render Skeletons in grid view */
+                                    Array.from({ length: settings.randomCount || 6 }).map((_, idx) => (
+                                        <div
+                                            key={`skeleton-grid-${idx}`}
+                                            className="aspect-square bg-gray-200 animate-pulse rounded-2xl"
+                                        ></div>
+                                    ))
+                                ) : (
+                                    displayCategories.map((category, index) => (
+                                        <CategoryCard
+                                            key={category.id}
+                                            category={category}
+                                            index={index}
+                                            settings={settings}
+                                            isHovered={isHovered === index}
+                                            onHover={() => setIsHovered(index)}
+                                            onLeave={() => setIsHovered(null)}
+                                            getShadowStyles={getShadowStyles}
+                                            getHoverTransform={getHoverTransform}
+                                            getEntranceAnimation={getEntranceAnimation}
+                                            trackClick={trackClick}
+                                            widgetId={widgetId}
+                                        />
+                                    ))
+                                )}
                             </div>
                         </>
                     )}

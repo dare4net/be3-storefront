@@ -23,7 +23,20 @@ export function RandomizationProvider({ children }) {
     });
 
     // Product Batching State
-    const [batchProducts, setBatchProducts] = useState({}); // { widgetId: { results, pagination, loading } }
+    // Product Batching State
+    const [batchProducts, setBatchProducts] = useState(() => {
+        if (typeof window === 'undefined') return {};
+        try {
+            const pageHandle = window.location.pathname.split('/').pop() || 'home';
+            const key = `widget_random_plan_${pageHandle}`;
+            const stored = localStorage.getItem(key);
+            if (stored) {
+                const { products } = JSON.parse(stored);
+                return products || {};
+            }
+        } catch (e) {}
+        return {};
+    });
     const batchRegistryRef = useRef(new Map()); // Map<widgetId, { filter, sort, perPage }>
     const batchTimerRef = useRef(null);
 
@@ -51,12 +64,14 @@ export function RandomizationProvider({ children }) {
     };
 
     /**
-     * getStableWidgetId: Generates a stable ID based on config if explicit ID is missing
+     * getStableWidgetId: Generates a stable ID based on config if explicit ID is missing.
+     * Including an idPrefix ensures that different types of widgets (e.g. Category Grid vs Product Carousel)
+     * never share the same identity even if they have the same title/settings.
      */
-    const getStableWidgetId = useCallback((config, fallbackId) => {
+    const getStableWidgetId = useCallback((config, idPrefix = 'widget') => {
         if (config.id) return config.id;
-        // Fallback to fingerprinting title + settings
-        const fingerprint = `${config.title || 'untitled'}_${config.sourceType || 'all'}_${config.limit || 10}_${JSON.stringify(config.randomize || {})}`;
+        // Fallback to fingerprinting title + settings + type prefix
+        const fingerprint = `${idPrefix}_${config.title || 'untitled'}_${config.sourceType || 'all'}_${config.limit || 10}_${JSON.stringify(config.randomize || {})}`;
         return `stable_${stableHash(fingerprint)}`;
     }, []);
 
@@ -65,7 +80,19 @@ export function RandomizationProvider({ children }) {
     // It accepts the "Global Authority" plan from the server.
 
     // --- Backend Master Plan (For Product Widgets) ---
-    const [masterPlan, setMasterPlan] = useState({});
+    const [masterPlan, setMasterPlan] = useState(() => {
+        if (typeof window === 'undefined') return {};
+        try {
+            const pageHandle = window.location.pathname.split('/').pop() || 'home';
+            const key = `widget_random_plan_${pageHandle}`;
+            const stored = localStorage.getItem(key);
+            if (stored) {
+                const { data } = JSON.parse(stored);
+                return data || {};
+            }
+        } catch (e) {}
+        return {};
+    });
     const masterPlanRef = useRef(masterPlan); // Mirror state for stable callbacks
     const [isResolving, setIsResolving] = useState(false);
     const isResolvingRef = useRef(false); // Mirror state for stable callbacks
@@ -74,9 +101,33 @@ export function RandomizationProvider({ children }) {
     const registryRef = useRef(new Map());
     const resolveTimerRef = useRef(null);
     const resolvedRef = useRef(false);
+    const [isHydrated, setIsHydrated] = useState(() => typeof window !== 'undefined' && !!localStorage.getItem(`widget_random_plan_${window.location.pathname.split('/').pop() || 'home'}`));
 
     // Persistence Helpers
     const getStorageKey = useCallback((pageHandle) => `widget_random_plan_${pageHandle || 'home'}`, []);
+    
+    /**
+     * Helper to save current state to localStorage
+     */
+    const persistToStorage = useCallback((pageHandle, plan, products) => {
+        if (typeof window === 'undefined') return;
+        
+        try {
+            const key = getStorageKey(pageHandle);
+            const current = JSON.parse(localStorage.getItem(key) || '{}');
+            
+            const payload = {
+                ...current,
+                expiresAt: current.expiresAt || (Date.now() + 15 * 60 * 1000), // Default 15m if missing
+                data: plan || current.data || {},
+                products: products || current.products || {}
+            };
+            
+            localStorage.setItem(key, JSON.stringify(payload));
+        } catch (e) {
+            console.error("[RandomizationContext] Persistence failed", e);
+        }
+    }, [getStorageKey]);
 
     /**
      * Resolve the master plan from the backend
@@ -133,12 +184,7 @@ export function RandomizationProvider({ children }) {
                 }
 
                 // Persistence: Always save to localStorage for the NEXT load
-                const expiry = Date.now() + (expiresIn * 1000);
-                localStorage.setItem(getStorageKey(pageHandle), JSON.stringify({
-                    cacheId,
-                    expiresAt: expiry,
-                    data: newPlanMap
-                }));
+                persistToStorage(pageHandle, newPlanMap, null);
 
                 // Only update current UI if explicitly requested
                 if (applyToState) {
@@ -301,10 +347,15 @@ export function RandomizationProvider({ children }) {
 
             if (response.data.success) {
                 const results = response.data.results;
-                setBatchProducts(prev => ({
-                    ...prev,
-                    ...results // Merge results which include results, pagination, and no loading
-                }));
+                setBatchProducts(prev => {
+                    const next = { ...prev, ...results };
+                    
+                    // Persist to storage immediately
+                    const pageHandle = window.location.pathname.split('/').pop() || 'home';
+                    persistToStorage(pageHandle, null, next);
+                    
+                    return next;
+                });
             }
         } catch (error) {
             console.error('[RandomizationContext] Batch product resolution failed', error);
@@ -341,10 +392,11 @@ export function RandomizationProvider({ children }) {
 
         // Product Batching
         batchProducts,
-        registerProductFetch
+        registerProductFetch,
+        isHydrated
     }), [
         getNextRandom, usedSelections, masterPlan, isResolving,
-        registerWidget, getStableWidgetId, seedPlan, batchProducts, registerProductFetch
+        registerWidget, getStableWidgetId, seedPlan, batchProducts, registerProductFetch, isHydrated
     ]);
 
     // --- Initialization & Background Sync ---
@@ -359,12 +411,20 @@ export function RandomizationProvider({ children }) {
             if (!stored) return false;
 
             try {
-                const { data, expiresAt, cacheId } = JSON.parse(stored);
+                const { data, products, expiresAt, cacheId } = JSON.parse(stored);
                 console.log(`[RandomizationContext] Hydrating from localStorage (CacheID: ${cacheId})`);
 
                 // Immediate Hydration
-                setMasterPlan(data);
-                masterPlanRef.current = data;
+                if (data) {
+                    setMasterPlan(data);
+                    masterPlanRef.current = data;
+                }
+                
+                if (products) {
+                    setBatchProducts(products);
+                }
+                
+                setIsHydrated(true);
 
                 // Background Revalidation after a small delay
                 setTimeout(async () => {
