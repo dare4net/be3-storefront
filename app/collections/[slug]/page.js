@@ -47,6 +47,11 @@ export default function CollectionPage({ params }) {
         fetchCollection();
     }, [slug, tenant?.id]);
 
+    const collectionStats = useMemo(() => {
+        // Mock stats for visual review (replace with real data later).
+        return "42 items \u00b7 Updated Apr 9, 2026";
+    }, []);
+
     if (loading) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -86,13 +91,13 @@ export default function CollectionPage({ params }) {
                 <EntityAnalytics type="collection" entity={collection} />
 
                 {/* Hero Section */}
-                <div className="relative bg-gradient-to-br from-indigo-900 via-purple-900 to-black text-white overflow-hidden py-16 lg:py-24">
+                <div className="relative bg-gradient-to-br from-slate-900 via-slate-950 to-black text-white overflow-hidden pt-16 pb-12 lg:pt-24 lg:pb-16">
                     {collection.image_url && (
                         <div className="absolute inset-0">
                             <img
                                 src={collection.image_url}
                                 alt={collection.name}
-                                className="w-full h-full object-cover opacity-30"
+                                className="w-full h-full object-cover opacity-35"
                             />
                             <div className="absolute inset-0 bg-gradient-to-t from-gray-900 via-transparent to-transparent" />
                         </div>
@@ -106,21 +111,38 @@ export default function CollectionPage({ params }) {
                             <span className="text-white font-medium">{collection.name}</span>
                         </nav>
                         <div className="max-w-3xl">
-                            <span className="inline-block px-3 py-1 bg-indigo-500/20 border border-indigo-400/30 rounded-full text-xs font-bold uppercase tracking-widest text-indigo-300 mb-4">
-                                Exclusive Collection
-                            </span>
                             <div className="flex flex-col md:flex-row md:items-center gap-6 mb-6">
                                 {collection.thumbnail_url && (
                                     <div className="w-20 h-20 lg:w-28 lg:h-28 rounded-2xl overflow-hidden border-2 border-white/20 shadow-2xl shrink-0 bg-white/10 backdrop-blur-sm">
                                         <img src={collection.thumbnail_url} alt="" className="w-full h-full object-cover" />
                                     </div>
                                 )}
-                                <h1 className="text-4xl lg:text-7xl font-extrabold tracking-tight">
-                                    {collection.name}
-                                </h1>
+                                <div className="flex flex-col gap-4">
+                                    <h1 className="text-4xl lg:text-7xl font-extrabold tracking-tight">
+                                        {collection.name}
+                                    </h1>
+                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                                        <div className="rounded-xl border border-white/15 bg-white/5 px-4 py-3 backdrop-blur-sm">
+                                            <p className="text-[11px] uppercase tracking-[0.2em] text-white/60">Items Sold</p>
+                                            <p className="text-lg font-semibold text-white">18.4k</p>
+                                        </div>
+                                        <div className="rounded-xl border border-white/15 bg-white/5 px-4 py-3 backdrop-blur-sm">
+                                            <p className="text-[11px] uppercase tracking-[0.2em] text-white/60">On Platform</p>
+                                            <p className="text-lg font-semibold text-white">3.2 yrs</p>
+                                        </div>
+                                        <div className="rounded-xl border border-white/15 bg-white/5 px-4 py-3 backdrop-blur-sm">
+                                            <p className="text-[11px] uppercase tracking-[0.2em] text-white/60">Rating</p>
+                                            <p className="text-lg font-semibold text-white">4.8 / 5</p>
+                                        </div>
+                                        <div className="rounded-xl border border-white/15 bg-white/5 px-4 py-3 backdrop-blur-sm">
+                                            <p className="text-[11px] uppercase tracking-[0.2em] text-white/60">Items Listed</p>
+                                            <p className="text-lg font-semibold text-white">412</p>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                             {collection.description && (
-                                <p className="text-xl text-gray-300 leading-relaxed font-light">
+                                <p className="text-lg lg:text-xl text-gray-200/90 leading-relaxed font-light max-w-2xl">
                                     {collection.description}
                                 </p>
                             )}
@@ -129,8 +151,8 @@ export default function CollectionPage({ params }) {
                 </div>
 
                 {/* Product Grid Area */}
-                <div className="container mx-auto px-4 py-8 max-w-7xl">
-                    <SearchPageLayout />
+                <div className="w-full px-4 sm:px-6 lg:px-8 pt-10 pb-12">
+                    <SearchPageLayout config={{ showSearchBar: false, fullWidth: true }} />
                 </div>
             </div>
         </SearchProvider>
