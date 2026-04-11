@@ -125,13 +125,9 @@ export default function ProductGridWidget({ config }) {
         batchProducts
     } = useRandomizationContext();
 
-    // Generate stable ID for caching synchronization if not explicitly provided
-    // We use the context helper to ensure frontend/backend ID alignment
     const widgetId = useMemo(() => {
-        if (config.id) return config.id;
-        // Fallback: Use context helper if available, or temporary local relabel
-        return getStableWidgetId ? getStableWidgetId(config, 'prod_grid') : (config.id || `temp_${Math.random()}`);
-    }, [config.id, getStableWidgetId, config]);
+        return config.id || (getStableWidgetId ? getStableWidgetId(config) : 'untitled_prod_grid');
+    }, [config.id, config.title, getStableWidgetId]);
 
     // Check cache synchronously to avoid skeleton blink on navigation
     const cachedBatch = batchProducts?.[widgetId];
@@ -159,12 +155,22 @@ export default function ProductGridWidget({ config }) {
             const stored = localStorage.getItem(key);
             
             if (stored) {
-                const { products: cachedBatches } = JSON.parse(stored);
-                const cached = cachedBatches?.[widgetId];
-                if (cached?.results) {
+                const { data: cachedPlans, products: cachedBatches } = JSON.parse(stored);
+                const cachedProducts = cachedBatches?.[widgetId];
+                const cachedPlan = cachedPlans?.[widgetId];
+                
+                if (cachedProducts?.results) {
+                    const meta = {};
+                    if (cachedPlan) {
+                        const selections = cachedPlan.multiple ? cachedPlan.selections : [cachedPlan];
+                        const primary = selections?.[0];
+                        if (primary?.meta) Object.assign(meta, primary.meta);
+                    }
+                    if (cachedProducts.pagination) meta.pagination = cachedProducts.pagination;
+
                     return {
-                        products: sanitizeProducts(cached.results),
-                        metadata: cached.pagination ? { pagination: cached.pagination } : {},
+                        products: sanitizeProducts(cachedProducts.results),
+                        metadata: meta,
                         loading: false
                     };
                 }
@@ -176,6 +182,7 @@ export default function ProductGridWidget({ config }) {
     };
 
     const initialData = getInitialData();
+    const [hasInitialCache] = useState(initialData.products.length > 0);
 
     const [products, setProducts] = useState(initialData.products);
     const [metadata, setMetadata] = useState(initialData.metadata);
@@ -206,26 +213,39 @@ export default function ProductGridWidget({ config }) {
 
     // Trigger fetch when ready
     useEffect(() => {
-        if (isReady) {
+        if (isReady && !hasInitialCache) {
             fetchProducts();
         }
-    }, [isReady, resolvedFromPlan, limit, config.sort]);
+    }, [isReady, resolvedFromPlan, limit, config.sort, hasInitialCache]);
 
     // Batch Product Consumption
     const batchData = batchProducts[widgetId];
 
     useEffect(() => {
+        if (hasInitialCache) return;
+
         if (batchData && !batchData.loading) {
             if (batchData.results) {
                 setProducts(sanitizeProducts(batchData.results));
                 setLoading(false);
             }
             if (batchData.pagination) {
-                // Merge pagination into metadata if needed
                 setMetadata(prev => ({ ...prev, pagination: batchData.pagination }));
             }
         }
-    }, [batchData]);
+    }, [batchData, hasInitialCache]);
+
+    // If no cache, extract title from plan when it arrives (first-time load only)
+    useEffect(() => {
+        if (!hasInitialCache && resolvedFromPlan) {
+            const selections = resolvedFromPlan.multiple ? resolvedFromPlan.selections : [resolvedFromPlan];
+            const primary = selections[0];
+            if (primary?.meta) {
+                setMetadata(prev => ({ ...prev, ...primary.meta }));
+            }
+            setLoading(false);
+        }
+    }, [resolvedFromPlan, hasInitialCache]);
 
     const fetchProducts = async () => {
         try {

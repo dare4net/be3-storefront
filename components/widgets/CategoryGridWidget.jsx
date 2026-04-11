@@ -175,19 +175,14 @@ export default function CategoryGridWidget({ config }) {
     const { trackImpression, trackClick } = useAnalytics();
     const { masterPlan, registerWidget, getStableWidgetId } = useRandomizationContext();
     
-    // Generate stable ID for caching synchronization if not explicitly provided
-    // We use the context helper to ensure frontend/backend ID alignment
     const widgetId = useMemo(() => {
-        if (config.id) return config.id;
-        // Fallback: Use context helper if available, or temporary local relabel
-        return getStableWidgetId ? getStableWidgetId(config, 'cat_grid') : (config.id || `temp_${Math.random()}`);
-    }, [config.id, getStableWidgetId, config]);
+        return config.id || (getStableWidgetId ? getStableWidgetId(config) : 'untitled_grid');
+    }, [config.id, config.title, getStableWidgetId]);
 
     const [categories, setCategories] = useState([]);
     
     // 1. Initial State Resolution (Instant Text)
-    const stableId = getStableWidgetId(config, 'cat_grid');
-    const resolvedFromPlan = masterPlan?.[stableId];
+    const resolvedFromPlan = masterPlan?.[widgetId];
     
     const [loading, setLoading] = useState(!resolvedFromPlan && config.randomize?.enabled);
 
@@ -206,7 +201,7 @@ export default function CategoryGridWidget({ config }) {
 
     useEffect(() => {
         if (config.randomize?.enabled) {
-            console.log(`[CategoryGridWidget] Registering ${stableId} for randomization`);
+            console.log(`[CategoryGridWidget] Registering ${widgetId} for randomization`);
             registerWidget(widgetId, {
                 allowedTypes: ['category'],
                 sourceType: sourceType,
@@ -215,7 +210,7 @@ export default function CategoryGridWidget({ config }) {
                 manualCategoryIds: manualCategoryIds
             }, config);
         }
-    }, [widgetId, config.randomize?.enabled, registerWidget, stableId]);
+    }, [widgetId, config.randomize?.enabled, registerWidget]);
 
     // 2. Computed Categories (Render-Phase Resolution)
     // This eliminates the flicker by calculating data immediately if the plan exists
@@ -269,7 +264,7 @@ export default function CategoryGridWidget({ config }) {
 
         // Standard non-randomized path
         fetchCategories();
-    }, [resolvedFromPlan, config.randomize?.enabled, widgetId, stableId, displayCategories.length]);
+    }, [resolvedFromPlan, config.randomize?.enabled, widgetId, displayCategories.length]);
 
     const fetchCategories = async () => {
         try {

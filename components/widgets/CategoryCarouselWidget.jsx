@@ -19,16 +19,10 @@ export default function CategoryCarouselWidget({ config = {} }) {
     const { masterPlan, registerWidget, getStableWidgetId } = useRandomizationContext();
     const { trackImpression, trackClick } = useAnalytics();
     
-    // 1. Initial State Resolution (Instant Text)
     const widgetId = useMemo(() => {
-        if (config.id) return config.id;
-        // Fallback: Use context helper if available, or temporary local relabel
-        return getStableWidgetId ? getStableWidgetId(config, 'cat_carousel') : (config.id || `temp_${Math.random()}`);
-    }, [config.id, getStableWidgetId, config]);
-    
-    // Ensure stableId is consistent with the prefix logic
-    const stableId = widgetId;
-    const resolvedFromPlan = masterPlan?.[stableId];
+        return config.id || (getStableWidgetId ? getStableWidgetId(config) : 'untitled_carousel');
+    }, [config.id, config.title, getStableWidgetId]);
+    const resolvedFromPlan = masterPlan?.[widgetId];
 
     const [categories, setCategories] = useState([]);
     const [loading, setLoading] = useState(!resolvedFromPlan && config.randomize?.enabled);
@@ -237,7 +231,7 @@ export default function CategoryCarouselWidget({ config = {} }) {
 
     useEffect(() => {
         if (config.randomize?.enabled) {
-            console.log(`[CategoryCarouselWidget] Registering ${stableId} for randomization`);
+            console.log(`[CategoryCarouselWidget] Registering ${widgetId} for randomization`);
             registerWidget(widgetId, {
                 allowedTypes: ['category'],
                 sourceType: settings.sourceType,
@@ -246,7 +240,7 @@ export default function CategoryCarouselWidget({ config = {} }) {
                 manualCategoryIds: settings.manualCategoryIds
             }, config);
         }
-    }, [widgetId, config.randomize?.enabled, registerWidget, stableId]);
+    }, [widgetId, config.randomize?.enabled, registerWidget]);
 
     // 2. Computed Categories (Render-Phase Resolution)
     // This eliminates the flicker by calculating data immediately if the plan exists
@@ -300,7 +294,7 @@ export default function CategoryCarouselWidget({ config = {} }) {
 
         // Standard non-randomized path
         fetchCategories();
-    }, [resolvedFromPlan, config.randomize?.enabled, widgetId, stableId, displayCategories.length]);
+    }, [resolvedFromPlan, config.randomize?.enabled, widgetId, displayCategories.length]);
 
     // Auto-play functionality
     useEffect(() => {

@@ -68,10 +68,13 @@ export function RandomizationProvider({ children }) {
      * Including an idPrefix ensures that different types of widgets (e.g. Category Grid vs Product Carousel)
      * never share the same identity even if they have the same title/settings.
      */
-    const getStableWidgetId = useCallback((config, idPrefix = 'widget') => {
+    /**
+     * getStableWidgetId: Generates a stable ID based on config if explicit ID is missing.
+     */
+    const getStableWidgetId = useCallback((config) => {
         if (config.id) return config.id;
-        // Fallback to fingerprinting title + settings + type prefix
-        const fingerprint = `${idPrefix}_${config.title || 'untitled'}_${config.sourceType || 'all'}_${config.limit || 10}_${JSON.stringify(config.randomize || {})}`;
+        // Fallback to fingerprinting title + settings
+        const fingerprint = `${config.title || 'untitled'}_${config.sourceType || 'all'}_${config.limit || 10}_${JSON.stringify(config.randomize || {})}`;
         return `stable_${stableHash(fingerprint)}`;
     }, []);
 
@@ -186,10 +189,64 @@ export function RandomizationProvider({ children }) {
                 // Persistence: Always save to localStorage for the NEXT load
                 persistToStorage(pageHandle, newPlanMap, null);
 
+                // TRUE BACKGROUND FETCH: Silently pre-warm the product cache for the next page load!
+                // We only do this if it's a true background sync (!applyToState)
+                // Otherwise, the foreground UI will handle the fetch via BatchRegistry.
+                if (!applyToState) {
+                    const widgetsForProducts = [];
+                    Object.keys(newPlanMap).forEach(widgetId => {
+                        const plan = newPlanMap[widgetId];
+                        const configData = snapshot.get(widgetId)?.config || {};
+                        
+                        const selections = plan.multiple ? plan.selections : [plan];
+                        const primary = selections[0];
+                        if (!primary) return;
+
+                        const filters = {};
+                        if (primary.meta?.filter) {
+                            const params = new URLSearchParams(primary.meta.filter);
+                            for (const [key, val] of params.entries()) {
+                                filters[key] = val;
+                            }
+                        }
+
+                        if (Object.keys(filters).length > 0) {
+                            filters.sort = primary.resolvedSort || configData.sort || 'relevance';
+                            filters.limit = primary.resolvedLimit || configData.limit || 8;
+                            filters.showFeaturedOnly = primary.resolvedFeatured ?? configData.showFeaturedOnly ?? false;
+
+                            widgetsForProducts.push({
+                                widgetId,
+                                filters,
+                                perPage: filters.limit
+                            });
+                        }
+                    });
+
+                    if (widgetsForProducts.length > 0) {
+                        axios.post('/api/search/randomization/batch-products', { widgets: widgetsForProducts })
+                            .then(res => {
+                                if (res.data.success && res.data.results) {
+                                    // Save silently to cache. Do not trigger React state!
+                                    persistToStorage(pageHandle, null, res.data.results);
+                                    console.log('[RandomizationContext] True Background Fetch completely cached.');
+                                }
+                            })
+                            .catch(e => console.error('[RandomizationContext] Silent fetch failed', e));
+                    }
+                }
+
                 // Only update current UI if explicitly requested
                 if (applyToState) {
                     setMasterPlan(prev => {
-                        const updated = { ...prev, ...newPlanMap };
+                        const updated = { ...prev };
+                        // ONLY apply to state if it's not already in state. 
+                        // This prevents UI jumping for cached widgets (Consistent Cache strategy).
+                        Object.keys(newPlanMap).forEach(key => {
+                            if (!prev[key]) {
+                                updated[key] = newPlanMap[key];
+                            }
+                        });
                         masterPlanRef.current = updated;
                         return updated;
                     });
@@ -207,23 +264,23 @@ export function RandomizationProvider({ children }) {
      * Register a widget and trigger plan resolution
      */
     const registerWidget = useCallback((id, intent, config) => {
-        const stableId = getStableWidgetId(config, id);
+        if (!id) return;
 
-        // 0. Plan Respect: If we already have a plan item (from SSR), skip
-        if (masterPlanRef.current[stableId]) {
-            return;
-        }
-
-        // 2. Handle Stragglers (Widgets mounting after initial resolution)
-        // This is now the ONLY path for client-side resolution
-        console.log(`[RandomizationContext] Registering straggler: ${stableId}.`);
-        registryRef.current.set(stableId, { intent, config });
+        // Check if we already have this in the active state (either from cache or previous resolution)
+        const hasExistingPlan = !!masterPlanRef.current[id];
+        
+        // Track whether this specific registration requires a UI update (foreground) or background sync
+        console.log(`[RandomizationContext] Registering ${id} (hasExistingPlan: ${hasExistingPlan})`);
+        registryRef.current.set(id, { intent, config, isBackground: hasExistingPlan });
 
         if (resolveTimerRef.current) clearTimeout(resolveTimerRef.current);
         resolveTimerRef.current = setTimeout(() => {
-            resolveMasterPlan();
-        }, 100);
-    }, [resolveMasterPlan, getStableWidgetId]);
+            // If ANY widget in the current registry batch is NOT a background refresh, 
+            // we must apply the results to the state immediately.
+            const needsForegroundUpdate = Array.from(registryRef.current.values()).some(v => !v.isBackground);
+            resolveMasterPlan(needsForegroundUpdate);
+        }, 150);
+    }, [resolveMasterPlan]);
 
     /**
      * Get next random item from pool (Client-side fallback logic remains)
