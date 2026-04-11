@@ -2,7 +2,7 @@
 
 import { useEffect, useState, use, useMemo } from "react";
 import Link from 'next/link';
-import { ChevronRight, Package, ExternalLink, SlidersHorizontal } from 'lucide-react';
+import { ChevronRight, Package } from 'lucide-react';
 import { useTenant } from "@/components/providers/TenantContext";
 import { SearchProvider } from "@/components/providers/SearchContext";
 import SearchPageLayout from "@/components/widgets/SearchPageLayout";
@@ -130,16 +130,6 @@ export default function CollectionPage({ params }) {
 
                 {/* Product Grid Area */}
                 <div className="container mx-auto px-4 py-8 max-w-7xl">
-                    <div className="flex items-center justify-between mb-8 pb-4 border-b border-gray-100">
-                        <div className="flex items-center gap-2">
-                            <div className="w-2 h-8 bg-indigo-600 rounded-full"></div>
-                            <h2 className="text-2xl font-bold text-gray-900">Featured Products</h2>
-                        </div>
-                        <div className="hidden lg:flex items-center gap-4 text-sm text-gray-500">
-                            <span className="flex items-center gap-1.5"><SlidersHorizontal className="w-4 h-4" /> Refine your view</span>
-                        </div>
-                    </div>
-
                     <SearchPageLayout />
                 </div>
             </div>

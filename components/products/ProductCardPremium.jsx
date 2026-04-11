@@ -1,9 +1,7 @@
 "use client";
 
-import { useState, useEffect } from 'react';
-import Link from 'next/link';
-import { ShoppingCart, Check, Eye, Heart, MessageCircle, X } from 'lucide-react';
-import { useChatContext } from '@/components/providers/ChatContext';
+import { useState } from 'react';
+import { ShoppingCart, Check, Eye, Heart } from 'lucide-react';
 import { useCart } from '@/components/providers/CartContext';
 import { useWishlist } from '@/components/providers/WishlistContext';
 import { useAnalytics } from '@/lib/hooks/useAnalytics';
@@ -33,18 +31,8 @@ export default function ProductCardPremium({
 }) {
     const { addToCart } = useCart();
     const { toggleWishlist, isInWishlist } = useWishlist();
-    const { openChat } = useChatContext();
     const { trackClick: trackAnalyticsClick } = useAnalytics();
     const [addingToCart, setAddingToCart] = useState(null);
-    const [activeOverlay, setActiveOverlay] = useState(null);
-    const [isMobile, setIsMobile] = useState(false);
-
-    useEffect(() => {
-        const handleResize = () => setIsMobile(window.innerWidth < 768);
-        handleResize();
-        window.addEventListener('resize', handleResize);
-        return () => window.removeEventListener('resize', handleResize);
-    }, []);
 
     const handleAddToCart = async (e) => {
         e.preventDefault();
@@ -72,13 +60,6 @@ export default function ProductCardPremium({
     };
 
     const handleCardClick = (e) => {
-        if (isMobile) {
-            e.preventDefault();
-            e.stopPropagation();
-            setActiveOverlay(product.id);
-            return;
-        }
-
         if (trackClick) trackClick(product);
         if (trackAnalyticsClick) {
             trackAnalyticsClick({
@@ -90,10 +71,8 @@ export default function ProductCardPremium({
             });
         }
 
-        // Desktop Navigation
-        if (!isMobile) {
-            window.location.href = productHref;
-        }
+        // Navigate directly on both mobile and desktop
+        window.location.href = productHref;
     };
 
     const productHref = `/products/${product.handle || product.slug || product.id}`;
@@ -268,48 +247,6 @@ export default function ProductCardPremium({
                     </div>
                 </div>
 
-                {/* Mobile Overlay */}
-                {activeOverlay === product.id && (
-                    <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-                        <button
-                            onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                setActiveOverlay(null);
-                            }}
-                            className="absolute top-2 right-2 p-1 rounded-full bg-white/20 text-white hover:bg-white/30 transition-colors"
-                        >
-                            <X className="w-5 h-5" />
-                        </button>
-
-                        <div className="flex flex-col gap-3 w-full px-4 text-center">
-                            <Link
-                                href={productHref}
-                                className="flex items-center justify-center gap-2 w-full py-3 bg-white text-gray-900 rounded-full font-semibold shadow-xl active:scale-95 transition-transform"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    setActiveOverlay(null);
-                                }}
-                            >
-                                <Eye className="w-5 h-5 text-blue-600" />
-                                View Details
-                            </Link>
-
-                            <button
-                                onClick={(e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    openChat('product', product.id, product.name);
-                                    setActiveOverlay(null);
-                                }}
-                                className="flex items-center justify-center gap-2 w-full py-3 bg-blue-600 text-white rounded-full font-semibold shadow-xl active:scale-95 transition-transform"
-                            >
-                                <MessageCircle className="w-5 h-5" />
-                                Chat Seller
-                            </button>
-                        </div>
-                    </div>
-                )}
             </div>
         </div>
     );
