@@ -5,6 +5,7 @@ import { ChevronLeft, ChevronRight, Package, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 import { proxyApi as api } from '@/lib/axios';
 import { useRandomizationContext } from '@/lib/contexts/RandomizationContext';
+import { usePageContext } from '@/lib/hooks/usePageContext';
 import { useAnalytics } from '@/lib/hooks/useAnalytics';
 
 // Helper to format CSS values (append px if numeric)
@@ -18,6 +19,10 @@ export default function CategoryCarouselWidget({ config = {} }) {
     // 2. Context & Hooks
     const { masterPlan, registerWidget, getStableWidgetId } = useRandomizationContext();
     const { trackImpression, trackClick } = useAnalytics();
+
+    // Page context for context-aware mode
+    const pageContext = usePageContext();
+    const isContextActive = config.contextAware === true && !!pageContext;
     
     const widgetId = useMemo(() => {
         return config.id || (getStableWidgetId ? getStableWidgetId(config) : 'untitled_carousel');
@@ -223,10 +228,19 @@ export default function CategoryCarouselWidget({ config = {} }) {
         return desktop;
     };
 
-    const effectiveSourceType = resolvedFromPlan?.resolvedType || settings.sourceType;
+    // If category context active, show children of the context category
+    const effectiveParentCategoryId = (isContextActive && pageContext.contextType === 'category')
+        ? pageContext.contextValue
+        : settings.parentCategoryId;
+    const effectiveSourceTypeForContext = (isContextActive && pageContext.contextType === 'category')
+        ? 'subcategories'
+        : settings.sourceType;
+
+    const effectiveSourceType = resolvedFromPlan?.resolvedType || effectiveSourceTypeForContext;
     const effectiveSettings = {
         ...settings,
-        sourceType: effectiveSourceType
+        sourceType: effectiveSourceType,
+        parentCategoryId: effectiveParentCategoryId
     };
 
     useEffect(() => {
@@ -234,13 +248,16 @@ export default function CategoryCarouselWidget({ config = {} }) {
             console.log(`[CategoryCarouselWidget] Registering ${widgetId} for randomization`);
             registerWidget(widgetId, {
                 allowedTypes: ['category'],
-                sourceType: settings.sourceType,
+                sourceType: effectiveSourceTypeForContext,
                 randomCount: settings.randomCount,
-                parentCategoryId: settings.parentCategoryId,
+                parentCategoryId: effectiveParentCategoryId,
                 manualCategoryIds: settings.manualCategoryIds
-            }, config);
+            }, {
+                ...config,
+                _pageContext: isContextActive ? pageContext : undefined
+            });
         }
-    }, [widgetId, config.randomize?.enabled, registerWidget]);
+    }, [widgetId, config.randomize?.enabled, registerWidget, isContextActive]);
 
     // 2. Computed Categories (Render-Phase Resolution)
     // This eliminates the flicker by calculating data immediately if the plan exists
@@ -293,8 +310,37 @@ export default function CategoryCarouselWidget({ config = {} }) {
         }
 
         // Standard non-randomized path
+        // Vendor context: use vendor-category ledger endpoint
+        if (isContextActive && pageContext.contextType === 'vendor') {
+            fetchVendorCategories(pageContext.contextValue);
+            return;
+        }
+
         fetchCategories();
-    }, [resolvedFromPlan, config.randomize?.enabled, widgetId, displayCategories.length]);
+    }, [resolvedFromPlan, config.randomize?.enabled, widgetId, isContextActive, displayCategories.length]);
+
+    // Vendor context: fetch from vendor_category_ledger endpoint
+    const fetchVendorCategories = async (vendorName) => {
+        try {
+            setLoading(true);
+            const res = await api.get('/api/products/storefront/vendor-categories', {
+                params: { vendor: vendorName }
+            });
+            if (res.data.success) {
+                const cats = (res.data.categories || []).map(c => ({
+                    id: c.category_id,
+                    name: c.category_name,
+                    slug: c.category_slug,
+                    image_url: c.category_image
+                }));
+                setCategories(cats.slice(0, settings.maxCategories || undefined));
+            }
+        } catch (err) {
+            console.error('[CategoryCarouselWidget] Failed to fetch vendor categories', err);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     // Auto-play functionality
     useEffect(() => {

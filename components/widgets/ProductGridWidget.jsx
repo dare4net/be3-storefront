@@ -10,7 +10,9 @@ import { useWishlist } from '../providers/WishlistContext';
 import { proxyApi as api } from '@/lib/axios';
 
 import { useRandomizationContext } from '@/lib/contexts/RandomizationContext';
+import { usePageContext } from '@/lib/hooks/usePageContext';
 import { useAnalytics } from '@/lib/hooks/useAnalytics';
+import { getStaticCache, saveStaticCache } from '@/lib/staticWidgetCache';
 
 export default function ProductGridWidget({ config }) {
     const {
@@ -87,17 +89,17 @@ export default function ProductGridWidget({ config }) {
     const getDisplaySetting = (key, defaultValue = true) => {
         const override = config.responsiveDisplay?.[deviceType]?.[key];
         if (override !== undefined) return override;
-        
+
         const baseVal = config[key];
         if (baseVal === 'false') return false;
         if (baseVal === 'true') return true;
         if (baseVal === undefined || baseVal === null) return defaultValue;
-        
+
         // If it's a number (or string that looks like one), return it as a number
         if (typeof baseVal === 'number' || (typeof baseVal === 'string' && /^\d+$/.test(baseVal))) {
             return parseInt(baseVal);
         }
-        
+
         return !!baseVal;
     };
 
@@ -125,9 +127,19 @@ export default function ProductGridWidget({ config }) {
         batchProducts
     } = useRandomizationContext();
 
+    // Page context for context-aware mode
+    const pageContext = usePageContext();
+    const isContextActive = config.contextAware === true && !!pageContext;
+
     const widgetId = useMemo(() => {
         return config.id || (getStableWidgetId ? getStableWidgetId(config) : 'untitled_prod_grid');
     }, [config.id, config.title, getStableWidgetId]);
+
+    // Context-scoped cache key: each vendor/category gets its own static cache slot.
+    // Without this, all vendor collection pages share the same key → stale cross-vendor products.
+    const staticCacheKey = (isContextActive && pageContext?.contextValue)
+        ? `${widgetId}__ctx__${pageContext.contextValue.toLowerCase().replace(/[^a-z0-9]/g, '_')}`
+        : widgetId;
 
     // Check cache synchronously to avoid skeleton blink on navigation
     const cachedBatch = batchProducts?.[widgetId];
@@ -148,17 +160,17 @@ export default function ProductGridWidget({ config }) {
 
     const getInitialData = () => {
         if (typeof window === 'undefined') return { products: [], metadata: {}, loading: true };
-        
+
         try {
             const pageHandle = window.location.pathname.split('/').pop() || 'home';
             const key = `widget_random_plan_${pageHandle}`;
             const stored = localStorage.getItem(key);
-            
+
             if (stored) {
                 const { data: cachedPlans, products: cachedBatches } = JSON.parse(stored);
                 const cachedProducts = cachedBatches?.[widgetId];
                 const cachedPlan = cachedPlans?.[widgetId];
-                
+
                 if (cachedProducts?.results) {
                     const meta = {};
                     if (cachedPlan) {
@@ -178,11 +190,31 @@ export default function ProductGridWidget({ config }) {
         } catch (e) {
             console.warn("[ProductGridWidget] Sync hydration failed", e);
         }
+
+        // Fallback: check per-user static cache for non-randomized (Case B) widgets
+        if (!config.randomize?.enabled) {
+            const staticCached = getStaticCache(staticCacheKey);
+            if (staticCached) {
+                return {
+                    products: sanitizeProducts(staticCached.products),
+                    metadata: {},
+                    loading: false,
+                    isStaticStale: staticCached.isStale
+                };
+            }
+        }
+
         return { products: [], metadata: {}, loading: true };
     };
 
     const initialData = getInitialData();
-    const [hasInitialCache] = useState(initialData.products.length > 0);
+    // For context-aware randomized widgets, never treat cached products as the final state.
+    // The cache belongs to the last randomized pick — the new plan will pick a different
+    // source, so products must always be re-fetched when the plan resolves.
+    const [hasInitialCache] = useState(
+        config.randomize?.enabled && config.contextAware ? false : initialData.products.length > 0
+    );
+    const isStaticStale = useRef(initialData.isStaticStale || false);
 
     const [products, setProducts] = useState(initialData.products);
     const [metadata, setMetadata] = useState(initialData.metadata);
@@ -191,17 +223,23 @@ export default function ProductGridWidget({ config }) {
     // Register with Master Plan on mount if randomization is enabled
     useEffect(() => {
         if (config.randomize?.enabled) {
-            console.log(`[ProductGridWidget] Registering widget ${widgetId} for randomization`);
+            // DIAGNOSTIC: confirm what context is at registration time
+            console.log(`[ProductGridWidget] Registering ${widgetId} | contextAware: ${config.contextAware} | isContextActive: ${isContextActive} | pageContext:`, pageContext);
             const intent = {
-                allowedTypes: config.randomize.allowedTypes || ['category', 'clause', 'collection'],
+                allowedTypes: config.randomize.allowedSourceTypes || ['category', 'clause', 'collection'],
                 sourceType: sourceType === 'category' ? 'subcategories' : sourceType,
                 parentCategoryId: categoryId,
                 collectionId: collectionId,
                 manualCategoryIds: config.manualCategoryIds || []
             };
-            registerWidget(widgetId, intent, config);
+            // Include page context in config so RandomizationContext can pass it to the resolve API
+            registerWidget(widgetId, intent, {
+                ...config,
+                _pageContext: isContextActive ? pageContext : undefined
+            });
         }
-    }, [widgetId, config.randomize?.enabled, registerWidget]);
+    }, [widgetId, config.randomize?.enabled, registerWidget, isContextActive]);
+
 
     const resolvedFromPlan = masterPlan[widgetId];
     const isReady = !config.randomize?.enabled || resolvedFromPlan;
@@ -246,6 +284,38 @@ export default function ProductGridWidget({ config }) {
             setLoading(false);
         }
     }, [resolvedFromPlan, hasInitialCache]);
+
+    // Background stale revalidation for static widget cache (Case B)
+    // Silently fetches fresh products to warm cache — UI updates on next page visit, not now
+    useEffect(() => {
+        if (!config.randomize?.enabled && hasInitialCache && isStaticStale.current) {
+            const revalidate = async () => {
+                try {
+                    const params = { limit, sort: config.sort || 'relevance' };
+                    if (sourceType === 'category' && categoryId) params.category_id = categoryId;
+                    else if (sourceType === 'collection') {
+                        if (collectionId) params.collection_id = collectionId;
+                        if (collectionSlug) params.collection_slug = collectionSlug;
+                    }
+                    // Include context params so revalidation fetches vendor/category-correct products
+                    if (isContextActive) {
+                        if (pageContext.contextType === 'vendor') params.vendor_name = pageContext.contextValue;
+                        else if (pageContext.contextType === 'category') params.category_id = pageContext.contextValue;
+                    }
+                    const res = await api.get('/api/products', { params });
+                    const fresh = sanitizeProducts(res.data.data || []);
+                    if (fresh.length > 0) {
+                        saveStaticCache(staticCacheKey, fresh);
+                        console.log(`[ProductGridWidget] Static cache refreshed in background for ${staticCacheKey}`);
+                    }
+                } catch (err) {
+                    console.warn('[ProductGridWidget] Background static cache revalidation failed', err);
+                }
+            };
+            revalidate();
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []); // Only run once on mount
 
     const fetchProducts = async () => {
         try {
@@ -292,11 +362,25 @@ export default function ProductGridWidget({ config }) {
                 filters.limit = primary.resolvedLimit || config.limit || 8;
                 filters.showFeaturedOnly = primary.resolvedFeatured ?? config.showFeaturedOnly ?? false;
 
+                // Build context filters for batch-products injection.
+                // For vendor context: always inject vendor filter (additive).
+                // For category context: only inject if the plan did NOT already resolve a specific
+                // category — otherwise we'd override the randomized pick with the page root category.
+                const contextFilters = {};
+                const planHasCategoryId = !!(filters.category_id);
+                if (isContextActive) {
+                    if (pageContext.contextType === 'vendor')
+                        contextFilters['attribute.vendor'] = pageContext.contextValue;
+                    else if (pageContext.contextType === 'category' && !planHasCategoryId)
+                        contextFilters['category_id'] = pageContext.contextValue;
+                }
+
                 console.log(`[ProductGridWidget] Registering batch fetch for ${widgetId}`);
                 registerProductFetch(widgetId, {
                     widgetId,
                     filters,
-                    perPage: filters.limit
+                    perPage: filters.limit,
+                    ...(Object.keys(contextFilters).length > 0 ? { _contextFilters: contextFilters } : {})
                 });
 
                 setMetadata(prev => ({ ...prev, ...(primary.meta || {}) }));
@@ -311,11 +395,19 @@ export default function ProductGridWidget({ config }) {
                 if (collectionSlug) params.collection_slug = collectionSlug;
             }
 
-            const res = await api.get('/products', { params });
+            // Inject context filters for Case B
+            if (isContextActive) {
+                if (pageContext.contextType === 'vendor') params.vendor_name = pageContext.contextValue;
+                else if (pageContext.contextType === 'category') params.category_id = pageContext.contextValue;
+            }
+
+            const res = await api.get('/api/products', { params });
             const fetchedProducts = res.data.data || [];
             const sanitized = sanitizeProducts(fetchedProducts);
             setProducts(sanitized);
             setMetadata(res.data.metadata || {});
+            // Persist to per-user static cache for instant load on next visit
+            if (sanitized.length > 0) saveStaticCache(staticCacheKey, sanitized);
         } catch (error) {
             console.error('[ProductGridWidget] Failed to fetch products', error);
         } finally {
@@ -555,7 +647,7 @@ export default function ProductGridWidget({ config }) {
                     }}
                 >
                     {showSkeletons ? (
-                         Array.from({ length: limit || 8 }).map((_, idx) => (
+                        Array.from({ length: limit || 8 }).map((_, idx) => (
                             <div
                                 key={`skeleton-${idx}`}
                                 className="bg-white rounded-lg overflow-hidden h-full flex flex-col"
@@ -784,8 +876,8 @@ export default function ProductGridWidget({ config }) {
                                                         style={{
                                                             backgroundColor: addingToCart === product.id ? '#10b981' : (colors.accent || '#3b82f6'),
                                                             color: '#ffffff',
-                                                            padding: deviceType === 'mobile' 
-                                                                ? `${0.5 * scale}rem ${0.8 * scale}rem` 
+                                                            padding: deviceType === 'mobile'
+                                                                ? `${0.5 * scale}rem ${0.8 * scale}rem`
                                                                 : `${0.625 * scale}rem ${1 * scale}rem`
                                                         }}
                                                         aria-label="Add to Cart"

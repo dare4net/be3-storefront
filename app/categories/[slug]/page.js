@@ -10,6 +10,8 @@ import DynamicMetaTags from "@/components/DynamicMetaTags";
 import SuggestionsCarousel from "@/components/products/SuggestionsCarousel";
 import EntityAnalytics from "@/components/analytics/EntityAnalytics";
 import api from "@/lib/axios";
+import { LegacyPageProvider } from "@/components/providers/LegacyPageContext";
+import WidgetRenderer from "@/components/widgets/WidgetRenderer";
 
 // Client-side Category Page
 export default function CategoryPage({ params }) {
@@ -20,6 +22,8 @@ export default function CategoryPage({ params }) {
     const [category, setCategory] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [widgets, setWidgets] = useState([]);
+    const [widgetsLoading, setWidgetsLoading] = useState(true);
 
     const initialFilters = useMemo(() => {
         if (!category?.id) return {};
@@ -47,10 +51,34 @@ export default function CategoryPage({ params }) {
             }
         };
 
+        const fetchWidgets = async () => {
+            try {
+                // Try specific slug first, then fallback to template
+                const res = await api.get(`/page-builder/widgets?page=${slug}`, {
+                    headers: { 'x-tenant-id': tenant.id }
+                });
+                
+                let foundWidgets = res.data?.widgets || [];
+                if (foundWidgets.length === 0) {
+                    const templateRes = await api.get(`/page-builder/widgets?page=category_detail`, {
+                        headers: { 'x-tenant-id': tenant.id }
+                    });
+                    foundWidgets = templateRes.data?.widgets || [];
+                }
+                
+                setWidgets(foundWidgets);
+            } catch (e) {
+                console.error("Failed to fetch widgets", e);
+            } finally {
+                setWidgetsLoading(false);
+            }
+        };
+
         fetchCategory();
+        fetchWidgets();
     }, [slug, tenant?.id]);
 
-    if (loading) {
+    if (loading || widgetsLoading) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-gray-50">
                 <div className="flex flex-col items-center gap-4">
@@ -79,80 +107,22 @@ export default function CategoryPage({ params }) {
 
     return (
         <SearchProvider initialFilters={initialFilters}>
-            <div className="min-h-screen bg-white">
-                <DynamicMetaTags meta={{ ...category.seo, title: category.name }} tenant={tenant} />
-                <EntityAnalytics type="category" entity={category} />
+            <LegacyPageProvider data={category} type="category">
+                <div className="min-h-screen bg-white">
+                    <DynamicMetaTags meta={{ ...category.seo, title: category.name }} tenant={tenant} />
+                    <EntityAnalytics type="category" entity={category} />
 
-                {/* Hero Section */}
-                <div className="relative bg-gray-900 text-white overflow-hidden">
-                    {category.image_url && (
-                        <div className="absolute inset-0">
-                            <img
-                                src={category.image_url}
-                                alt={category.name}
-                                className="w-full h-full object-cover opacity-40"
-                            />
-                            <div className="absolute inset-0 bg-gradient-to-t from-gray-900 via-transparent to-transparent" />
+                    {widgets.length > 0 ? (
+                        widgets.filter(w => !w.parent_id).map(widget => (
+                            <WidgetRenderer key={widget.id} widget={widget} widgets={widgets} />
+                        ))
+                    ) : (
+                        <div className="container mx-auto px-4 py-20 text-center">
+                            <p className="text-gray-500">No widgets registered for this page.</p>
                         </div>
                     )}
-                    <div className="relative container mx-auto px-4 py-16 lg:py-24 max-w-7xl">
-                        <nav className="flex items-center text-sm text-gray-300 mb-6 overflow-x-auto whitespace-nowrap scrollbar-hide">
-                            <Link href="/" className="hover:text-white transition-colors">Home</Link>
-                            <ChevronRight className="w-4 h-4 mx-2 text-gray-500" />
-                            <Link href="/categories" className="hover:text-white transition-colors">Categories</Link>
-                            {category.breadcrumb?.filter(bc => bc.id !== category.id).map(bc => (
-                                <span key={bc.id} className="flex items-center">
-                                    <ChevronRight className="w-4 h-4 mx-2 text-gray-500" />
-                                    <Link href={`/categories/${bc.slug}`} className="hover:text-white transition-colors">
-                                        {bc.name}
-                                    </Link>
-                                </span>
-                            ))}
-                            <ChevronRight className="w-4 h-4 mx-2 text-gray-500" />
-                            <span className="text-white font-bold">{category.name}</span>
-                        </nav>
-                        <h1 className="text-4xl lg:text-6xl font-extrabold tracking-tight mb-6">
-                            {category.name}
-                        </h1>
-                        {category.description && (
-                            <p className="text-lg text-gray-200 max-w-2xl leading-relaxed">
-                                {category.description}
-                            </p>
-                        )}
-                    </div>
                 </div>
-
-                {/* Subcategories Breadcrumbs */}
-                {category.children && category.children.length > 0 && (
-                    <div className="bg-gray-50 border-b border-gray-200 py-6">
-                        <div className="container mx-auto px-4 max-w-7xl">
-                            <div className="flex items-center gap-4 overflow-x-auto pb-2 scrollbar-hide">
-                                <span className="text-xs font-bold text-gray-400 uppercase tracking-widest whitespace-nowrap">Subcategories</span>
-                                {category.children.map(child => (
-                                    <Link
-                                        key={child.id}
-                                        href={`/categories/${child.slug}`}
-                                        className="flex items-center px-5 py-2 bg-white hover:bg-indigo-50 border border-gray-200 hover:border-indigo-200 rounded-full transition-all whitespace-nowrap text-sm text-gray-700 font-medium hover:text-indigo-700 shadow-sm"
-                                    >
-                                        {child.name}
-                                    </Link>
-                                ))}
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                {/* Advanced Search Layout */}
-                <SearchPageLayout />
-
-                {/* Suggestions Section */}
-                <SuggestionsCarousel
-                    title={`More from ${category.name}`}
-                    subtitle="Discover more great products you might love"
-                    categoryId={category.id}
-                    sort="random"
-                />
-            </div>
+            </LegacyPageProvider>
         </SearchProvider>
     );
 }

@@ -9,6 +9,9 @@ import SearchPageLayout from "@/components/widgets/SearchPageLayout";
 import DynamicMetaTags from "@/components/DynamicMetaTags";
 import api from "@/lib/axios";
 import EntityAnalytics from "@/components/analytics/EntityAnalytics";
+import { LegacyPageProvider } from "@/components/providers/LegacyPageContext";
+import WidgetRenderer from "@/components/widgets/WidgetRenderer";
+import CollectionHeader from "@/components/collections/CollectionHeader";
 
 export default function CollectionPage({ params }) {
     const resolvedParams = use(params);
@@ -18,6 +21,8 @@ export default function CollectionPage({ params }) {
     const [collection, setCollection] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [widgets, setWidgets] = useState([]);
+    const [widgetsLoading, setWidgetsLoading] = useState(true);
 
     const initialFilters = useMemo(() => {
         return { collection_slug: slug };
@@ -44,15 +49,34 @@ export default function CollectionPage({ params }) {
             }
         };
 
+        const fetchWidgets = async () => {
+            try {
+                // Try specific slug first, then fallback to template
+                const res = await api.get(`/page-builder/widgets?page=${slug}`, {
+                    headers: { 'x-tenant-id': tenant.id }
+                });
+                
+                let foundWidgets = res.data?.widgets || [];
+                if (foundWidgets.length === 0) {
+                    const templateRes = await api.get(`/page-builder/widgets?page=collection_detail`, {
+                        headers: { 'x-tenant-id': tenant.id }
+                    });
+                    foundWidgets = templateRes.data?.widgets || [];
+                }
+                
+                setWidgets(foundWidgets);
+            } catch (e) {
+                console.error("Failed to fetch widgets", e);
+            } finally {
+                setWidgetsLoading(false);
+            }
+        };
+
         fetchCollection();
+        fetchWidgets();
     }, [slug, tenant?.id]);
 
-    const collectionStats = useMemo(() => {
-        // Mock stats for visual review (replace with real data later).
-        return "42 items \u00b7 Updated Apr 9, 2026";
-    }, []);
-
-    if (loading) {
+    if (loading || widgetsLoading) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-gray-50">
                 <div className="flex flex-col items-center gap-4">
@@ -80,81 +104,33 @@ export default function CollectionPage({ params }) {
 
     return (
         <SearchProvider key={slug} initialFilters={initialFilters}>
-            <div className="min-h-screen bg-white">
-                <DynamicMetaTags
-                    meta={{
-                        ...(collection.seo || {}),
-                        title: collection.seo?.title || collection.name
-                    }}
-                    tenant={tenant}
-                />
-                <EntityAnalytics type="collection" entity={collection} />
+            <LegacyPageProvider data={collection} type="collection">
+                <div className="min-h-screen bg-white">
+                    <DynamicMetaTags
+                        meta={{
+                            ...(collection.seo || {}),
+                            title: collection.seo?.title || collection.name
+                        }}
+                        tenant={tenant}
+                    />
+                    <EntityAnalytics type="collection" entity={collection} />
 
-                {/* Hero Section */}
-                <div className="relative bg-gradient-to-br from-slate-900 via-slate-950 to-black text-white overflow-hidden pt-16 pb-12 lg:pt-24 lg:pb-16">
-                    {collection.image_url && (
-                        <div className="absolute inset-0">
-                            <img
-                                src={collection.image_url}
-                                alt={collection.name}
-                                className="w-full h-full object-cover opacity-35"
-                            />
-                            <div className="absolute inset-0 bg-gradient-to-t from-gray-900 via-transparent to-transparent" />
+                    {/* Show a curated collection hero header for manual (non-vendor) collections */}
+                    {collection.collection_type !== 'vendor' && (
+                        <CollectionHeader collection={collection} />
+                    )}
+
+                    {widgets.length > 0 ? (
+                        widgets.filter(w => !w.parent_id).map(widget => (
+                            <WidgetRenderer key={widget.id} widget={widget} widgets={widgets} />
+                        ))
+                    ) : (
+                        <div className="container mx-auto px-4 py-20 text-center">
+                            <p className="text-gray-500">No widgets registered for this page.</p>
                         </div>
                     )}
-                    <div className="relative container mx-auto px-4 max-w-7xl">
-                        <nav className="flex items-center text-sm text-gray-300 mb-8">
-                            <Link href="/" className="hover:text-white transition-colors">Home</Link>
-                            <ChevronRight className="w-4 h-4 mx-2 text-gray-500" />
-                            <Link href="/products" className="hover:text-white transition-colors">Products</Link>
-                            <ChevronRight className="w-4 h-4 mx-2 text-gray-500" />
-                            <span className="text-white font-medium">{collection.name}</span>
-                        </nav>
-                        <div className="max-w-3xl">
-                            <div className="flex flex-col md:flex-row md:items-center gap-6 mb-6">
-                                {collection.thumbnail_url && (
-                                    <div className="w-20 h-20 lg:w-28 lg:h-28 rounded-2xl overflow-hidden border-2 border-white/20 shadow-2xl shrink-0 bg-white/10 backdrop-blur-sm">
-                                        <img src={collection.thumbnail_url} alt="" className="w-full h-full object-cover" />
-                                    </div>
-                                )}
-                                <div className="flex flex-col gap-4">
-                                    <h1 className="text-4xl lg:text-7xl font-extrabold tracking-tight">
-                                        {collection.name}
-                                    </h1>
-                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                                        <div className="rounded-xl border border-white/15 bg-white/5 px-4 py-3 backdrop-blur-sm">
-                                            <p className="text-[11px] uppercase tracking-[0.2em] text-white/60">Items Sold</p>
-                                            <p className="text-lg font-semibold text-white">18.4k</p>
-                                        </div>
-                                        <div className="rounded-xl border border-white/15 bg-white/5 px-4 py-3 backdrop-blur-sm">
-                                            <p className="text-[11px] uppercase tracking-[0.2em] text-white/60">On Platform</p>
-                                            <p className="text-lg font-semibold text-white">3.2 yrs</p>
-                                        </div>
-                                        <div className="rounded-xl border border-white/15 bg-white/5 px-4 py-3 backdrop-blur-sm">
-                                            <p className="text-[11px] uppercase tracking-[0.2em] text-white/60">Rating</p>
-                                            <p className="text-lg font-semibold text-white">4.8 / 5</p>
-                                        </div>
-                                        <div className="rounded-xl border border-white/15 bg-white/5 px-4 py-3 backdrop-blur-sm">
-                                            <p className="text-[11px] uppercase tracking-[0.2em] text-white/60">Items Listed</p>
-                                            <p className="text-lg font-semibold text-white">412</p>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            {collection.description && (
-                                <p className="text-lg lg:text-xl text-gray-200/90 leading-relaxed font-light max-w-2xl">
-                                    {collection.description}
-                                </p>
-                            )}
-                        </div>
-                    </div>
                 </div>
-
-                {/* Product Grid Area */}
-                <div className="w-full px-4 sm:px-6 lg:px-8 pt-10 pb-12">
-                    <SearchPageLayout config={{ showSearchBar: false, fullWidth: true }} />
-                </div>
-            </div>
+            </LegacyPageProvider>
         </SearchProvider>
     );
 }

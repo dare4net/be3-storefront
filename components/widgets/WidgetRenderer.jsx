@@ -49,6 +49,7 @@ import TabsWidget from './TabsWidget';
 import AnnouncementBarWidget from './AnnouncementBarWidget';
 import CategoryCarouselWidget from './CategoryCarouselWidget';
 import RandomizerWidget from './primitive/RandomizerWidget';
+import LegacyWidgetBridge from './LegacyWidgetBridge';
 
 const WIDGET_MAP = {
     hero: HeroWidget,
@@ -101,6 +102,9 @@ const WIDGET_MAP = {
     announcement_bar: AnnouncementBarWidget,
     category_carousel: CategoryCarouselWidget,
     randomizer: RandomizerWidget,
+
+    // Legacy Bridge
+    unknown_widget: LegacyWidgetBridge,
 };
 
 
