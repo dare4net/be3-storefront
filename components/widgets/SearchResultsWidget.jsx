@@ -107,6 +107,7 @@ export default function SearchResultsWidget({ config = {} }) {
 
   const supportedSorts = schema?.supportedSorts || ["relevance", "price_asc", "price_desc", "date_desc", "date_asc"];
   const showHeader = config.showHeader !== false;
+  const showActiveFiltersBar = config.showActiveFiltersBar !== false;
   const rawCols = config.columns;
   const gridCols = typeof rawCols === 'number'
     ? { desktop: rawCols, tablet: Math.max(2, rawCols - 2), mobile: 2 }
@@ -115,6 +116,18 @@ export default function SearchResultsWidget({ config = {} }) {
       tablet: rawCols?.tablet || 3,
       mobile: rawCols?.mobile || 2
     };
+
+  // Card appearance props (forwarded from SearchPageLayout or set directly)
+  const showPrice         = config.showPrice         !== false;
+  const showAddToCart     = config.showAddToCart     !== false;
+  const showFeaturedBadge = config.showFeaturedBadge !== false;
+  const showViewDetails   = config.showViewDetails   !== false;
+  const showDescription   = config.showDescription   !== false;
+  const showTags          = config.showTags          === true;
+  const showAttributes    = config.showAttributes    === true;
+  const showSocialProof   = config.showSocialProof   !== false;
+  const cardScale         = config.cardScale         ?? 0.9;
+
   // Enable stats for this widget
   useEffect(() => {
     setIncludeStats(true);
@@ -249,7 +262,7 @@ export default function SearchResultsWidget({ config = {} }) {
           </div>
 
           {/* Active Filters Bar */}
-          {activeFilters.length > 0 && (
+          {showActiveFiltersBar && activeFilters.length > 0 && (
             <div className="flex flex-wrap items-center gap-2 mt-4">
               <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest mr-2">Filters:</span>
               {activeFilters.map((f) => (
@@ -297,9 +310,15 @@ export default function SearchResultsWidget({ config = {} }) {
                 key={item.id || item.content_id}
                 product={mapItemToProduct(item)}
                 trackClick={handleResultClick}
-                showDescription={true}
-                showSocialProof={true}
-                scale={0.9}
+                scale={cardScale}
+                showPrice={showPrice}
+                showAddToCart={showAddToCart}
+                showFeaturedBadge={showFeaturedBadge}
+                showViewDetails={showViewDetails}
+                showDescription={showDescription}
+                showTags={showTags}
+                showAttributes={showAttributes}
+                showSocialProof={showSocialProof}
                 cardStyle={{
                   backgroundColor: '#ffffff',
                   borderRadius: '0.5rem'

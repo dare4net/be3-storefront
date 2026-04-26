@@ -331,7 +331,8 @@ export default function CategoryCarouselWidget({ config = {} }) {
                     id: c.category_id,
                     name: c.category_name,
                     slug: c.category_slug,
-                    image_url: c.category_image
+                    image_url: c.category_image,
+                    product_count: c.product_count
                 }));
                 setCategories(cats.slice(0, settings.maxCategories || undefined));
             }

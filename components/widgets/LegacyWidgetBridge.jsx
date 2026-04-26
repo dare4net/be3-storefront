@@ -3,35 +3,25 @@
 import Link from 'next/link';
 import { ChevronRight, Package } from 'lucide-react';
 import { useLegacyPageData } from '@/components/providers/LegacyPageContext';
-import SearchPageLayout from './SearchPageLayout';
 import SuggestionsCarousel from '@/components/products/SuggestionsCarousel';
 
 export default function LegacyWidgetBridge({ config }) {
     const { legacy_type } = config;
     const { data: entity, type: pageType } = useLegacyPageData() || {};
 
-    // search_layout renders independently — it doesn't need entity context
-    if (legacy_type === 'search_layout') {
-        return <SearchPageLayout />;
-    }
+    // Note: search_layout / collection_search / category_search were removed —
+    // those widgets are now registered as search_page_layout and rendered directly
+    // by WidgetRenderer without passing through this bridge.
 
     if (!entity) return null;
 
     switch (legacy_type) {
         case 'collection_hero':
             return <CollectionHero entity={entity} />;
-        case 'collection_search':
-            return (
-                <div className="w-full px-4 sm:px-6 lg:px-8 pt-10 pb-12">
-                    <SearchPageLayout config={{ showSearchBar: false, fullWidth: true }} />
-                </div>
-            );
         case 'category_hero':
             return <CategoryHero entity={entity} />;
         case 'category_subnav':
             return <CategorySubnav entity={entity} />;
-        case 'category_search':
-            return <SearchPageLayout />;
         case 'category_suggestions':
             return (
                 <SuggestionsCarousel

@@ -13,20 +13,54 @@ export default function SearchPageLayout({ config = {} }) {
     const {
         columns = { desktop: 5, tablet: 3, mobile: 2 },
         sidebarEnabled = true,
-        showFilters = true
+        showFilters = true,
+        // Search UI toggles
+        showSearchBar = true,
+        showImageSearchBar = true,
+        // Results header
+        showActiveFiltersBar = true,
+        // Product card props — forwarded to SearchResultsWidget
+        showPrice = true,
+        showAddToCart = true,
+        showFeaturedBadge = true,
+        showViewDetails = true,
+        showTags = false,
+        showDescription = true,
+        showAttributes = false,
+        showSocialProof = true,
+        showRating = false,
+        cardScale = 0.9,
     } = config;
+
+    // Card props bundle forwarded into SearchResultsWidget
+    const cardConfig = {
+        showPrice,
+        showAddToCart,
+        showFeaturedBadge,
+        showViewDetails,
+        showTags,
+        showDescription,
+        showAttributes,
+        showSocialProof,
+        showRating,
+        cardScale,
+    };
 
     return (
         <div className="min-h-screen bg-gray-50">
             {/* Search Bar */}
-            <div className="bg-white border-b border-gray-200">
-                <SearchBarWidget config={{}} />
-            </div>
+            {showSearchBar && (
+                <div className="bg-white border-b border-gray-200">
+                    <SearchBarWidget config={{}} />
+                </div>
+            )}
 
             {/* Image Search */}
-            <div className="bg-white border-b border-gray-100 shadow-sm">
-                <ImageSearchWidget config={{}} />
-            </div>
+            {showImageSearchBar && (
+                <div className="bg-white border-b border-gray-100 shadow-sm">
+                    <ImageSearchWidget config={{}} />
+                </div>
+            )}
 
             {/* Main Content */}
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
@@ -75,7 +109,12 @@ export default function SearchPageLayout({ config = {} }) {
 
                     {/* Search Results */}
                     <main className={showFilters && sidebarEnabled ? "lg:col-span-9" : "lg:col-span-12"}>
-                        <SearchResultsWidget config={{ container: false, columns }} />
+                        <SearchResultsWidget config={{
+                            container: false,
+                            columns,
+                            showActiveFiltersBar,
+                            ...cardConfig
+                        }} />
                     </main>
                 </div>
             </div>
