@@ -48,6 +48,8 @@ import AccordionWidget from './AccordionWidget';
 import TabsWidget from './TabsWidget';
 import AnnouncementBarWidget from './AnnouncementBarWidget';
 import CategoryCarouselWidget from './CategoryCarouselWidget';
+import ClauseGridWidget from './ClauseGridWidget';
+import ClauseCarouselWidget from './ClauseCarouselWidget';
 import RandomizerWidget from './primitive/RandomizerWidget';
 import LegacyWidgetBridge from './LegacyWidgetBridge';
 
@@ -101,6 +103,8 @@ const WIDGET_MAP = {
     tabs: TabsWidget,
     announcement_bar: AnnouncementBarWidget,
     category_carousel: CategoryCarouselWidget,
+    clause_grid: ClauseGridWidget,
+    clause_carousel: ClauseCarouselWidget,
     randomizer: RandomizerWidget,
 
     // Legacy Bridge

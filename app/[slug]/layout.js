@@ -7,6 +7,8 @@ export async function generateMetadata({ params }) {
     if (!tenant) return {};
 
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3000';
+
+    // 1. Try CMS page
     try {
         const res = await fetch(`${apiUrl}/storefront/pages/${slug}`, {
             headers: { 'x-tenant-id': tenant.id },
@@ -16,7 +18,6 @@ export async function generateMetadata({ params }) {
             const data = await res.json();
             const page = data.page;
             if (page) {
-                // Pages usually just use their direct properties for SEO if 'seo' object doesn't exist
                 const seoData = page.seo || {
                     title: page.title,
                     meta_description: page.meta_description,
@@ -31,6 +32,23 @@ export async function generateMetadata({ params }) {
     } catch (e) {
         console.error("Failed to fetch custom page for SEO", e);
     }
+
+    // 2. Try branded slug resolution (e.g., "apple-laptops", "budget-smartphones")
+    try {
+        const brandedRes = await fetch(`${apiUrl}/search/resolve-slug/${slug}`, {
+            headers: { 'x-tenant-id': tenant.id },
+            cache: 'no-store'
+        });
+        if (brandedRes.ok) {
+            const data = await brandedRes.json();
+            if (data.success && data.seo) {
+                return mapToNextMetadata(data.seo, tenant, theme);
+            }
+        }
+    } catch (e) {
+        // Not a branded slug — that's fine
+    }
+
     return {};
 }
 
@@ -41,6 +59,8 @@ export default async function PageLayout({ children, params }) {
 
     if (tenant) {
         const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3000';
+
+        // Try CMS page first
         try {
             const res = await fetch(`${apiUrl}/storefront/pages/${slug}`, {
                 headers: { 'x-tenant-id': tenant.id },
@@ -51,6 +71,20 @@ export default async function PageLayout({ children, params }) {
                 structuredData = data.page?.seo?.structured_data || data.page?.structured_data;
             }
         } catch (e) { }
+
+        // Fallback: try branded slug for structured data
+        if (!structuredData) {
+            try {
+                const brandedRes = await fetch(`${apiUrl}/search/resolve-slug/${slug}`, {
+                    headers: { 'x-tenant-id': tenant.id },
+                    cache: 'no-store'
+                });
+                if (brandedRes.ok) {
+                    const data = await brandedRes.json();
+                    structuredData = data.seo?.structured_data;
+                }
+            } catch (e) { }
+        }
     }
 
     return (
