@@ -14,6 +14,7 @@ import SuggestionsCarousel from "@/components/products/SuggestionsCarousel";
 import StickyAddToCart from "@/components/products/StickyAddToCart";
 import EntityAnalytics from "@/components/analytics/EntityAnalytics";
 import ChatButton from "@/components/chat/ChatButton";
+import { mapToNextMetadata } from "@/lib/seoMapper";
 import { ChevronRight } from 'lucide-react';
 import ProductLocation from "@/components/product/ProductLocation";
 
@@ -69,6 +70,17 @@ async function getRelatedVariants(productId, parentId, tenant) {
 }
 
 
+export async function generateMetadata({ params }) {
+    const { handle } = await params;
+    const { tenant } = await getTenantAndTheme();
+    if (!tenant) return {};
+
+    const product = await getProduct(handle, tenant);
+    if (!product || !product.seo) return {};
+
+    return mapToNextMetadata(product.seo, tenant);
+}
+
 export default async function ProductPage({ params }) {
     const { handle } = await params;
 
@@ -98,7 +110,13 @@ export default async function ProductPage({ params }) {
 
     return (
         <div className="container mx-auto px-4 py-8 max-w-7xl min-h-screen">
-            <DynamicMetaTags meta={product.seo} tenant={tenant} />
+            {product.seo?.structured_data && (
+                <script
+                    type="application/ld+json"
+                    dangerouslySetInnerHTML={{ __html: JSON.stringify(product.seo.structured_data) }}
+                />
+            )}
+            
             {/* Breadcrumbs */}
             <nav className="flex items-center text-sm text-gray-500 mb-8 overflow-x-auto whitespace-nowrap pb-2 scrollbar-hide">
                 <Link href="/" className="hover:text-blue-600 transition-colors">Home</Link>

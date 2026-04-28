@@ -5,7 +5,7 @@ import { useParams } from "next/navigation";
 import { useTenant } from "@/components/providers/TenantContext";
 import api from "@/lib/axios";
 import WidgetRenderer from "@/components/widgets/WidgetRenderer";
-import DynamicMetaTags from "@/components/DynamicMetaTags";
+
 
 import { useStorefront } from "@/components/providers/StorefrontProvider";
 import { useSearch } from "@/components/providers/SearchContext";
@@ -177,7 +177,7 @@ export default function DynamicPage() {
 
     return (
         <>
-            <DynamicMetaTags meta={page} tenant={tenant} />
+
             {!loading && analyticsEntity && (
                 <EntityAnalytics type={analyticsType} entity={analyticsEntity} />
             )}

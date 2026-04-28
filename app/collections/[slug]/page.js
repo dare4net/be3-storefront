@@ -6,7 +6,7 @@ import { ChevronRight, Package } from 'lucide-react';
 import { useTenant } from "@/components/providers/TenantContext";
 import { SearchProvider } from "@/components/providers/SearchContext";
 import SearchPageLayout from "@/components/widgets/SearchPageLayout";
-import DynamicMetaTags from "@/components/DynamicMetaTags";
+
 import api from "@/lib/axios";
 import EntityAnalytics from "@/components/analytics/EntityAnalytics";
 import { LegacyPageProvider } from "@/components/providers/LegacyPageContext";
@@ -106,13 +106,7 @@ export default function CollectionPage({ params }) {
         <SearchProvider key={slug} initialFilters={initialFilters}>
             <LegacyPageProvider data={collection} type="collection">
                 <div className="min-h-screen bg-white">
-                    <DynamicMetaTags
-                        meta={{
-                            ...(collection.seo || {}),
-                            title: collection.seo?.title || collection.name
-                        }}
-                        tenant={tenant}
-                    />
+
                     <EntityAnalytics type="collection" entity={collection} />
 
                     {/* Show a curated collection hero header for manual (non-vendor) collections */}

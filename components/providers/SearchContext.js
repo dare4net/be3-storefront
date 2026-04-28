@@ -358,17 +358,20 @@ export function SearchProvider({ children, initialPerPage = 20, initialFilters =
     // If this is a branded/locked SEO object from backend, don't override
     if (seo?.is_branded) return;
 
-    // If no clause is active and we have a static SEO object from backend, don't override
-    if (!activeClause && seo && !seo.is_dynamic) return;
+    // If no dynamic clause is active, we should NOT hijack the title!
+    // The base page component (via DynamicMetaTags) already set the correct, branded title.
+    if (!activeClause) return;
 
     const title = generateTitle(category, activeAttribute, activeClause);
     const description = generateDescription(category, activeAttribute, activeClause);
 
     // Update document head (side effect)
     if (typeof document !== 'undefined') {
+      const brandedTitle = `${title}${tenant ? ` | ${tenant.name}` : ''}`;
+      
       // Don't update document title if it's already set by a more specific component or branded source
-      if (document.title !== title && !seo?.is_branded) {
-        document.title = title;
+      if (document.title !== brandedTitle && !seo?.is_branded) {
+        document.title = brandedTitle;
       }
       const metaDesc = document.querySelector('meta[name="description"]');
       if (metaDesc && metaDesc.getAttribute('content') !== description && !seo?.is_branded) {

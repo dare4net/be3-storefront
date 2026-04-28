@@ -6,7 +6,7 @@ import { ChevronRight, Filter, SlidersHorizontal, Package } from 'lucide-react';
 import { useTenant } from "@/components/providers/TenantContext";
 import { SearchProvider, useSearch } from "@/components/providers/SearchContext";
 import SearchPageLayout from "@/components/widgets/SearchPageLayout";
-import DynamicMetaTags from "@/components/DynamicMetaTags";
+
 import SuggestionsCarousel from "@/components/products/SuggestionsCarousel";
 import EntityAnalytics from "@/components/analytics/EntityAnalytics";
 import api from "@/lib/axios";
@@ -109,7 +109,7 @@ export default function CategoryPage({ params }) {
         <SearchProvider initialFilters={initialFilters}>
             <LegacyPageProvider data={category} type="category">
                 <div className="min-h-screen bg-white">
-                    <DynamicMetaTags meta={{ ...category.seo, title: category.name }} tenant={tenant} />
+
                     <EntityAnalytics type="category" entity={category} />
 
                     {widgets.length > 0 ? (
