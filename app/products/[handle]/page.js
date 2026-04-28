@@ -72,13 +72,13 @@ async function getRelatedVariants(productId, parentId, tenant) {
 
 export async function generateMetadata({ params }) {
     const { handle } = await params;
-    const { tenant } = await getTenantAndTheme();
+    const { tenant, theme } = await getTenantAndTheme();
     if (!tenant) return {};
 
     const product = await getProduct(handle, tenant);
     if (!product || !product.seo) return {};
 
-    return mapToNextMetadata(product.seo, tenant);
+    return mapToNextMetadata(product.seo, tenant, theme);
 }
 
 export default async function ProductPage({ params }) {

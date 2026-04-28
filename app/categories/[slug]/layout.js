@@ -3,7 +3,7 @@ import { mapToNextMetadata } from "@/lib/seoMapper";
 
 export async function generateMetadata({ params }) {
     const { slug } = await params;
-    const { tenant } = await getTenantAndTheme();
+    const { tenant, theme } = await getTenantAndTheme();
     if (!tenant) return {};
 
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3000';
@@ -15,8 +15,14 @@ export async function generateMetadata({ params }) {
         if (res.ok) {
             const data = await res.json();
             const category = data.category;
-            if (category && category.seo) {
-                return mapToNextMetadata({ ...category.seo, title: category.name }, tenant);
+            if (category) {
+                const seoData = {
+                    ...(category.seo || {}),
+                    title: category.seo?.title || category.name,
+                    meta_description: category.seo?.meta_description || category.description,
+                    image_url: category.seo?.og_image || category.image_url
+                };
+                return mapToNextMetadata(seoData, tenant, theme);
             }
         }
     } catch (e) {
