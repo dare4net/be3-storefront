@@ -126,6 +126,7 @@ export default function SearchResultsWidget({ config = {} }) {
   const showTags          = config.showTags          === true;
   const showAttributes    = config.showAttributes    === true;
   const showSocialProof   = config.showSocialProof   !== false;
+  const showRating        = config.showRating        !== false;
   const cardScale         = config.cardScale         ?? 0.9;
 
   // Enable stats for this widget
@@ -206,6 +207,7 @@ export default function SearchResultsWidget({ config = {} }) {
       compare_at_price: meta.compare_at_price || item.compare_at_price,
       description: item.description || meta.description || item.snippet,
       stats: item.stats || meta.stats || { impressions: 0, wishlist_count: 0 },
+      rating_summary: item.rating_summary || meta.rating_summary || null,
       ...meta,
       // Re-apply core fields to ensure they weren't overwritten incorrectly by ...meta
       id: item.content_id || item.id,
@@ -319,6 +321,7 @@ export default function SearchResultsWidget({ config = {} }) {
                 showTags={showTags}
                 showAttributes={showAttributes}
                 showSocialProof={showSocialProof}
+                showRating={showRating}
                 cardStyle={{
                   backgroundColor: '#ffffff',
                   borderRadius: '0.5rem'
