@@ -199,6 +199,7 @@ export default function SearchResultsWidget({ config = {} }) {
   const mapItemToProduct = (item) => {
     const meta = item.metadata || {};
     return {
+      ...meta,
       id: item.content_id || item.id,
       name: item.title || item.name,
       handle: meta.handle || item.handle || item.content_id || item.id,
@@ -208,10 +209,6 @@ export default function SearchResultsWidget({ config = {} }) {
       description: item.description || meta.description || item.snippet,
       stats: item.stats || meta.stats || { impressions: 0, wishlist_count: 0 },
       rating_summary: item.rating_summary || meta.rating_summary || null,
-      ...meta,
-      // Re-apply core fields to ensure they weren't overwritten incorrectly by ...meta
-      id: item.content_id || item.id,
-      name: item.title || item.name,
     };
   };
 

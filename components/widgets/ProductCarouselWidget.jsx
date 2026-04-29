@@ -842,6 +842,33 @@ export default function ProductCarouselWidget({ config }) {
                                                     )}
                                                 </div>
 
+                                                {effectiveShowTags && product.tags && Array.isArray(product.tags) && product.tags.length > 0 && (
+                                                    <div className="flex flex-wrap gap-1 mt-2">
+                                                        {product.tags
+                                                            .filter(tag => !product.attributes?.vendor || tag.toLowerCase() !== product.attributes.vendor.toLowerCase())
+                                                            .slice(0, tagsCount)
+                                                            .map((tag, i) => (
+                                                                <span key={i} className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full" style={{ fontSize: `clamp(${0.65 * scale}rem, ${0.6 * scale}rem + ${0.1 * scale}vw, ${0.75 * scale}rem)` }}>
+                                                                    {tag}
+                                                                </span>
+                                                            ))
+                                                        }
+                                                    </div>
+                                                )}
+
+                                                {effectiveShowSocialProof && (
+                                                    <div className="flex items-center gap-3 text-gray-400 mt-2" style={{ fontSize: `${0.75 * scale}rem` }}>
+                                                        <span className="flex items-center gap-1">
+                                                            <Eye className="w-3 h-3" style={{ width: `${0.75 * scale}rem`, height: `${0.75 * scale}rem` }} />
+                                                            {product.stats?.impressions || 0}
+                                                        </span>
+                                                        <span className="flex items-center gap-1">
+                                                            <Heart className="w-3 h-3" style={{ width: `${0.75 * scale}rem`, height: `${0.75 * scale}rem` }} />
+                                                            {product.stats?.wishlist_count || 0}
+                                                        </span>
+                                                    </div>
+                                                )}
+
                                                 {/* Rating */}
                                                 {effectiveShowRating && product.rating_summary && parseFloat(product.rating_summary.average_rating) > 0 && (
                                                     <div className="flex items-center gap-1.5 mt-1" style={{ fontSize: `${0.75 * scale}rem` }}>
