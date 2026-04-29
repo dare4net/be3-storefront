@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { ShoppingCart, MessageCircle, Eye, X, Heart } from 'lucide-react';
+import { ShoppingCart, MessageCircle, Eye, X, Heart, Star } from 'lucide-react';
 import { useCart } from '@/components/providers/CartContext';
 import { useChatContext } from '@/components/providers/ChatContext';
 import WishlistButton from './WishlistButton';
@@ -77,6 +77,15 @@ export default function ProductCard({ product, trackClick }) {
                         {product.name}
                     </h3>
                 </Link>
+
+                {/* Rating */}
+                {product.rating_summary && parseFloat(product.rating_summary.average_rating) > 0 && (
+                    <div className="flex items-center gap-1.5 mt-1 text-xs">
+                        <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
+                        <span className="font-semibold text-gray-700">{parseFloat(product.rating_summary.average_rating).toFixed(1)}</span>
+                        <span className="text-gray-400">({parseInt(product.rating_summary.total_reviews || 0)} review{parseInt(product.rating_summary.total_reviews || 0) !== 1 ? 's' : ''})</span>
+                    </div>
+                )}
 
                 <div className="mt-1 sm:mt-2 flex items-center justify-between">
                     <div className="flex flex-col">

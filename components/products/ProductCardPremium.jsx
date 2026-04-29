@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from 'react';
-import { ShoppingCart, Check, Eye, Heart } from 'lucide-react';
+import { ShoppingCart, Check, Eye, Heart, Star } from 'lucide-react';
 import { useCart } from '@/components/providers/CartContext';
 import { useWishlist } from '@/components/providers/WishlistContext';
 import { useAnalytics } from '@/lib/hooks/useAnalytics';
@@ -20,6 +20,7 @@ export default function ProductCardPremium({
     showDescription = true,
     showAttributes = true,
     showSocialProof = true,
+    showRating = true,
     widgetId = "search_results",
     colors = { text: '#111827', price: '#3b82f6', accent: '#3b82f6' },
     cardStyle = {
@@ -210,6 +211,15 @@ export default function ProductCardPremium({
                                 <Heart style={{ width: `${0.8 * scale}rem`, height: `${0.8 * scale}rem` }} />
                                 {product.stats?.wishlist_count || 0}
                             </span>
+                        </div>
+                    )}
+
+                    {/* Rating */}
+                    {showRating && product.rating_summary && parseFloat(product.rating_summary.average_rating) > 0 && (
+                        <div className="flex items-center gap-1.5 mb-2" style={{ fontSize: `${0.75 * scale}rem` }}>
+                            <Star className="fill-yellow-400 text-yellow-400" style={{ width: `${0.8 * scale}rem`, height: `${0.8 * scale}rem` }} />
+                            <span className="font-semibold text-gray-700">{parseFloat(product.rating_summary.average_rating).toFixed(1)}</span>
+                            <span className="text-gray-400">({parseInt(product.rating_summary.total_reviews || 0)} review{parseInt(product.rating_summary.total_reviews || 0) !== 1 ? 's' : ''})</span>
                         </div>
                     )}
 

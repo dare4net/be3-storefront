@@ -17,6 +17,7 @@ export default function LegacyWidgetBridge({ config }) {
 
     switch (legacy_type) {
         case 'collection_hero':
+            if (entity.collection_type !== 'vendor') return null;
             return <CollectionHero entity={entity} />;
         case 'category_hero':
             return <CategoryHero entity={entity} />;

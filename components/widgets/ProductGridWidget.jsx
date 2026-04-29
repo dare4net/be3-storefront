@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useMemo, useRef } from 'react';
 import Link from 'next/link';
-import { ShoppingCart, Check, Eye, Heart, MessageCircle, X } from 'lucide-react';
+import { ShoppingCart, Check, Eye, Heart, MessageCircle, X, Star } from 'lucide-react';
 import { useChatContext } from '@/components/providers/ChatContext';
 import { useCart } from '../providers/CartContext';
 import { useWishlist } from '../providers/WishlistContext';
@@ -821,6 +821,15 @@ export default function ProductGridWidget({ config }) {
                                                         <Heart className="w-3 h-3" style={{ width: `${0.75 * scale}rem`, height: `${0.75 * scale}rem` }} />
                                                         {product.stats?.wishlist_count || 0}
                                                     </span>
+                                                </div>
+                                            )}
+
+                                            {/* Rating */}
+                                            {effectiveShowRating && product.rating_summary && parseFloat(product.rating_summary.average_rating) > 0 && (
+                                                <div className="flex items-center gap-1.5 mt-1" style={{ fontSize: `${0.75 * scale}rem` }}>
+                                                    <Star className="fill-yellow-400 text-yellow-400" style={{ width: `${0.8 * scale}rem`, height: `${0.8 * scale}rem` }} />
+                                                    <span className="font-semibold text-gray-700">{parseFloat(product.rating_summary.average_rating).toFixed(1)}</span>
+                                                    <span className="text-gray-400">({parseInt(product.rating_summary.total_reviews || 0)} review{parseInt(product.rating_summary.total_reviews || 0) !== 1 ? 's' : ''})</span>
                                                 </div>
                                             )}
                                         </div>

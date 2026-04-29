@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useMemo, useRef } from 'react';
 import Link from 'next/link';
-import { ChevronLeft, ChevronRight, Heart, Check, ShoppingCart, Eye, MessageCircle, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Heart, Check, ShoppingCart, Eye, MessageCircle, X, Star } from 'lucide-react';
 import { useChatContext } from '@/components/providers/ChatContext';
 import { proxyApi as api } from '@/lib/axios';
 import { useRandomizationContext } from '@/lib/contexts/RandomizationContext';
@@ -108,6 +108,7 @@ export default function ProductCarouselWidget({ config }) {
     const effectiveShowDescription = getDisplaySetting('showDescription', true);
     const effectiveShowAttributes = getDisplaySetting('showAttributes', true);
     const effectiveShowSocialProof = getDisplaySetting('showSocialProof', true);
+    const effectiveShowRating = getDisplaySetting('showRating', true);
     const attributesCount = getDisplaySetting('attributesCount', 2);
     const tagsCount = getDisplaySetting('tagsCount', 3);
 
@@ -223,6 +224,11 @@ export default function ProductCarouselWidget({ config }) {
     const [products, setProducts] = useState(initialData.products);
     const [metadata, setMetadata] = useState(initialData.metadata);
     const [loading, setLoading] = useState(initialData.loading);
+
+    const [isMounted, setIsMounted] = useState(false);
+    useEffect(() => {
+        setIsMounted(true);
+    }, []);
 
     useEffect(() => {
         if (config.randomize?.enabled) {
@@ -592,11 +598,15 @@ export default function ProductCarouselWidget({ config }) {
         }
     };
 
+    // Use mounted state to avoid hydration mismatch
+    const displayProducts = isMounted ? products : [];
+    const displayLoading = isMounted ? loading : true;
+
     // Show per-card skeleton if loading and no products in cache
-    const showSkeletons = products.length === 0 && (loading || (config.randomize?.enabled && isResolving));
+    const showSkeletons = displayProducts.length === 0 && (displayLoading || (config.randomize?.enabled && isResolving));
 
     // Don't render anything if no products found and not loading
-    if (!showSkeletons && products.length === 0) {
+    if (!showSkeletons && displayProducts.length === 0) {
         return null;
     }
 
@@ -660,7 +670,7 @@ export default function ProductCarouselWidget({ config }) {
 
                 <div className="relative">
                     {/* Navigation Buttons */}
-                    {products.length > itemsToShow && (
+                    {displayProducts.length > itemsToShow && (
                         <>
                             <button
                                 onClick={() => scroll('left')}
@@ -717,7 +727,7 @@ export default function ProductCarouselWidget({ config }) {
                                     </div>
                                 ))
                             ) : (
-                                products.map((product, index) => (
+                                displayProducts.map((product, index) => (
                                     <div
                                         key={`${product.id || product.slug}-${index}`}
                                         className="carousel-item flex-shrink-0 group cursor-pointer"
@@ -832,6 +842,15 @@ export default function ProductCarouselWidget({ config }) {
                                                     )}
                                                 </div>
 
+                                                {/* Rating */}
+                                                {effectiveShowRating && product.rating_summary && parseFloat(product.rating_summary.average_rating) > 0 && (
+                                                    <div className="flex items-center gap-1.5 mt-1" style={{ fontSize: `${0.75 * scale}rem` }}>
+                                                        <Star className="fill-yellow-400 text-yellow-400" style={{ width: `${0.8 * scale}rem`, height: `${0.8 * scale}rem` }} />
+                                                        <span className="font-semibold text-gray-700">{parseFloat(product.rating_summary.average_rating).toFixed(1)}</span>
+                                                        <span className="text-gray-400">({parseInt(product.rating_summary.total_reviews || 0)} review{parseInt(product.rating_summary.total_reviews || 0) !== 1 ? 's' : ''})</span>
+                                                    </div>
+                                                )}
+
                                                 <div className="mt-auto flex items-center justify-between gap-2" style={{ paddingTop: `${1 * scale}rem` }}>
                                                     <div className="flex flex-col">
                                                         {effectiveShowPrice && (
@@ -904,7 +923,7 @@ export default function ProductCarouselWidget({ config }) {
                         width: calc(100% / ${columns.desktop || 5} - ${(parseFloat(gridGap) * ((columns.desktop || 5) - 1)) / (columns.desktop || 5)}px);
                     }
                 }
-                ${sneakPeek && products.length > (columns.desktop || 5) ? `
+                ${sneakPeek && displayProducts.length > (columns.desktop || 5) ? `
                 @media (min-width: 1024px) {
                     .carousel-item {
                         width: calc(100% / ${(columns.desktop || 5) + 0.5} - ${(parseFloat(gridGap) * ((columns.desktop || 5) + 0.5 - 1)) / ((columns.desktop || 5) + 0.5)}px);

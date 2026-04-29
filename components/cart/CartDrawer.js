@@ -3,12 +3,14 @@
 import { useCart } from "@/components/providers/CartContext";
 import { X, Minus, Plus, ShoppingBag } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import api from "@/lib/axios";
 import { useAnalytics } from "@/lib/hooks/useAnalytics";
 
 export default function CartDrawer() {
     const { trackClick } = useAnalytics();
+    const router = useRouter();
     const {
         items,
         vendorGroups,
@@ -108,7 +110,7 @@ export default function CartDrawer() {
                                         }
                                     });
                                     setIsOpen(false);
-                                    window.location.href = `/checkout?vendor_id=${group.vendorId}`;
+                                    router.push(`/checkout?vendor_id=${group.vendorId}`);
                                 }
                             };
 

@@ -163,15 +163,16 @@ export default async function ProductPage({ params }) {
                         <h1 className="text-2xl font-bold text-gray-900 leading-snug">{name}</h1>
                         <div className="flex items-center gap-2 text-sm pt-1">
                             <div className="flex text-yellow-400">
-                                {[...Array(5)].map((_, i) => (
-                                    <Star key={i} className={`w-4 h-4 ${i < 5 ? 'fill-current' : ''} ${i === 4 ? 'opacity-30' : ''}`} />
-                                ))}
+                                {[...Array(5)].map((_, i) => {
+                                    const avg = parseFloat(product.rating_summary?.average_rating || 0);
+                                    return <Star key={i} className={`w-4 h-4 ${i < Math.round(avg) ? 'fill-current' : ''} ${i === Math.round(avg) - 1 && avg % 1 !== 0 ? 'opacity-50' : ''}`} />;
+                                })}
                             </div>
-                            <span className="font-semibold text-gray-900">4.8</span>
+                            <span className="font-semibold text-gray-900">{parseFloat(product.rating_summary?.average_rating || 0).toFixed(1)}</span>
                             <span className="text-gray-300">·</span>
-                            <span className="text-gray-500">3 ratings</span>
+                            <span className="text-gray-500">{product.rating_summary?.total_ratings || 0} ratings</span>
                             <span className="text-gray-300">·</span>
-                            <span className="text-blue-600 font-medium">142 sold</span>
+                            <span className="text-blue-600 font-medium">{product.vendor_stats?.items_sold || 0} sold</span>
                         </div>
                     </div>
 
@@ -252,6 +253,9 @@ export default async function ProductPage({ params }) {
                         description={description}
                         attributes={attributes}
                         resolvedAttributes={resolved_attributes}
+                        whatsIncluded={product.whats_included}
+                        ratingSummary={product.rating_summary}
+                        productId={product.id}
                     />
                 </div>
 

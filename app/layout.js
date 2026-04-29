@@ -111,7 +111,7 @@ export default async function RootLayout({ children }) {
 
     return (
         <html lang="en">
-            <body className={`${selectedFont.className} ${selectedFont.variable}`}>
+            <body className={`${selectedFont.className} ${selectedFont.variable}`} suppressHydrationWarning>
                 <NextTopLoader color="#1e40af" showSpinner={false} shadow={false} height={4} zIndex={9999} />
                 <Toaster position="bottom-center" />
                 {themeCss && (

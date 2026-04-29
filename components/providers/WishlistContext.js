@@ -1,13 +1,15 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import api from '@/lib/axios';
+import { useAuth } from '@/components/providers/AuthContext';
 
 const WishlistContext = createContext(null);
 
 export function WishlistProvider({ children }) {
     const [wishlist, setWishlist] = useState([]);
     const [isLoaded, setIsLoaded] = useState(false);
+    const { user } = useAuth();
 
     // Initial load - merge local and backend
     useEffect(() => {
@@ -71,6 +73,42 @@ export function WishlistProvider({ children }) {
             localStorage.setItem('wishlist', JSON.stringify(wishlist));
         }
     }, [wishlist, isLoaded]);
+
+    // On logout: generate a new wishlist session, clear state
+    // On login: re-fetch wishlist for the authenticated user
+    const prevUserRef = useRef(user);
+    useEffect(() => {
+        const wasLoggedIn = !!prevUserRef.current;
+        const isLoggedIn = !!user;
+
+        if (wasLoggedIn && !isLoggedIn) {
+            // Logout: new anonymous session
+            const newSessionId = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2);
+            localStorage.setItem('wishlist_session_id', newSessionId);
+            localStorage.removeItem('wishlist');
+            setWishlist([]);
+        } else if (!wasLoggedIn && isLoggedIn) {
+            // Login: re-fetch from backend
+            const refetch = async () => {
+                try {
+                    const sessionId = localStorage.getItem('wishlist_session_id');
+                    const response = await api.get(`/wishlist?sessionId=${sessionId}`);
+                    if (response.data?.success && Array.isArray(response.data.wishlist)) {
+                        const backendList = response.data.wishlist.map(item => ({
+                            id: item.product_id || item.id,
+                            ...item.metadata
+                        }));
+                        setWishlist(backendList);
+                    }
+                } catch (err) {
+                    console.error("Wishlist re-fetch on login failed", err);
+                }
+            };
+            refetch();
+        }
+
+        prevUserRef.current = user;
+    }, [user]);
 
     const addToWishlist = useCallback(async (product) => {
         // Optimistic update

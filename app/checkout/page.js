@@ -13,13 +13,17 @@ import { useAnalytics } from "@/lib/hooks/useAnalytics";
 import { useSearchParams } from "next/navigation";
 
 export default function CheckoutPage() {
-    const { cart, items, cartTotal, loading: cartLoading } = useCart();
+    const { cart, items: allItems, vendorGroups, loading: cartLoading } = useCart();
     const tenant = useTenant();
     const { user, token } = useAuth();
     const router = useRouter();
     const searchParams = useSearchParams();
     const { trackClick } = useAnalytics();
     const vendorId = searchParams.get('vendor_id');
+
+    // Filter items to the specific vendor group being checked out
+    const vendorGroup = vendorId ? vendorGroups.find(g => g.vendorId === vendorId) : null;
+    const items = vendorGroup ? vendorGroup.items : allItems;
 
     const [step, setStep] = useState(1); // 1: Info, 2: Payment
     const [loading, setLoading] = useState(false);
@@ -49,8 +53,8 @@ export default function CheckoutPage() {
         }
     }, [user]);
 
-    // Calc totals
-    const subtotal = cartTotal;
+    // Calc totals for the filtered vendor group only
+    const subtotal = items.reduce((sum, item) => sum + (parseFloat(item.price) * item.quantity), 0);
     const shipping = 15.00;
     const tax = subtotal * 0.1;
     const total = subtotal + shipping + tax;
@@ -72,6 +76,7 @@ export default function CheckoutPage() {
         try {
             const res = await api.post("/checkout/process", {
                 cartId: cart.id,
+                vendorId: vendorId || null,
                 email: formData.email,
                 paymentMethod: "credit_card",
                 shippingAddress: {

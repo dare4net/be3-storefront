@@ -1,8 +1,9 @@
 "use client";
 
-import { createContext, useContext, useState, useEffect, useCallback } from "react";
+import { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
 import api from "@/lib/axios";
 import { useTenant } from "@/components/providers/TenantContext";
+import { useAuth } from "@/components/providers/AuthContext";
 import { useAnalytics } from "@/lib/hooks/useAnalytics";
 import { toast } from "react-hot-toast";
 
@@ -12,17 +13,12 @@ const CartContext = createContext({});
 export function CartProvider({ children }) {
     const tenant = useTenant();
     const { trackClick } = useAnalytics();
+    const { user } = useAuth();
     const [cart, setCart] = useState(null);
     const [items, setItems] = useState([]);
     const [vendorGroups, setVendorGroups] = useState([]);
     const [isOpen, setIsOpen] = useState(false);
     const [loading, setLoading] = useState(true);
-
-    useEffect(() => {
-        if (tenant?.id) {
-            fetchCart();
-        }
-    }, [tenant?.id]);
 
     const fetchCart = useCallback(async () => {
         try {
@@ -52,6 +48,38 @@ export function CartProvider({ children }) {
             setLoading(false);
         }
     }, [tenant?.id]);
+
+    useEffect(() => {
+        if (tenant?.id) {
+            fetchCart();
+        }
+    }, [tenant?.id, fetchCart]);
+
+    // On logout: generate a new session, clear cart state
+    // On login: re-fetch cart for the authenticated user
+    const prevUserRef = useRef(user);
+    useEffect(() => {
+        if (!tenant?.id) return;
+
+        const wasLoggedIn = !!prevUserRef.current;
+        const isLoggedIn = !!user;
+
+        if (wasLoggedIn && !isLoggedIn) {
+            // Logout: new anonymous session
+            const storageKey = `cart_session_${tenant.id}`;
+            const newSession = `sess_${Math.random().toString(36).substring(2, 15)}`;
+            localStorage.setItem(storageKey, newSession);
+            setCart(null);
+            setItems([]);
+            setVendorGroups([]);
+            fetchCart();
+        } else if (!wasLoggedIn && isLoggedIn) {
+            // Login: re-fetch to get authenticated user's cart
+            fetchCart();
+        }
+
+        prevUserRef.current = user;
+    }, [user, tenant?.id]);
 
     const addToCart = async (product, quantity = 1, variantId = null) => {
         console.log("Adding to cart:", product, quantity);
