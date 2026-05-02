@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>BE3 Logo Skeleton</title>
+
+  <!-- Manrope -->
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@800&display=swap" rel="stylesheet">
+
+  <style>
+    *{
+      margin:0;
+      padding:0;
+      box-sizing:border-box;
+    }
+
+    body{
+      height:100vh;
+      display:flex;
+      justify-content:center;
+      align-items:center;
+      background:#0f0f10;
+      font-family:'Manrope', sans-serif;
+    }
+
+    .logo-skeleton{
+      position:relative;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      overflow:hidden;
+
+      padding:28px 42px;
+      border-radius:38px;
+
+      background:#1a1a1d;
+    }
+
+    /* shimmer */
+    .logo-skeleton::before{
+      content:"";
+      position:absolute;
+      inset:0;
+      transform:translateX(-100%);
+      background:linear-gradient(
+        90deg,
+        transparent,
+        rgba(255,255,255,0.08),
+        transparent
+      );
+      animation:shimmer 1.4s infinite;
+    }
+
+    @keyframes shimmer{
+      100%{
+        transform:translateX(100%);
+      }
+    }
+
+    .logo-text{
+      position:relative;
+      z-index:2;
+
+      font-size:120px;
+      font-weight:800;
+      line-height:1;
+      letter-spacing:-8px;
+
+      color:#2a2a2e;
+
+      user-select:none;
+    }
+
+    /* actual skeleton mask */
+    .logo-text::after{
+      content:"BE3";
+      position:absolute;
+      inset:0;
+
+      color:#d9d9dc;
+
+      clip-path:inset(0 100% 0 0);
+
+      animation:fill 1.8s ease-in-out infinite;
+    }
+
+    @keyframes fill{
+      0%{
+        clip-path:inset(0 100% 0 0);
+      }
+
+      50%{
+        clip-path:inset(0 0 0 0);
+      }
+
+      100%{
+        clip-path:inset(0 0 0 100%);
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="logo-skeleton">
+    <div class="logo-text">BE3</div>
+  </div>
+
+</body>
+</html>

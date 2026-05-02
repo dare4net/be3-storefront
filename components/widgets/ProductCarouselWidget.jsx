@@ -712,7 +712,9 @@ export default function ProductCarouselWidget({ config }) {
                                             boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'
                                         }}
                                     >
-                                        <div className="aspect-square bg-gray-200 animate-pulse"></div>
+                                        <div className="aspect-square be3-logo-skeleton">
+                                            <div className="be3-logo-text">BE3</div>
+                                        </div>
                                         <div className="p-4 space-y-3">
                                             <div className="h-4 bg-gray-200 rounded w-3/4 animate-pulse"></div>
                                             {effectiveShowDescription && (

@@ -656,7 +656,9 @@ export default function ProductGridWidget({ config }) {
                                     borderRadius: cardStyle.borderRadius
                                 }}
                             >
-                                <div className="aspect-square bg-gray-200 animate-pulse"></div>
+                                <div className="aspect-square be3-logo-skeleton">
+                                    <div className="be3-logo-text">BE3</div>
+                                </div>
                                 <div className="p-4 flex-1 flex flex-col space-y-3">
                                     <div className="h-4 bg-gray-200 rounded w-3/4 animate-pulse"></div>
                                     {effectiveShowDescription && (

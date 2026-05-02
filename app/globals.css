@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@800&display=swap');
 @import "tailwindcss";
 
 :root {
@@ -93,4 +94,67 @@ body {
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
   /* Chrome, Safari and Opera */
+}
+
+/* BE3 Logo Skeleton */
+.be3-logo-skeleton {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: #f3f4f6; /* gray-100 */
+}
+
+.be3-logo-skeleton::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255,255,255,0.8), /* strong white shimmer */
+    transparent
+  );
+  animation: shimmer 1.4s infinite;
+}
+
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.be3-logo-text {
+  position: relative;
+  z-index: 2;
+  font-size: clamp(40px, 4vw, 120px);
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.05em;
+  color: #e5e7eb; /* gray-200 */
+  user-select: none;
+  font-family: 'Manrope', sans-serif;
+}
+
+.be3-logo-text::after {
+  content: "BE3";
+  position: absolute;
+  inset: 0;
+  color: #9ca3af; /* gray-400 */
+  clip-path: inset(0 100% 0 0);
+  animation: fill 1.8s ease-in-out infinite;
+}
+
+@keyframes fill {
+  0% {
+    clip-path: inset(0 100% 0 0);
+  }
+  50% {
+    clip-path: inset(0 0 0 0);
+  }
+  100% {
+    clip-path: inset(0 0 0 100%);
+  }
 }

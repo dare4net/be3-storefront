@@ -231,7 +231,9 @@ export default function ClauseGridWidget({ config = {} }) {
                     }} />
                     <div className="clause-grid-skel">
                         {Array.from({ length: maxItems || 6 }).map((_, idx) => (
-                            <div key={`skel-${idx}`} className="aspect-square bg-gray-200 animate-pulse rounded-2xl"></div>
+                            <div key={`skel-${idx}`} className="aspect-square be3-logo-skeleton rounded-2xl">
+                                <div className="be3-logo-text">BE3</div>
+                            </div>
                         ))}
                     </div>
                 </div>

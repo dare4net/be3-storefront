@@ -645,7 +645,9 @@ export default function CategoryCarouselWidget({ config = {} }) {
                                                         padding: `${getGapPadding()}px`
                                                     }}
                                                 >
-                                                    <div className="aspect-square bg-gray-200 animate-pulse rounded-2xl"></div>
+                                                    <div className="aspect-square be3-logo-skeleton rounded-2xl">
+                                                        <div className="be3-logo-text">BE3</div>
+                                                    </div>
                                                 </div>
                                             ))
                                         ) : (
@@ -731,8 +733,10 @@ export default function CategoryCarouselWidget({ config = {} }) {
                                     Array.from({ length: settings.randomCount || 6 }).map((_, idx) => (
                                         <div
                                             key={`skeleton-grid-${idx}`}
-                                            className="aspect-square bg-gray-200 animate-pulse rounded-2xl"
-                                        ></div>
+                                            className="aspect-square be3-logo-skeleton rounded-2xl"
+                                        >
+                                            <div className="be3-logo-text">BE3</div>
+                                        </div>
                                     ))
                                 ) : (
                                     displayCategories.map((category, index) => (
