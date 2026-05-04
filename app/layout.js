@@ -18,6 +18,8 @@ import { WishlistProvider } from "@/components/providers/WishlistContext";
 import { RandomizationProvider } from "@/lib/contexts/RandomizationContext";
 import { ChatProvider } from "@/components/providers/ChatContext";
 import ChatWidget from "@/components/chat/ChatWidget";
+import { Analytics } from "@vercel/analytics/react";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 
 import { getTenantAndTheme } from "@/lib/context";
 
@@ -140,6 +142,8 @@ export default async function RootLayout({ children }) {
                         </AuthProvider>
                     </AxiosTenantProvider>
                 </TenantProvider>
+                <Analytics />
+                <SpeedInsights />
             </body>
         </html>
     );
