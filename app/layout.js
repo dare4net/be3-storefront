@@ -44,7 +44,7 @@ export async function generateMetadata() {
         `Discover a premium shopping experience powered by ${storeName}.`;
     
     // Attempt to get the current URL from headers if available (via middleware or x-storefront-url)
-    const headerList = headers();
+    const headerList = await headers();
     const domain = headerList.get('host') || 'localhost:3003';
     const protocol = headerList.get('x-forwarded-proto') || 'http';
     const baseUrl = `${protocol}://${domain}`;
@@ -169,7 +169,7 @@ export default async function RootLayout({ children }) {
     const selectedFont = fonts[tenant.settings?.font_family] || inter;
 
     // Rich JSON-LD for Homepage/Organization
-    const headerList = headers();
+    const headerList = await headers();
     const domain = headerList.get('host') || 'localhost:3003';
     const protocol = headerList.get('x-forwarded-proto') || 'http';
     const baseUrl = `${protocol}://${domain}`;
