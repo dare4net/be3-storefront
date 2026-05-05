@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/components/providers/AuthContext";
@@ -16,11 +16,77 @@ import {
     Clock,
     CreditCard,
     MapPin,
-    Heart
+    Heart,
+    CheckCircle
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card";
 import { cn } from "@/lib/utils";
+import api from "@/lib/axios";
+import { AlertCircle, Loader2 } from "lucide-react";
+
+function VerificationBanner({ user }) {
+    const [status, setStatus] = useState("idle"); // idle, loading, sent, error
+    const [message, setMessage] = useState("");
+
+    if (user.email_verified) return null;
+
+    const handleResend = async () => {
+        setStatus("loading");
+        try {
+            await api.post('/auth/resend-verification', { email: user.email });
+            setStatus("sent");
+            setMessage("A new verification link has been sent to your inbox.");
+        } catch (error) {
+            setStatus("error");
+            setMessage(error.response?.data?.message || "Failed to resend link. Please try again later.");
+        }
+    };
+
+    return (
+        <div className={cn(
+            "p-4 rounded-xl mb-8 flex flex-col sm:flex-row items-center justify-between gap-4 border",
+            status === "sent" ? "bg-green-50 border-green-100" : "bg-amber-50 border-amber-100"
+        )}>
+            <div className="flex items-center gap-3">
+                <div className={cn(
+                    "p-2 rounded-full",
+                    status === "sent" ? "bg-green-100 text-green-600" : "bg-amber-100 text-amber-600"
+                )}>
+                    {status === "sent" ? <CheckCircle className="w-5 h-5" /> : <AlertCircle className="w-5 h-5" />}
+                </div>
+                <div>
+                    <p className={cn(
+                        "text-sm font-semibold",
+                        status === "sent" ? "text-green-900" : "text-amber-900"
+                    )}>
+                        {status === "sent" ? "Verification Email Sent" : "Account Verification Required"}
+                    </p>
+                    <p className={cn(
+                        "text-xs",
+                        status === "sent" ? "text-green-700" : "text-amber-700"
+                    )}>
+                        {status === "sent" ? message : `Please verify your email address (${user.email}) to secure your account.`}
+                    </p>
+                </div>
+            </div>
+            {status !== "sent" && (
+                <button
+                    onClick={handleResend}
+                    disabled={status === "loading"}
+                    className="flex items-center gap-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold py-2 px-4 rounded-lg transition-all disabled:opacity-50"
+                >
+                    {status === "loading" ? (
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                    ) : (
+                        <Mail className="w-3 h-3" />
+                    )}
+                    Resend Verification Link
+                </button>
+            )}
+        </div>
+    );
+}
 
 const NAV_ITEMS = [
     { label: "Dashboard", href: "/account", icon: User, active: true },
@@ -95,6 +161,8 @@ export default function AccountPage() {
 
                     {/* Main Content */}
                     <main className="flex-1 space-y-8">
+                        <VerificationBanner user={user} />
+
                         {/* Welcome Hero */}
                         <Card className="overflow-hidden border-none shadow-md">
                             <div className="h-24 bg-gradient-to-r from-blue-600 to-indigo-700" />
