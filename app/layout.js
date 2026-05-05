@@ -37,15 +37,72 @@ export async function generateViewport() {
 export async function generateMetadata() {
     const { tenant, theme } = await getTenantAndTheme();
     const logoUrl = theme?.variables?.logo || tenant?.settings?.logo_url;
+    const storeName = tenant?.name || "Be3 Storefront";
+    const storeDescription = tenant?.description || 
+        `Scale your business with Be3, the AI-powered multi-vendor marketplace. ` +
+        `Secure vendor dashboards, unified checkout, and optimized SEO for global sellers. ` +
+        `Discover a premium shopping experience powered by ${storeName}.`;
+    
+    // Attempt to get the current URL from headers if available (via middleware or x-storefront-url)
+    const headerList = headers();
+    const domain = headerList.get('host') || 'localhost:3003';
+    const protocol = headerList.get('x-forwarded-proto') || 'http';
+    const baseUrl = `${protocol}://${domain}`;
 
     return {
-        title: tenant?.name || "Storefront",
-        description: tenant?.description || "Multi-tenant eCommerce Store",
+        title: {
+            default: storeName,
+            template: `%s | ${storeName}`
+        },
+        description: storeDescription,
+        metadataBase: new URL(baseUrl),
+        alternates: {
+            canonical: '/',
+        },
+        openGraph: {
+            title: storeName,
+            description: storeDescription,
+            url: baseUrl,
+            siteName: storeName,
+            images: logoUrl ? [
+                {
+                    url: logoUrl,
+                    width: 800,
+                    height: 600,
+                    alt: storeName,
+                },
+            ] : [],
+            locale: 'en_US',
+            type: 'website',
+        },
+        twitter: {
+            card: 'summary_large_image',
+            title: storeName,
+            description: storeDescription,
+            images: logoUrl ? [logoUrl] : [],
+        },
         icons: logoUrl ? {
             icon: logoUrl,
             shortcut: logoUrl,
             apple: logoUrl,
-        } : undefined,
+        } : {
+            icon: '/favicon.ico',
+        },
+        keywords: ["eCommerce", "SaaS", "Be3 Protocol", storeName, "Online Shopping", "Multi-tenant"],
+        authors: [{ name: storeName }],
+        creator: "Be3 Protocol",
+        publisher: storeName,
+        robots: {
+            index: true,
+            follow: true,
+            googleBot: {
+                index: true,
+                follow: true,
+                'max-video-preview': -1,
+                'max-image-preview': 'large',
+                'max-snippet': -1,
+            },
+        },
     };
 }
 
@@ -111,8 +168,29 @@ export default async function RootLayout({ children }) {
     // Select font based on settings, default to Inter
     const selectedFont = fonts[tenant.settings?.font_family] || inter;
 
+    // Rich JSON-LD for Homepage/Organization
+    const headerList = headers();
+    const domain = headerList.get('host') || 'localhost:3003';
+    const protocol = headerList.get('x-forwarded-proto') || 'http';
+    const baseUrl = `${protocol}://${domain}`;
+
+    const jsonLd = {
+        "@context": "https://schema.org",
+        "@type": "Organization",
+        "name": tenant.name,
+        "url": baseUrl, 
+        "logo": theme?.variables?.logo || tenant?.settings?.logo_url,
+        "description": tenant.description || `Scale your business with Be3, the AI-powered multi-vendor marketplace. Secure vendor dashboards, unified checkout, and optimized SEO for global sellers.`
+    };
+
     return (
         <html lang="en">
+            <head>
+                <script
+                    type="application/ld+json"
+                    dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+                />
+            </head>
             <body className={`${selectedFont.className} ${selectedFont.variable}`} suppressHydrationWarning>
                 <NextTopLoader color="#1e40af" showSpinner={false} shadow={false} height={4} zIndex={9999} />
                 <Toaster position="bottom-center" />
