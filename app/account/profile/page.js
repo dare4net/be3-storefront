@@ -4,15 +4,18 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/components/providers/AuthContext";
-import { User, Mail, Lock, Save, Loader2 } from "lucide-react";
+import { User, Mail, Lock, Save, Loader2, Calendar } from "lucide-react";
+import api from "@/lib/axios";
 
 export default function ProfilePage() {
     const router = useRouter();
-    const { isAuthenticated, user, loading: authLoading } = useAuth();
+    const { isAuthenticated, user, loading: authLoading, syncSession } = useAuth();
     const [formData, setFormData] = useState({
         first_name: "",
         last_name: "",
-        email: ""
+        email: "",
+        gender: "",
+        dob: ""
     });
     const [passwordData, setPasswordData] = useState({
         currentPassword: "",
@@ -33,7 +36,9 @@ export default function ProfilePage() {
             setFormData({
                 first_name: user.first_name || "",
                 last_name: user.last_name || "",
-                email: user.email || ""
+                email: user.email || "",
+                gender: user.gender || "",
+                dob: user.dob ? new Date(user.dob).toISOString().split('T')[0] : ""
             });
         }
     }, [user]);
@@ -43,11 +48,20 @@ export default function ProfilePage() {
         setSaving(true);
         setMessage({ type: "", text: "" });
 
-        // Simulate API call (you'd implement actual update logic here)
-        setTimeout(() => {
+        try {
+            await api.patch('/auth/me', {
+                first_name: formData.first_name,
+                last_name: formData.last_name,
+                gender: formData.gender,
+                dob: formData.dob || null
+            });
             setMessage({ type: "success", text: "Profile updated successfully!" });
+            if (syncSession) await syncSession();
+        } catch (error) {
+            setMessage({ type: "error", text: error.response?.data?.message || "Failed to update profile" });
+        } finally {
             setSaving(false);
-        }, 1000);
+        }
     };
 
     const handlePasswordChange = async (e) => {
@@ -103,10 +117,19 @@ export default function ProfilePage() {
 
                 {/* Profile Information */}
                 <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
-                    <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
-                        <User className="w-5 h-5" />
-                        Profile Information
-                    </h2>
+                    <div className="flex items-center gap-4 mb-6">
+                        {user?.avatar_url ? (
+                            <img src={user.avatar_url} alt="Avatar" className="w-16 h-16 rounded-full object-cover shadow-sm referrerPolicy='no-referrer'" />
+                        ) : (
+                            <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center text-blue-700 text-xl font-bold">
+                                {user?.email?.[0]?.toUpperCase()}
+                            </div>
+                        )}
+                        <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                            <User className="w-5 h-5" />
+                            Profile Information
+                        </h2>
+                    </div>
                     <form onSubmit={handleProfileUpdate} className="space-y-4">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
@@ -128,6 +151,35 @@ export default function ProfilePage() {
                                     type="text"
                                     value={formData.last_name}
                                     onChange={(e) => setFormData(prev => ({ ...prev, last_name: e.target.value }))}
+                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                                />
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Gender
+                                </label>
+                                <select
+                                    value={formData.gender}
+                                    onChange={(e) => setFormData(prev => ({ ...prev, gender: e.target.value }))}
+                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white"
+                                >
+                                    <option value="">Select Gender</option>
+                                    <option value="male">Male</option>
+                                    <option value="female">Female</option>
+                                    <option value="other">Other</option>
+                                    <option value="prefer_not_to_say">Prefer not to say</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Date of Birth
+                                </label>
+                                <input
+                                    type="date"
+                                    value={formData.dob}
+                                    onChange={(e) => setFormData(prev => ({ ...prev, dob: e.target.value }))}
                                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
                                 />
                             </div>

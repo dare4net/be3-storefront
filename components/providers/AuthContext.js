@@ -137,6 +137,30 @@ export function AuthProvider({ children }) {
         delete api.defaults.headers.common['Authorization'];
     }, []);
 
+    const syncSession = useCallback(async () => {
+        try {
+            if (!tenant || !tenant.id) return { success: false };
+
+            const res = await api.get('/auth/me', {
+                headers: { 'X-Tenant-ID': tenant.id }
+            });
+
+            if (res.data.success && res.data.user) {
+                const userData = res.data.user;
+                setUser(userData);
+                localStorage.setItem('auth_user', JSON.stringify(userData));
+                // Note: we don't have the token to set in state since it's HTTP-Only, but the browser will send it.
+                return { success: true };
+            }
+            return { success: false };
+        } catch (error) {
+            console.error('Session sync error:', error);
+            // If we get a 401 here, we shouldn't necessarily logout yet, 
+            // the interceptor will handle token refresh if possible.
+            return { success: false };
+        }
+    }, [tenant?.id]);
+
     // Axios interceptor for 401 Token Expired
     useEffect(() => {
         const interceptor = api.interceptors.response.use(
@@ -197,6 +221,7 @@ export function AuthProvider({ children }) {
         login,
         register,
         logout,
+        syncSession,
         isAuthenticated: !!user
     };
 

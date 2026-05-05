@@ -101,9 +101,13 @@ export default function AccountPage() {
                             <CardContent className="relative pt-0 px-8 pb-8">
                                 <div className="flex flex-col md:flex-row items-end gap-6 -mt-12">
                                     <div className="w-24 h-24 bg-white rounded-2xl p-1 shadow-lg ring-4 ring-white">
-                                        <div className="w-full h-full bg-blue-100 rounded-xl flex items-center justify-center text-blue-700 text-3xl font-bold">
-                                            {user.email?.[0]?.toUpperCase()}
-                                        </div>
+                                        {user.avatar_url ? (
+                                            <img src={user.avatar_url} alt="Profile" className="w-full h-full rounded-xl object-cover" referrerPolicy="no-referrer" />
+                                        ) : (
+                                            <div className="w-full h-full bg-blue-100 rounded-xl flex items-center justify-center text-blue-700 text-3xl font-bold">
+                                                {user.email?.[0]?.toUpperCase()}
+                                            </div>
+                                        )}
                                     </div>
                                     <div className="flex-1 space-y-1 pb-2">
                                         <h1 className="text-2xl font-bold text-gray-900">
@@ -114,6 +118,18 @@ export default function AccountPage() {
                                                 <Mail className="w-3.5 h-3.5" />
                                                 {user.email}
                                             </div>
+                                            {user.gender && (
+                                                <div className="flex items-center gap-1.5 capitalize">
+                                                    <User className="w-3.5 h-3.5" />
+                                                    {user.gender}
+                                                </div>
+                                            )}
+                                            {user.dob && (
+                                                <div className="flex items-center gap-1.5">
+                                                    <Calendar className="w-3.5 h-3.5" />
+                                                    DOB: {new Date(user.dob).toLocaleDateString()}
+                                                </div>
+                                            )}
                                             <div className="flex items-center gap-1.5">
                                                 <Calendar className="w-3.5 h-3.5" />
                                                 Joined {new Date(user.created_at).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}
