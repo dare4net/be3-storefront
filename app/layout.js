@@ -43,11 +43,8 @@ export async function generateMetadata() {
         `Secure vendor dashboards, unified checkout, and optimized SEO for global sellers. ` +
         `Discover a premium shopping experience powered by ${storeName}.`;
     
-    // Attempt to get the current URL from headers if available (via middleware or x-storefront-url)
-    const headerList = await headers();
-    const domain = headerList.get('host') || 'localhost:3003';
-    const protocol = headerList.get('x-forwarded-proto') || 'http';
-    const baseUrl = `${protocol}://${domain}`;
+    // Enforce primary canonical domain
+    const baseUrl = 'https://be3.shop';
 
     return {
         title: {
@@ -168,11 +165,8 @@ export default async function RootLayout({ children }) {
     // Select font based on settings, default to Inter
     const selectedFont = fonts[tenant.settings?.font_family] || inter;
 
-    // Rich JSON-LD for Homepage/Organization
-    const headerList = await headers();
-    const domain = headerList.get('host') || 'localhost:3003';
-    const protocol = headerList.get('x-forwarded-proto') || 'http';
-    const baseUrl = `${protocol}://${domain}`;
+    // Enforce primary canonical domain
+    const baseUrl = 'https://be3.shop';
 
     const jsonLd = {
         "@context": "https://schema.org",
