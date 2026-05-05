@@ -10,7 +10,7 @@ export default async function robots() {
     rules: {
       userAgent: '*',
       allow: '/',
-      disallow: ['/api/', '/checkout/'],
+      disallow: ['/checkout/'],
     },
     sitemap: `${baseUrl}/sitemap.xml`,
   };
