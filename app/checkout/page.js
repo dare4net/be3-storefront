@@ -71,14 +71,13 @@ export default function CheckoutPage() {
             return;
         }
 
-        // Process Payment
+        // === PAYSTACK FLOW ===
         setLoading(true);
         try {
-            const res = await api.post("/checkout/process", {
+            const res = await api.post("/payments/paystack/initialize", {
                 cartId: cart.id,
                 vendorId: vendorId || null,
                 email: formData.email,
-                paymentMethod: "credit_card",
                 shippingAddress: {
                     firstName: formData.firstName,
                     lastName: formData.lastName,
@@ -88,16 +87,6 @@ export default function CheckoutPage() {
                     zip: formData.zip,
                     country: formData.country,
                 },
-                billingAddress: {
-                    // Same for now
-                    firstName: formData.firstName,
-                    lastName: formData.lastName,
-                    address: formData.address,
-                    city: formData.city,
-                    state: formData.state,
-                    zip: formData.zip,
-                    country: formData.country,
-                }
             }, {
                 headers: {
                     'X-Tenant-ID': tenant.id,
@@ -105,26 +94,21 @@ export default function CheckoutPage() {
                 }
             });
 
-            if (res.data.success) {
-                // Track Analytics
-                trackClick({
-                    entity_type: 'checkout',
-                    entity_id: cart.id,
-                    event_type: 'checkout_success',
-                    metadata: {
-                        order_id: res.data.transactionId,
-                        total,
-                        item_count: items.length
-                    }
-                });
-                router.push(`/checkout/success?orderId=${res.data.transactionId}`);
+            if (res.data.success && res.data.authorization_url) {
+                // Redirect user to Paystack hosted payment page.
+                // We do NOT handle payment completion here — the webhook does that.
+                window.location.href = res.data.authorization_url;
+            } else {
+                throw new Error('Could not get payment URL from gateway.');
             }
         } catch (err) {
-            console.error("Checkout failed", err);
-            alert("Checkout failed. Please try again.");
-        } finally {
+            console.error("Payment initialization failed", err);
+            alert(err.response?.data?.message || "Could not connect to payment gateway. Please try again.");
             setLoading(false);
         }
+        // Note: setLoading(false) is intentionally NOT called on success
+        // because the page is redirecting. Keeping the spinner active prevents
+        // double-clicks during the redirect delay.
     };
 
     if (cartLoading) return <div className="p-12 text-center">Loading checkout...</div>;
@@ -266,49 +250,47 @@ export default function CheckoutPage() {
                                     Back to Information
                                 </button>
 
-                                <h2 className="text-xl font-bold">Payment Details</h2>
-                                <div className="bg-yellow-50 border border-yellow-200 rounded p-4 text-sm text-yellow-800 mb-4">
-                                    Mock Payment: Enter any dummy details.
+                                <h2 className="text-xl font-bold">Confirm & Pay</h2>
+
+                                <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 space-y-2 text-sm">
+                                    <div className="flex justify-between">
+                                        <span className="text-gray-500">Email</span>
+                                        <span className="font-medium">{formData.email}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span className="text-gray-500">Shipping to</span>
+                                        <span className="font-medium text-right">{formData.address}, {formData.city}</span>
+                                    </div>
+                                    <div className="flex justify-between font-bold text-base pt-2 border-t">
+                                        <span>Total</span>
+                                        <span>₦{total.toLocaleString('en-NG', { minimumFractionDigits: 2 })}</span>
+                                    </div>
                                 </div>
 
-                                <div className="space-y-4">
-                                    <input
-                                        type="text"
-                                        name="cardNumber"
-                                        placeholder="Card number"
-                                        required
-                                        className="w-full border rounded-lg px-4 py-2"
-                                        value={formData.cardNumber}
-                                        onChange={handleChange}
-                                    />
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <input
-                                            type="text"
-                                            name="expiry"
-                                            placeholder="MM / YY"
-                                            required
-                                            className="w-full border rounded-lg px-4 py-2"
-                                            value={formData.expiry}
-                                            onChange={handleChange}
-                                        />
-                                        <input
-                                            type="text"
-                                            name="cvc"
-                                            placeholder="CVC"
-                                            required
-                                            className="w-full border rounded-lg px-4 py-2"
-                                            value={formData.cvc}
-                                            onChange={handleChange}
-                                        />
-                                    </div>
+                                <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 flex items-start gap-3 text-sm text-blue-800">
+                                    <Lock className="w-4 h-4 mt-0.5 flex-shrink-0 text-blue-500" />
+                                    <p>You will be securely redirected to <strong>Paystack</strong> to complete your payment. Your card details are never shared with us.</p>
                                 </div>
 
                                 <button
                                     type="submit"
                                     disabled={loading}
-                                    className="w-full bg-blue-600 text-white py-3 rounded-lg font-bold hover:bg-blue-700 mt-4 disabled:opacity-50"
+                                    className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-700 mt-4 disabled:opacity-60 flex items-center justify-center gap-2 transition-all"
                                 >
-                                    {loading ? 'Processing...' : `Pay $${total.toFixed(2)}`}
+                                    {loading ? (
+                                        <>
+                                            <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
+                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+                                            </svg>
+                                            Redirecting to Paystack...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Lock className="w-4 h-4" />
+                                            Pay ₦{total.toLocaleString('en-NG', { minimumFractionDigits: 2 })} securely
+                                        </>
+                                    )}
                                 </button>
                             </div>
                         )}
