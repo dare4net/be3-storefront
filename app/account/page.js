@@ -1,19 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/components/providers/AuthContext";
+import { useTenant } from "@/components/providers/TenantContext";
+import api from "@/lib/axios";
 import {
-    Package, User, Settings, Mail, Calendar,
-    Clock, CreditCard, MapPin, Heart,
-    CheckCircle, AlertCircle, Loader2
+    Package, Heart, MessageCircle, Wallet, Mail, Calendar,
+    CheckCircle, AlertCircle, Loader2, Shield, Megaphone,
+    Headphones, ChevronRight, Edit3, Plus
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card";
 import { cn } from "@/lib/utils";
-import api from "@/lib/axios";
 
+/* ─────────── Verification Banner ─────────── */
 function VerificationBanner({ user }) {
     const [status, setStatus] = useState("idle");
     const [message, setMessage] = useState("");
@@ -34,7 +35,7 @@ function VerificationBanner({ user }) {
 
     return (
         <div className={cn(
-            "p-4 rounded-xl mb-6 flex flex-col sm:flex-row items-center justify-between gap-4 border",
+            "p-4 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-4 border",
             status === "sent" ? "bg-green-50 border-green-100" : "bg-amber-50 border-amber-100"
         )}>
             <div className="flex items-center gap-3">
@@ -54,7 +55,7 @@ function VerificationBanner({ user }) {
                 <button
                     onClick={handleResend}
                     disabled={status === "loading"}
-                    className="flex items-center gap-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold py-2 px-4 rounded-lg transition-all disabled:opacity-50"
+                    className="flex items-center gap-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold py-2.5 px-5 rounded-lg transition-all disabled:opacity-50 flex-shrink-0"
                 >
                     {status === "loading" ? <Loader2 className="w-3 h-3 animate-spin" /> : <Mail className="w-3 h-3" />}
                     Resend Verification Link
@@ -64,119 +65,385 @@ function VerificationBanner({ user }) {
     );
 }
 
+/* ─────────── Welcome Hero ─────────── */
+function WelcomeHero({ user }) {
+    return (
+        <div className="overflow-hidden rounded-2xl bg-white border border-gray-100">
+            <div className="h-28 bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-800 relative">
+                {/* Decorative circles */}
+                <div className="absolute top-4 right-8 w-20 h-20 rounded-full bg-white/5" />
+                <div className="absolute -bottom-2 right-24 w-12 h-12 rounded-full bg-white/10" />
+            </div>
+            <div className="relative px-6 pb-6">
+                <div className="flex flex-col sm:flex-row items-end gap-4 -mt-10">
+                    <div className="w-20 h-20 bg-white rounded-2xl p-1 shadow-lg ring-4 ring-white flex-shrink-0">
+                        {user.avatar_url ? (
+                            <img src={user.avatar_url} alt="Profile" className="w-full h-full rounded-xl object-cover" referrerPolicy="no-referrer" />
+                        ) : (
+                            <div className="w-full h-full bg-blue-100 rounded-xl flex items-center justify-center text-blue-700 text-2xl font-bold">
+                                {user.email?.[0]?.toUpperCase()}
+                            </div>
+                        )}
+                    </div>
+                    <div className="flex-1 space-y-1 pb-1">
+                        <h1 className="text-xl font-bold text-gray-900">
+                            Hello, {user.first_name || 'Friend'}! 👋
+                        </h1>
+                        <p className="text-sm text-gray-500">Welcome back to your BE3 account</p>
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-400">
+                            <div className="flex items-center gap-1.5">
+                                <Mail className="w-3 h-3" />
+                                {user.email}
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                                <Calendar className="w-3 h-3" />
+                                Joined {new Date(user.created_at).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}
+                            </div>
+                        </div>
+                    </div>
+                    <Button variant="outline" asChild className="mb-1 flex-shrink-0 rounded-lg">
+                        <Link href="/account/profile" className="gap-2">
+                            <Edit3 className="w-3.5 h-3.5" />
+                            Edit Profile
+                        </Link>
+                    </Button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+/* ─────────── Stat Card ─────────── */
+function StatCard({ icon: Icon, iconColor, iconBg, label, value, subtitle, linkText, linkHref }) {
+    return (
+        <div className="rounded-xl bg-white border border-gray-100 p-5">
+            <div className="flex items-center gap-2 mb-3">
+                <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center", iconBg)}>
+                    <Icon className={cn("w-4 h-4", iconColor)} />
+                </div>
+                <span className="text-sm font-medium text-gray-600">{label}</span>
+            </div>
+            <p className="text-2xl font-bold text-gray-900 mb-0.5">{value}</p>
+            <p className="text-xs text-gray-400 mb-3">{subtitle}</p>
+            <Link
+                href={linkHref}
+                className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-600 hover:text-blue-700 transition-colors"
+            >
+                {linkText}
+                <ChevronRight className="w-3.5 h-3.5" />
+            </Link>
+        </div>
+    );
+}
+
+/* ─────────── Status Badge ─────────── */
+const STATUS_CONFIG = {
+    paid:               { label: "Paid",        bg: "bg-green-100",  text: "text-green-700"  },
+    delivered:          { label: "Delivered",    bg: "bg-green-100",  text: "text-green-700"  },
+    completed:          { label: "Completed",   bg: "bg-green-100",  text: "text-green-700"  },
+    shipped:            { label: "Shipped",     bg: "bg-blue-100",   text: "text-blue-700"   },
+    processing:         { label: "Processing",  bg: "bg-amber-100",  text: "text-amber-700"  },
+    pending:            { label: "Pending",     bg: "bg-yellow-100", text: "text-yellow-700" },
+    pending_whatsapp:   { label: "WhatsApp",    bg: "bg-emerald-100",text: "text-emerald-700"},
+    cancelled:          { label: "Cancelled",   bg: "bg-red-100",    text: "text-red-700"    },
+    refunded:           { label: "Refunded",    bg: "bg-gray-100",   text: "text-gray-600"   },
+};
+
+function StatusBadge({ status }) {
+    const config = STATUS_CONFIG[status] || { label: status, bg: "bg-gray-100", text: "text-gray-700" };
+    return (
+        <span className={cn("px-2.5 py-1 rounded-full text-[11px] font-semibold whitespace-nowrap", config.bg, config.text)}>
+            {config.label}
+        </span>
+    );
+}
+
+/* ─────────── Recent Orders Panel ─────────── */
+function RecentOrdersPanel({ orders, loading }) {
+    return (
+        <div className="rounded-xl bg-white border border-gray-100">
+            <div className="flex items-center justify-between px-5 pt-5 pb-3">
+                <h3 className="text-base font-bold text-gray-900">Recent Orders</h3>
+                <Link href="/account/orders" className="text-xs font-semibold text-blue-600 hover:text-blue-700 transition-colors">
+                    View All Orders
+                </Link>
+            </div>
+            <div className="px-5 pb-5">
+                {loading ? (
+                    <div className="flex items-center justify-center py-8">
+                        <Loader2 className="w-5 h-5 animate-spin text-gray-400" />
+                    </div>
+                ) : orders.length === 0 ? (
+                    <div className="text-center py-8">
+                        <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                            <Package className="w-5 h-5 text-gray-400" />
+                        </div>
+                        <p className="text-sm text-gray-500 mb-3">No orders yet</p>
+                        <Button asChild size="sm">
+                            <Link href="/">Start Shopping</Link>
+                        </Button>
+                    </div>
+                ) : (
+                    <div className="divide-y divide-gray-50">
+                        {orders.slice(0, 3).map((order) => (
+                            <Link
+                                key={order.id}
+                                href={`/account/orders/${order.id}`}
+                                className="flex items-center gap-4 py-3.5 hover:bg-gray-50/50 -mx-2 px-2 rounded-lg transition-colors group"
+                            >
+                                {/* Order thumbnail placeholder */}
+                                <div className="w-10 h-10 bg-gray-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                                    <Package className="w-4 h-4 text-gray-400" />
+                                </div>
+
+                                {/* Order info */}
+                                <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-semibold text-gray-900 truncate">
+                                        Order #{order.order_number}
+                                    </p>
+                                    <p className="text-xs text-gray-400">
+                                        {new Date(order.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                                    </p>
+                                </div>
+
+                                {/* Status badge */}
+                                <StatusBadge status={order.status} />
+
+                                {/* Amount */}
+                                <span className="text-sm font-bold text-gray-900 tabular-nums">
+                                    ${parseFloat(order.total).toFixed(2)}
+                                </span>
+
+                                <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-gray-500 transition-colors flex-shrink-0" />
+                            </Link>
+                        ))}
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
+
+/* ─────────── Account Security Panel ─────────── */
+function AccountSecurityPanel({ user }) {
+    return (
+        <div className="rounded-xl bg-white border border-gray-100 p-5">
+            <div className="flex items-start gap-3">
+                <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                        <Shield className="w-4 h-4 text-blue-600" />
+                        <h3 className="text-sm font-bold text-gray-900">Account Security</h3>
+                    </div>
+                    <p className="text-xs text-gray-400 mb-2">Keep your account safe</p>
+                    <p className={cn(
+                        "text-xs font-medium",
+                        user.email_verified ? "text-green-600" : "text-amber-600"
+                    )}>
+                        {user.email_verified
+                            ? "Your account is verified ✓"
+                            : "Your account is not verified."}
+                    </p>
+                    {!user.email_verified && (
+                        <Link href="/account/profile" className="text-xs font-semibold text-blue-600 hover:text-blue-700 mt-1 inline-block">
+                            Verify Now
+                        </Link>
+                    )}
+                </div>
+                <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center flex-shrink-0">
+                    <Shield className="w-5 h-5 text-blue-600" />
+                </div>
+            </div>
+        </div>
+    );
+}
+
+/* ─────────── Store Announcements Panel ─────────── */
+function AnnouncementsPanel() {
+    return (
+        <div className="rounded-xl bg-white border border-gray-100 p-5">
+            <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                    <Megaphone className="w-4 h-4 text-orange-500" />
+                    <h3 className="text-sm font-bold text-gray-900">Store Announcements</h3>
+                </div>
+                <span className="text-[11px] text-blue-600 font-semibold cursor-pointer hover:text-blue-700">View All</span>
+            </div>
+
+            {/* Sample announcement */}
+            <div className="border-l-3 border-blue-500 bg-blue-50/50 rounded-r-lg p-3 flex items-start gap-3" style={{ borderLeftWidth: '3px' }}>
+                <div className="flex-1 min-w-0">
+                    <p className="text-xs font-bold text-blue-700 mb-0.5">Big Summer Sale is Live!</p>
+                    <p className="text-[11px] text-gray-500 leading-relaxed">
+                        Up to 60% off on select categories. Shop now and save big!
+                    </p>
+                </div>
+                <div className="w-7 h-7 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
+                    <Plus className="w-3.5 h-3.5 text-white" />
+                </div>
+            </div>
+        </div>
+    );
+}
+
+/* ─────────── Need Help Panel ─────────── */
+function NeedHelpPanel() {
+    return (
+        <div className="rounded-xl bg-white border border-gray-100 p-5">
+            <div className="flex items-start gap-3">
+                <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                        <Headphones className="w-4 h-4 text-purple-600" />
+                        <h3 className="text-sm font-bold text-gray-900">Need Help?</h3>
+                    </div>
+                    <p className="text-xs text-gray-400 mb-2">We're here for you</p>
+                    <Link href="/contact" className="text-xs font-semibold text-blue-600 hover:text-blue-700">
+                        Contact Support
+                    </Link>
+                </div>
+                <div className="w-10 h-10 bg-purple-50 rounded-xl flex items-center justify-center flex-shrink-0">
+                    <Headphones className="w-5 h-5 text-purple-600" />
+                </div>
+            </div>
+        </div>
+    );
+}
+
+/* ═══════════════════════════════════════════════════════
+   MAIN DASHBOARD
+   ═══════════════════════════════════════════════════════ */
 export default function AccountDashboard() {
     const router = useRouter();
-    const { user } = useAuth();
+    const { user, token } = useAuth();
+    const tenant = useTenant();
+
+    const [orders, setOrders] = useState([]);
+    const [ordersTotal, setOrdersTotal] = useState(null);
+    const [wishlistCount, setWishlistCount] = useState(null);
+    const [loadingOrders, setLoadingOrders] = useState(true);
+    const [loadingWishlist, setLoadingWishlist] = useState(true);
+
+    // Fetch orders for Recent Orders + total count
+    useEffect(() => {
+        if (!token || !tenant || !user) return;
+
+        const fetchOrders = async () => {
+            setLoadingOrders(true);
+            try {
+                const res = await api.get('/orders/my-orders?page=1&per_page=3', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'X-Tenant-ID': tenant.id
+                    }
+                });
+                if (res.data.success) {
+                    setOrders(res.data.data || []);
+                    setOrdersTotal(res.data.pagination?.total ?? 0);
+                }
+            } catch (err) {
+                console.error('[Dashboard] Failed to fetch orders:', err);
+            } finally {
+                setLoadingOrders(false);
+            }
+        };
+        fetchOrders();
+    }, [token, tenant, user]);
+
+    // Fetch wishlist count
+    useEffect(() => {
+        if (!token || !tenant || !user) return;
+
+        const fetchWishlist = async () => {
+            setLoadingWishlist(true);
+            try {
+                const res = await api.get('/wishlist', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'X-Tenant-ID': tenant.id
+                    }
+                });
+                if (res.data.success) {
+                    setWishlistCount(res.data.wishlist?.length ?? 0);
+                }
+            } catch (err) {
+                console.error('[Dashboard] Failed to fetch wishlist:', err);
+            } finally {
+                setLoadingWishlist(false);
+            }
+        };
+        fetchWishlist();
+    }, [token, tenant, user]);
 
     // The layout shell handles auth redirect + loading state.
     // If we somehow render before user is ready, return nothing.
     if (!user) return null;
 
+    const fmtCount = (val, loading) => {
+        if (loading) return "—";
+        return val ?? "—";
+    };
+
     return (
         <div className="space-y-6">
+            <WelcomeHero user={user} />
             <VerificationBanner user={user} />
 
-            {/* Welcome Hero Card */}
-            <Card className="overflow-hidden border-none shadow-md">
-                <div className="h-24 bg-gradient-to-r from-blue-600 to-indigo-700" />
-                <CardContent className="relative pt-0 px-6 pb-6">
-                    <div className="flex flex-col sm:flex-row items-end gap-4 -mt-10">
-                        <div className="w-20 h-20 bg-white rounded-2xl p-1 shadow-lg ring-4 ring-white flex-shrink-0">
-                            {user.avatar_url ? (
-                                <img src={user.avatar_url} alt="Profile" className="w-full h-full rounded-xl object-cover" referrerPolicy="no-referrer" />
-                            ) : (
-                                <div className="w-full h-full bg-blue-100 rounded-xl flex items-center justify-center text-blue-700 text-2xl font-bold">
-                                    {user.email?.[0]?.toUpperCase()}
-                                </div>
-                            )}
-                        </div>
-                        <div className="flex-1 space-y-1 pb-1">
-                            <h1 className="text-xl font-bold text-gray-900">
-                                Hello, {user.first_name || 'Friend'}!
-                            </h1>
-                            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-500">
-                                <div className="flex items-center gap-1.5">
-                                    <Mail className="w-3 h-3" />
-                                    {user.email}
-                                </div>
-                                {user.dob && (
-                                    <div className="flex items-center gap-1.5">
-                                        <Calendar className="w-3 h-3" />
-                                        DOB: {new Date(user.dob).toLocaleDateString()}
-                                    </div>
-                                )}
-                                <div className="flex items-center gap-1.5">
-                                    <Calendar className="w-3 h-3" />
-                                    Joined {new Date(user.created_at).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}
-                                </div>
-                            </div>
-                        </div>
-                        <Button variant="outline" asChild className="mb-1 flex-shrink-0">
-                            <Link href="/account/profile">Edit Profile</Link>
-                        </Button>
-                    </div>
-                </CardContent>
-            </Card>
-
-            {/* Quick Links Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <Card className="border-none shadow-sm hover:shadow-md transition-shadow group cursor-pointer" onClick={() => router.push('/account/orders')}>
-                    <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-                        <CardTitle className="text-sm font-medium">My Orders</CardTitle>
-                        <Clock className="h-4 w-4 text-gray-400 group-hover:text-blue-600 transition-colors" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-xl font-bold text-gray-900">View All</div>
-                        <p className="text-xs text-gray-500 mt-1">Track your order history</p>
-                    </CardContent>
-                </Card>
-
-                <Card className="border-none shadow-sm hover:shadow-md transition-shadow group cursor-pointer" onClick={() => router.push('/wishlist')}>
-                    <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-                        <CardTitle className="text-sm font-medium">Wishlist</CardTitle>
-                        <Heart className="h-4 w-4 text-gray-400 group-hover:text-pink-600 transition-colors" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-xl font-bold text-gray-900">Saved</div>
-                        <p className="text-xs text-gray-500 mt-1">Items bookmarked for later</p>
-                    </CardContent>
-                </Card>
-
-                <Card className="border-none shadow-sm hover:shadow-md transition-shadow group cursor-pointer" onClick={() => router.push('/messages')}>
-                    <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-                        <CardTitle className="text-sm font-medium">Messages</CardTitle>
-                        <Mail className="h-4 w-4 text-gray-400 group-hover:text-green-600 transition-colors" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-xl font-bold text-green-600">Inbox</div>
-                        <p className="text-xs text-gray-500 mt-1">Chat with vendors & support</p>
-                    </CardContent>
-                </Card>
+            {/* Stats Row — 4 columns */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                <StatCard
+                    icon={Package}
+                    iconColor="text-blue-600"
+                    iconBg="bg-blue-50"
+                    label="My Orders"
+                    value={fmtCount(ordersTotal, loadingOrders)}
+                    subtitle="Total Orders"
+                    linkText="View All Orders"
+                    linkHref="/account/orders"
+                />
+                <StatCard
+                    icon={Heart}
+                    iconColor="text-pink-600"
+                    iconBg="bg-pink-50"
+                    label="Wishlist"
+                    value={fmtCount(wishlistCount, loadingWishlist)}
+                    subtitle="Saved Items"
+                    linkText="View Wishlist"
+                    linkHref="/wishlist"
+                />
+                <StatCard
+                    icon={MessageCircle}
+                    iconColor="text-green-600"
+                    iconBg="bg-green-50"
+                    label="Messages"
+                    value="—"
+                    subtitle="Unread Messages"
+                    linkText="Go to Inbox"
+                    linkHref="/messages"
+                />
+                <StatCard
+                    icon={Wallet}
+                    iconColor="text-emerald-600"
+                    iconBg="bg-emerald-50"
+                    label="Store Credits"
+                    value="$0.00"
+                    subtitle="Available Balance"
+                    linkText="View Credits"
+                    linkHref="/account/credits"
+                />
             </div>
 
-            {/* Recent Activity placeholders */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <Card className="border-none shadow-sm">
-                    <CardHeader>
-                        <CardTitle>Recent Orders</CardTitle>
-                        <CardDescription>Your most recent purchases</CardDescription>
-                    </CardHeader>
-                    <CardContent className="h-32 flex items-center justify-center border-t border-gray-50">
-                        <Button variant="link" asChild>
-                            <Link href="/account/orders">View Orders</Link>
-                        </Button>
-                    </CardContent>
-                </Card>
+            {/* Bottom section: Recent Orders (left) + Right panels */}
+            <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+                {/* Recent Orders — spans 3 cols */}
+                <div className="lg:col-span-3">
+                    <RecentOrdersPanel orders={orders} loading={loadingOrders} />
+                </div>
 
-                <Card className="border-none shadow-sm">
-                    <CardHeader>
-                        <CardTitle>Store Announcements</CardTitle>
-                        <CardDescription>Stay updated with the latest news.</CardDescription>
-                    </CardHeader>
-                    <CardContent className="h-32 flex items-center justify-center border-t border-gray-50">
-                        <p className="text-sm text-gray-400">No new announcements today.</p>
-                    </CardContent>
-                </Card>
+                {/* Right column — spans 2 cols */}
+                <div className="lg:col-span-2 space-y-4">
+                    <AccountSecurityPanel user={user} />
+                    <AnnouncementsPanel />
+                    <NeedHelpPanel />
+                </div>
             </div>
         </div>
     );
