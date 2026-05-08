@@ -133,10 +133,10 @@ export default function LoginPage() {
                                 <span className="bg-white px-2 text-gray-500">Or continue with</span>
                             </div>
                         </div>
-                        
-                        <Button 
-                            type="button" 
-                            variant="outline" 
+
+                        <Button
+                            type="button"
+                            variant="outline"
                             className="w-full bg-white hover:bg-gray-50 text-gray-700 border-gray-300"
                             onClick={handleGoogleLogin}
                         >

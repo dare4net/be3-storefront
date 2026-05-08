@@ -12,6 +12,7 @@ import { SearchProvider } from "@/components/providers/SearchContext";
 import CartDrawer from "@/components/cart/CartDrawer";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import HeaderSpacer from "@/components/HeaderSpacer";
 import { generateThemeVariables } from '@/lib/theme';
 import { StorefrontProvider } from "@/components/providers/StorefrontProvider";
 import { WishlistProvider } from "@/components/providers/WishlistContext";
@@ -38,11 +39,11 @@ export async function generateMetadata() {
     const { tenant, theme } = await getTenantAndTheme();
     const logoUrl = theme?.variables?.logo || tenant?.settings?.logo_url;
     const storeName = tenant?.name || "Be3 Storefront";
-    const storeDescription = tenant?.description || 
+    const storeDescription = tenant?.description ||
         `Scale your business with Be3, the AI-powered multi-vendor marketplace. ` +
         `Secure vendor dashboards, unified checkout, and optimized SEO for global sellers. ` +
         `Discover a premium shopping experience powered by ${storeName}.`;
-    
+
     // Enforce primary canonical domain
     const baseUrl = 'https://be3.shop';
 
@@ -172,7 +173,7 @@ export default async function RootLayout({ children }) {
         "@context": "https://schema.org",
         "@type": "Organization",
         "name": tenant.name,
-        "url": baseUrl, 
+        "url": baseUrl,
         "logo": theme?.variables?.logo || tenant?.settings?.logo_url,
         "description": tenant.description || `Scale your business with Be3, the AI-powered multi-vendor marketplace. Secure vendor dashboards, unified checkout, and optimized SEO for global sellers.`
     };
@@ -201,6 +202,7 @@ export default async function RootLayout({ children }) {
                                             <RandomizationProvider>
                                                 <StorefrontProvider theme={theme}>
                                                     <Header menuItems={headerMenu} />
+                                                    <HeaderSpacer />
                                                     <CartDrawer />
                                                     <main className="overflow-x-hidden">{children}</main>
                                                     <Footer />

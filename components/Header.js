@@ -43,14 +43,12 @@ export default function Header({ menuItems = [] }) {
     const menuRef = useRef(null);
 
     // Track scroll for header transition — uses hysteresis to prevent feedback loop
+    // Track scroll direction — collapse on scroll-down, expand on scroll-up.
+    // Direction-based logic avoids the feedback loop where header height changes
+    // shift window.scrollY and re-trigger the handler.
     useEffect(() => {
         const handleScroll = () => {
-            const y = window.scrollY;
-            setIsScrolled(prev => {
-                if (!prev && y > 60) return true;   // hide top bar after 60px
-                if (prev && y < 30) return false;   // re-show only when back under 30px
-                return prev;                         // dead zone: 30–60px, no change
-            });
+            setIsScrolled(window.scrollY > 60);
         };
         window.addEventListener("scroll", handleScroll, { passive: true });
         return () => window.removeEventListener("scroll", handleScroll);
@@ -100,51 +98,51 @@ export default function Header({ menuItems = [] }) {
             {/* Account - Only on Desktop, Mobile has it in Drawer */}
             <div className="hidden lg:block">
                 {isAuthenticated ? (
-                <div className="relative" ref={menuRef}>
-                    <button
-                        onClick={() => setShowAccountMenu(!showAccountMenu)}
-                        className="flex items-center gap-2 p-2 hover:bg-gray-100 rounded-xl transition-colors group"
-                    >
-                        <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white font-bold text-xs ring-2 ring-transparent group-hover:ring-blue-100 transition-all">
-                            {user?.email?.[0]?.toUpperCase() || 'U'}
+                    <div className="relative" ref={menuRef}>
+                        <button
+                            onClick={() => setShowAccountMenu(!showAccountMenu)}
+                            className="flex items-center gap-2 p-2 hover:bg-gray-100 rounded-xl transition-colors group"
+                        >
+                            <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white font-bold text-xs ring-2 ring-transparent group-hover:ring-blue-100 transition-all">
+                                {user?.email?.[0]?.toUpperCase() || 'U'}
+                            </div>
+                            <div className="hidden lg:flex flex-col items-start leading-none">
+                                <span className="text-[10px] text-gray-500 uppercase font-bold tracking-wider">Account</span>
+                                <span className="text-sm font-bold text-gray-900">{user?.first_name || 'My Profile'}</span>
+                            </div>
+                            <ChevronDown className={cn("w-4 h-4 text-gray-400 transition-transform", showAccountMenu && "rotate-180")} />
+                        </button>
+
+                        {showAccountMenu && (
+                            <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-2xl border border-gray-100 py-2 z-[60] animate-in fade-in zoom-in-95 duration-200">
+                                <div className="px-4 py-2 border-b border-gray-50 mb-1">
+                                    <p className="text-xs text-gray-400 font-medium">Logged in as</p>
+                                    <p className="text-sm font-bold text-gray-900 truncate">{user?.email}</p>
+                                </div>
+                                <Link href="/account" className="flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 tracking-tight transition-colors" onClick={() => setShowAccountMenu(false)}>
+                                    <User className="w-4 h-4" /> My Account
+                                </Link>
+                                <Link href="/account/orders" className="flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 tracking-tight transition-colors" onClick={() => setShowAccountMenu(false)}>
+                                    <Package className="w-4 h-4" /> My Orders
+                                </Link>
+                                <div className="h-px bg-gray-100 my-1 mx-2" />
+                                <button onClick={handleLogout} className="flex items-center gap-3 px-4 py-2.5 text-sm font-bold text-red-600 hover:bg-red-50 w-full text-left transition-colors">
+                                    <LogOut className="w-4 h-4" /> Logout
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                ) : (
+                    <Link href="/login" className="flex items-center gap-2 p-2 hover:bg-gray-100 rounded-xl transition-colors group">
+                        <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center text-gray-500 group-hover:bg-blue-600 group-hover:text-white transition-all">
+                            <User className="w-5 h-5" />
                         </div>
                         <div className="hidden lg:flex flex-col items-start leading-none">
-                            <span className="text-[10px] text-gray-500 uppercase font-bold tracking-wider">Account</span>
-                            <span className="text-sm font-bold text-gray-900">{user?.first_name || 'My Profile'}</span>
+                            <span className="text-[10px] text-gray-500 uppercase font-bold tracking-wider">Hello, Sign in</span>
+                            <span className="text-sm font-bold text-gray-900">My Account</span>
                         </div>
-                        <ChevronDown className={cn("w-4 h-4 text-gray-400 transition-transform", showAccountMenu && "rotate-180")} />
-                    </button>
-
-                    {showAccountMenu && (
-                        <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-2xl border border-gray-100 py-2 z-[60] animate-in fade-in zoom-in-95 duration-200">
-                            <div className="px-4 py-2 border-b border-gray-50 mb-1">
-                                <p className="text-xs text-gray-400 font-medium">Logged in as</p>
-                                <p className="text-sm font-bold text-gray-900 truncate">{user?.email}</p>
-                            </div>
-                            <Link href="/account" className="flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 tracking-tight transition-colors" onClick={() => setShowAccountMenu(false)}>
-                                <User className="w-4 h-4" /> My Account
-                            </Link>
-                            <Link href="/account/orders" className="flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 tracking-tight transition-colors" onClick={() => setShowAccountMenu(false)}>
-                                <Package className="w-4 h-4" /> My Orders
-                            </Link>
-                            <div className="h-px bg-gray-100 my-1 mx-2" />
-                            <button onClick={handleLogout} className="flex items-center gap-3 px-4 py-2.5 text-sm font-bold text-red-600 hover:bg-red-50 w-full text-left transition-colors">
-                                <LogOut className="w-4 h-4" /> Logout
-                            </button>
-                        </div>
-                    )}
-                </div>
-            ) : (
-                <Link href="/login" className="flex items-center gap-2 p-2 hover:bg-gray-100 rounded-xl transition-colors group">
-                    <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center text-gray-500 group-hover:bg-blue-600 group-hover:text-white transition-all">
-                        <User className="w-5 h-5" />
-                    </div>
-                    <div className="hidden lg:flex flex-col items-start leading-none">
-                        <span className="text-[10px] text-gray-500 uppercase font-bold tracking-wider">Hello, Sign in</span>
-                        <span className="text-sm font-bold text-gray-900">My Account</span>
-                    </div>
-                </Link>
-            )}
+                    </Link>
+                )}
             </div>
 
             {/* Wishlist */}
@@ -198,7 +196,7 @@ export default function Header({ menuItems = [] }) {
     }
 
     return (
-        <header className="z-[100] sticky top-0">
+        <header className="z-[100] fixed top-0 left-0 right-0 w-full">
             {/* Top Bar — inside sticky so it never shifts page layout */}
             <div className={cn(
                 "bg-gray-900 text-white overflow-hidden transition-all duration-300 hidden sm:block",
