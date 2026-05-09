@@ -1,7 +1,8 @@
 "use client";
 
+import { useState } from 'react';
 import Link from 'next/link';
-import { ChevronRight, Package } from 'lucide-react';
+import { ChevronRight, Package, Clock, Star, LayoutList, UserPlus, UserCheck, MessageCircle } from 'lucide-react';
 import { useLegacyPageData } from '@/components/providers/LegacyPageContext';
 import SuggestionsCarousel from '@/components/products/SuggestionsCarousel';
 
@@ -39,6 +40,7 @@ export default function LegacyWidgetBridge({ config }) {
 }
 
 function CollectionHero({ entity: collection }) {
+    const [followed, setFollowed] = useState(false);
     return (
         <div className="relative bg-gradient-to-br from-slate-900 via-slate-950 to-black text-white overflow-hidden pt-16 pb-12 lg:pt-24 lg:pb-16">
             {collection.image_url && (
@@ -59,42 +61,69 @@ function CollectionHero({ entity: collection }) {
                     <ChevronRight className="w-4 h-4 mx-2 text-gray-500" />
                     <span className="text-white font-medium">{collection.name}</span>
                 </nav>
-                <div className="max-w-3xl">
-                    <div className="flex flex-col md:flex-row md:items-center gap-6 mb-6">
-                        {collection.thumbnail_url && (
-                            <div className="w-20 h-20 lg:w-28 lg:h-28 rounded-2xl overflow-hidden border-2 border-white/20 shadow-2xl shrink-0 bg-white/10 backdrop-blur-sm">
-                                <img src={collection.thumbnail_url} alt="" className="w-full h-full object-cover" />
-                            </div>
-                        )}
-                        <div className="flex flex-col gap-4">
-                            <h1 className="text-4xl lg:text-7xl font-extrabold tracking-tight">
-                                {collection.name}
-                            </h1>
-                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                                <div className="rounded-xl border border-white/15 bg-white/5 px-4 py-3 backdrop-blur-sm">
-                                    <p className="text-[11px] uppercase tracking-[0.2em] text-white/60">Items Sold</p>
-                                    <p className="text-lg font-semibold text-white">18.4k</p>
-                                </div>
-                                <div className="rounded-xl border border-white/15 bg-white/5 px-4 py-3 backdrop-blur-sm">
-                                    <p className="text-[11px] uppercase tracking-[0.2em] text-white/60">On Platform</p>
-                                    <p className="text-lg font-semibold text-white">3.2 yrs</p>
-                                </div>
-                                <div className="rounded-xl border border-white/15 bg-white/5 px-4 py-3 backdrop-blur-sm">
-                                    <p className="text-[11px] uppercase tracking-[0.2em] text-white/60">Rating</p>
-                                    <p className="text-lg font-semibold text-white">4.8 / 5</p>
-                                </div>
-                                <div className="rounded-xl border border-white/15 bg-white/5 px-4 py-3 backdrop-blur-sm">
-                                    <p className="text-[11px] uppercase tracking-[0.2em] text-white/60">Items Listed</p>
-                                    <p className="text-lg font-semibold text-white">412</p>
-                                </div>
-                            </div>
+
+                <div className="flex flex-col md:flex-row md:items-center gap-6 mb-4">
+                    {/* Thumbnail */}
+                    {collection.thumbnail_url && (
+                        <div className="w-20 h-20 lg:w-28 lg:h-28 rounded-2xl overflow-hidden border-2 border-white/20 shadow-2xl shrink-0 bg-white/10 backdrop-blur-sm">
+                            <img src={collection.thumbnail_url} alt="" className="w-full h-full object-cover" />
                         </div>
-                    </div>
-                    {collection.description && (
-                        <p className="text-lg lg:text-xl text-gray-200/90 leading-relaxed font-light max-w-2xl">
-                            {collection.description}
-                        </p>
                     )}
+
+                    {/* Name + Description */}
+                    <div className="flex flex-col gap-2">
+                        <h1 className="text-4xl lg:text-7xl font-extrabold tracking-tight flex items-center gap-3">
+                            {collection.name}
+                            {collection.vendor_verified && (
+                                <img
+                                    src="/verified.png"
+                                    alt="Verified Business"
+                                    title="Verified Business"
+                                    className="w-6 h-6 lg:w-8 lg:h-8 object-contain drop-shadow-lg flex-shrink-0 inline-block"
+                                />
+                            )}
+                        </h1>
+                        {collection.description && (
+                            <p className="text-base lg:text-lg text-gray-300/90 font-light leading-snug max-w-2xl">
+                                {collection.description}
+                            </p>
+                        )}
+                    </div>
+                </div>
+
+                {/* Stats Row */}
+                <div className="flex items-center gap-6 mt-6 flex-wrap">
+                    {[
+                        { icon: <Package className="w-4 h-4" />, value: '18.4K', label: 'Items Sold' },
+                        { icon: <Clock className="w-4 h-4" />, value: '3.2 Yrs', label: 'On BE3' },
+                        { icon: <Star className="w-4 h-4" />, value: '4.8 / 5', label: 'Store Rating' },
+                        { icon: <LayoutList className="w-4 h-4" />, value: '412', label: 'Items Listed' },
+                    ].map(({ icon, value, label }) => (
+                        <div key={label} className="flex items-center gap-2 text-white/80">
+                            <span className="text-white/50">{icon}</span>
+                            <span className="text-sm font-bold text-white">{value}</span>
+                            <span className="text-xs text-white/50">{label}</span>
+                        </div>
+                    ))}
+                </div>
+
+                {/* CTAs */}
+                <div className="flex items-center gap-3 mt-6">
+                    <button
+                        onClick={() => setFollowed(f => !f)}
+                        className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-bold transition-all active:scale-95 ${
+                            followed
+                                ? 'bg-white/10 border border-white/20 text-white hover:bg-white/15'
+                                : 'bg-blue-600 hover:bg-blue-500 text-white'
+                        }`}
+                    >
+                        {followed ? <UserCheck className="w-4 h-4" /> : <UserPlus className="w-4 h-4" />}
+                        {followed ? 'Following' : 'Follow Store'}
+                    </button>
+                    <button className="flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-bold border border-white/20 text-white hover:bg-white/10 transition-all active:scale-95">
+                        <MessageCircle className="w-4 h-4" />
+                        Chat with Seller
+                    </button>
                 </div>
             </div>
         </div>

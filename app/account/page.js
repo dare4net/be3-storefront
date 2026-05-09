@@ -9,7 +9,8 @@ import api from "@/lib/axios";
 import {
     Package, Heart, MessageCircle, Wallet, Mail, Calendar,
     CheckCircle, AlertCircle, Loader2, Shield, Megaphone,
-    Headphones, ChevronRight, Edit3, Plus
+    Headphones, ChevronRight, Edit3, Plus, Store,
+    Settings, MapPin, CreditCard, ShieldCheck, User
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
@@ -19,7 +20,7 @@ function VerificationBanner({ user }) {
     const [status, setStatus] = useState("idle");
     const [message, setMessage] = useState("");
 
-    if (user.email_verified) return null;
+    if (user.email_verified === true || user.email_verified === "true") return null;
 
     const handleResend = async () => {
         setStatus("loading");
@@ -35,19 +36,19 @@ function VerificationBanner({ user }) {
 
     return (
         <div className={cn(
-            "p-4 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-4 border",
+            "px-3 py-3 sm:p-4 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 border",
             status === "sent" ? "bg-green-50 border-green-100" : "bg-amber-50 border-amber-100"
         )}>
-            <div className="flex items-center gap-3">
-                <div className={cn("p-2 rounded-full", status === "sent" ? "bg-green-100 text-green-600" : "bg-amber-100 text-amber-600")}>
-                    {status === "sent" ? <CheckCircle className="w-5 h-5" /> : <AlertCircle className="w-5 h-5" />}
+            <div className="flex items-center gap-2.5">
+                <div className={cn("p-1.5 rounded-full flex-shrink-0", status === "sent" ? "bg-green-100 text-green-600" : "bg-amber-100 text-amber-600")}>
+                    {status === "sent" ? <CheckCircle className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
                 </div>
                 <div>
-                    <p className={cn("text-sm font-semibold", status === "sent" ? "text-green-900" : "text-amber-900")}>
+                    <p className={cn("text-xs font-semibold leading-snug", status === "sent" ? "text-green-900" : "text-amber-900")}>
                         {status === "sent" ? "Verification Email Sent" : "Account Verification Required"}
                     </p>
-                    <p className={cn("text-xs", status === "sent" ? "text-green-700" : "text-amber-700")}>
-                        {status === "sent" ? message : `Please verify your email address (${user.email}) to secure your account.`}
+                    <p className={cn("text-[11px] leading-snug mt-0.5", status === "sent" ? "text-green-700" : "text-amber-700")}>
+                        {status === "sent" ? message : `Verify ${user.email} to secure your account.`}
                     </p>
                 </div>
             </div>
@@ -55,10 +56,10 @@ function VerificationBanner({ user }) {
                 <button
                     onClick={handleResend}
                     disabled={status === "loading"}
-                    className="flex items-center gap-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold py-2.5 px-5 rounded-lg transition-all disabled:opacity-50 flex-shrink-0"
+                    className="w-full sm:w-auto flex items-center justify-center gap-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold py-2 px-4 rounded-lg transition-all disabled:opacity-50 flex-shrink-0"
                 >
                     {status === "loading" ? <Loader2 className="w-3 h-3 animate-spin" /> : <Mail className="w-3 h-3" />}
-                    Resend Verification Link
+                    Resend Link
                 </button>
             )}
         </div>
@@ -68,46 +69,55 @@ function VerificationBanner({ user }) {
 /* ─────────── Welcome Hero ─────────── */
 function WelcomeHero({ user }) {
     return (
-        <div className="overflow-hidden rounded-2xl bg-white border border-gray-100">
-            <div className="h-28 bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-800 relative">
-                {/* Decorative circles */}
-                <div className="absolute top-4 right-8 w-20 h-20 rounded-full bg-white/5" />
-                <div className="absolute -bottom-2 right-24 w-12 h-12 rounded-full bg-white/10" />
-            </div>
-            <div className="relative px-6 pb-6">
-                <div className="flex flex-col sm:flex-row items-end gap-4 -mt-10">
-                    <div className="w-20 h-20 bg-white rounded-2xl p-1 shadow-lg ring-4 ring-white flex-shrink-0">
-                        {user.avatar_url ? (
-                            <img src={user.avatar_url} alt="Profile" className="w-full h-full rounded-xl object-cover" referrerPolicy="no-referrer" />
-                        ) : (
-                            <div className="w-full h-full bg-blue-100 rounded-xl flex items-center justify-center text-blue-700 text-2xl font-bold">
-                                {user.email?.[0]?.toUpperCase()}
-                            </div>
-                        )}
-                    </div>
-                    <div className="flex-1 space-y-1 pb-1">
-                        <h1 className="text-xl font-bold text-gray-900">
-                            Hello, {user.first_name || 'Friend'}! 👋
-                        </h1>
-                        <p className="text-sm text-gray-500">Welcome back to your BE3 account</p>
-                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-400">
-                            <div className="flex items-center gap-1.5">
-                                <Mail className="w-3 h-3" />
-                                {user.email}
-                            </div>
-                            <div className="flex items-center gap-1.5">
-                                <Calendar className="w-3 h-3" />
-                                Joined {new Date(user.created_at).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}
-                            </div>
+        <div className="relative overflow-hidden rounded-2xl" style={{ background: '#1a56e8' }}>
+
+            {/* Dot pattern overlay */}
+            <div className="absolute inset-0 opacity-[0.12]" style={{
+                backgroundImage: 'radial-gradient(circle, #ffffff 1px, transparent 1px)',
+                backgroundSize: '20px 20px'
+            }} />
+
+            {/* Decorative blobs */}
+            <div className="absolute -top-8 -right-8 w-40 h-40 rounded-full bg-white/10" />
+            <div className="absolute bottom-0 right-24 w-20 h-20 rounded-full bg-white/5" />
+
+            {/* Content */}
+            <div className="relative flex flex-col sm:flex-row items-start sm:items-center gap-4 px-6 py-5">
+                {/* Avatar */}
+                <div className="w-14 h-14 rounded-2xl bg-white/20 backdrop-blur-sm border border-white/30 flex-shrink-0 overflow-hidden flex items-center justify-center text-white text-xl font-bold">
+                    {user.avatar_url ? (
+                        <img src={user.avatar_url} alt="Profile" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                    ) : (
+                        user.email?.[0]?.toUpperCase()
+                    )}
+                </div>
+
+                {/* Info */}
+                <div className="flex-1 min-w-0">
+                    <h1 className="text-lg font-bold text-white leading-snug">
+                        Hello, {user.first_name || 'Friend'}! 👋
+                    </h1>
+                    <p className="text-sm text-blue-100/80">Welcome back to your BE3 account</p>
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-blue-200/70 mt-1">
+                        <div className="flex items-center gap-1.5">
+                            <Mail className="w-3 h-3" />
+                            {user.email}
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                            <Calendar className="w-3 h-3" />
+                            Joined {new Date(user.created_at).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}
                         </div>
                     </div>
-                    <Button variant="outline" asChild className="mb-1 flex-shrink-0 rounded-lg">
-                        <Link href="/account/profile" className="gap-2">
-                            <Edit3 className="w-3.5 h-3.5" />
-                            Edit Profile
-                        </Link>
-                    </Button>
                 </div>
+
+                {/* Edit Profile */}
+                <Link
+                    href="/account/profile"
+                    className="flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white/15 hover:bg-white/25 border border-white/25 text-white text-xs font-semibold transition-all backdrop-blur-sm"
+                >
+                    <Edit3 className="w-3.5 h-3.5" />
+                    Edit Profile
+                </Link>
             </div>
         </div>
     );
@@ -308,6 +318,46 @@ function NeedHelpPanel() {
     );
 }
 
+/* ─────────── Become a Vendor CTA ─────────── */
+function VendorCTA({ user }) {
+    const [isVendor, setIsVendor] = useState(null); // null = loading
+    const kycApproved = user?.kyc_status === 'approved';
+
+    useEffect(() => {
+        api.get('/vendor/application')
+            .then(res => setIsVendor(!!res.data.is_vendor))
+            .catch(() => setIsVendor(false));
+    }, []);
+
+    // Still loading or confirmed vendor — show nothing
+    if (isVendor === null || isVendor) return null;
+
+    return (
+        <div className="rounded-xl border border-orange-100 bg-gradient-to-br from-orange-50 to-amber-50 p-5">
+            <div className="flex items-start gap-3">
+                <div className="w-10 h-10 bg-orange-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                    <Store className="w-5 h-5 text-orange-600" />
+                </div>
+                <div className="flex-1">
+                    <h3 className="text-sm font-black text-gray-900 mb-0.5">Open Your Store</h3>
+                    <p className="text-xs text-gray-500 leading-relaxed mb-3">
+                        {kycApproved
+                            ? "You're verified! Apply to become a vendor and start selling today."
+                            : "Verify your identity first, then apply to become a vendor and start selling."}
+                    </p>
+                    <Link
+                        href={kycApproved ? "/account/apply" : "/account/verification"}
+                        className="inline-flex items-center gap-1.5 text-xs font-black text-orange-700 hover:text-orange-800 bg-white border border-orange-200 hover:border-orange-300 px-3 py-1.5 rounded-lg transition-all"
+                    >
+                        {kycApproved ? "Apply Now" : "Get Verified"}
+                        <ChevronRight className="w-3.5 h-3.5" />
+                    </Link>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 /* ═══════════════════════════════════════════════════════
    MAIN DASHBOARD
    ═══════════════════════════════════════════════════════ */
@@ -431,7 +481,32 @@ export default function AccountDashboard() {
                 />
             </div>
 
-            {/* Bottom section: Recent Orders (left) + Right panels */}
+            {/* Mobile-only quick nav — shown right after stats */}
+            <div className="md:hidden grid grid-cols-3 gap-3">
+                {[
+                    { label: "My Orders",       href: "/account/orders",       icon: Package,     color: "text-violet-600", bg: "bg-violet-50" },
+                    { label: "Wishlist",        href: "/wishlist",             icon: Heart,       color: "text-pink-600",   bg: "bg-pink-50"   },
+                    { label: "Messages",        href: "/messages",             icon: MessageCircle,color: "text-green-600", bg: "bg-green-50"   },
+                    { label: "Account Details", href: "/account/profile",      icon: Settings,    color: "text-slate-600",  bg: "bg-slate-50"  },
+                    { label: "Addresses",       href: "/account/addresses",    icon: MapPin,      color: "text-rose-600",   bg: "bg-rose-50"   },
+                    { label: "Payment Methods", href: "/account/payments",     icon: CreditCard,  color: "text-amber-600",  bg: "bg-amber-50"  },
+                    { label: "Verification",    href: "/account/verification", icon: ShieldCheck, color: "text-teal-600",   bg: "bg-teal-50"   },
+                    { label: "Store Credits",   href: "/account/credits",      icon: Wallet,      color: "text-emerald-600",bg: "bg-emerald-50"},
+                    { label: "Shop",            href: "/account/apply",        icon: Store,       color: "text-orange-600", bg: "bg-orange-50" },
+                ].map((item) => (
+                    <Link
+                        key={item.label}
+                        href={item.href}
+                        className="flex flex-col items-center justify-center gap-2 p-4 rounded-2xl bg-white border border-gray-100 transition-all active:scale-95"
+                    >
+                        <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center", item.bg, item.color)}>
+                            <item.icon className="w-5 h-5" />
+                        </div>
+                        <span className="text-xs font-medium text-gray-700 text-center leading-tight">{item.label}</span>
+                    </Link>
+                ))}
+            </div>
+
             <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
                 {/* Recent Orders — spans 3 cols */}
                 <div className="lg:col-span-3">
@@ -440,6 +515,7 @@ export default function AccountDashboard() {
 
                 {/* Right column — spans 2 cols */}
                 <div className="lg:col-span-2 space-y-4">
+                    <VendorCTA user={user} />
                     <AccountSecurityPanel user={user} />
                     <AnnouncementsPanel />
                     <NeedHelpPanel />

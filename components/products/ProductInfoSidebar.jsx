@@ -76,7 +76,17 @@ export default function ProductInfoSidebar({ product }) {
                             </div>
                         )}
                         <div>
-                            <p className="font-bold text-gray-900 text-sm">{product?.vendor || 'Official Store'}</p>
+                            <p className="font-bold text-gray-900 text-sm flex items-center gap-1.5">
+                                {product?.vendor || 'Official Store'}
+                                {product?.vendor_verified && (
+                                    <img
+                                        src="/verified.png"
+                                        alt="Verified Business"
+                                        title="Verified Business"
+                                        className="w-5 h-5 object-contain flex-shrink-0"
+                                    />
+                                )}
+                            </p>
                             <div className="flex items-center gap-1 mt-0.5">
                                 <Star className="w-3.5 h-3.5 fill-yellow-400 text-yellow-400" />
                                 <span className="text-xs font-semibold text-gray-700">{product?.vendor_stats?.rating_score || '4.8'}</span>
