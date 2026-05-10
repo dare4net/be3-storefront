@@ -10,15 +10,13 @@ import { AuthProvider } from '@/components/providers/AuthContext';
 import { AxiosTenantProvider } from "@/components/providers/AxiosTenantProvider";
 import { SearchProvider } from "@/components/providers/SearchContext";
 import CartDrawer from "@/components/cart/CartDrawer";
-import Header from "@/components/Header";
-import Footer from "@/components/Footer";
-import HeaderSpacer from "@/components/HeaderSpacer";
+import AppShell from "@/components/AppShell";
 import { generateThemeVariables } from '@/lib/theme';
 import { StorefrontProvider } from "@/components/providers/StorefrontProvider";
 import { WishlistProvider } from "@/components/providers/WishlistContext";
 import { RandomizationProvider } from "@/lib/contexts/RandomizationContext";
 import { ChatProvider } from "@/components/providers/ChatContext";
-import ChatWidget from "@/components/chat/ChatWidget";
+
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 
@@ -201,12 +199,10 @@ export default async function RootLayout({ children }) {
                                         <SearchProvider>
                                             <RandomizationProvider>
                                                 <StorefrontProvider theme={theme}>
-                                                    <Header menuItems={headerMenu} />
-                                                    <HeaderSpacer />
                                                     <CartDrawer />
-                                                    <main className="overflow-x-hidden">{children}</main>
-                                                    <Footer />
-                                                    <ChatWidget />
+                                                    <AppShell menuItems={headerMenu}>
+                                                        <main className="overflow-x-hidden">{children}</main>
+                                                    </AppShell>
                                                 </StorefrontProvider>
                                             </RandomizationProvider>
                                         </SearchProvider>

@@ -6,10 +6,23 @@ import Link from "next/link";
 import { useAuth } from "@/components/providers/AuthContext";
 import { useTenant } from "@/components/providers/TenantContext";
 import { useStorefront } from "@/components/providers/StorefrontProvider";
-import { Mail, Lock, LogIn, ArrowRight } from "lucide-react";
-import { Button } from "@/components/ui/Button";
-import { Input } from "@/components/ui/Input";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/Card";
+import { Mail, Lock, Eye, EyeOff, ArrowRight, ShoppingBag, Star, Shield, Truck } from "lucide-react";
+
+const GoogleIcon = () => (
+    <svg className="w-5 h-5" viewBox="0 0 24 24">
+        <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
+        <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
+        <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
+        <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
+    </svg>
+);
+
+const PERKS = [
+    { icon: ShoppingBag, text: "Shop thousands of products" },
+    { icon: Truck,       text: "Fast & reliable delivery" },
+    { icon: Shield,      text: "Secure & protected payments" },
+    { icon: Star,        text: "Exclusive member deals" },
+];
 
 export default function LoginPage() {
     const router = useRouter();
@@ -18,158 +31,197 @@ export default function LoginPage() {
     const tenant = useTenant();
     const { theme } = useStorefront();
 
-    const [formData, setFormData] = useState({
-        email: "",
-        password: ""
-    });
+    const [formData, setFormData] = useState({ email: "", password: "" });
+    const [showPw, setShowPw] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
+
+    const handleChange = e => setFormData(p => ({ ...p, [e.target.name]: e.target.value }));
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError("");
         setLoading(true);
-
         const result = await login(formData.email, formData.password);
-
         if (result.success) {
-            const redirectTo = searchParams.get('redirect') || '/';
-            router.push(redirectTo);
+            router.push(searchParams.get("redirect") || "/");
         } else {
             setError(result.message);
         }
-
         setLoading(false);
     };
 
     const handleGoogleLogin = () => {
-        if (!tenant || !tenant.id) return;
-        const redirectTo = searchParams.get('redirect') || '/';
+        if (!tenant?.id) return;
+        const redirectTo = searchParams.get("redirect") || "/";
         localStorage.setItem("oauth_redirect_to", redirectTo);
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api';
-        const returnUrl = window.location.origin;
-        window.location.href = `${apiUrl}/auth/google?tenantId=${tenant.id}&returnUrl=${encodeURIComponent(returnUrl)}`;
-    };
-
-    const handleChange = (e) => {
-        setFormData(prev => ({
-            ...prev,
-            [e.target.name]: e.target.value
-        }));
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000/api";
+        window.location.href = `${apiUrl}/auth/google?tenantId=${tenant.id}&returnUrl=${encodeURIComponent(window.location.origin)}`;
     };
 
     return (
-        <div className="min-h-screen bg-gray-50/50 flex flex-col items-center justify-center p-4">
-            <div className="w-full max-w-[400px] space-y-6">
-                <div className="flex flex-col items-center text-center space-y-2">
+        <div className="min-h-screen flex">
+
+            {/* ── Left panel (decorative) — hidden on mobile ── */}
+            <div className="hidden lg:flex lg:w-[44%] relative overflow-hidden flex-col justify-between p-12" style={{ background: '#1a56e8' }}>
+                {/* Dot pattern */}
+                <div className="absolute inset-0 opacity-[0.10]" style={{ backgroundImage: 'radial-gradient(circle, #fff 1px, transparent 1px)', backgroundSize: '22px 22px' }} />
+                {/* Blobs */}
+                <div className="absolute -top-20 -right-20 w-72 h-72 rounded-full bg-white/10" />
+                <div className="absolute -bottom-16 -left-16 w-56 h-56 rounded-full bg-white/10" />
+
+                {/* Logo */}
+                <div className="relative z-10">
                     {theme?.variables?.logo ? (
-                        <img src={theme.variables.logo} alt={tenant.name} className="h-12 w-auto mb-4 object-contain" />
+                        <img src={theme.variables.logo} alt={tenant?.name} className="h-10 w-auto object-contain brightness-0 invert" />
                     ) : (
-                        <div className="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center text-white font-bold text-xl mb-4">
-                            {tenant?.name?.[0] || 'S'}
+                        <div className="flex items-center gap-2.5">
+                            <div className="w-9 h-9 rounded-xl bg-white/20 border border-white/30 flex items-center justify-center text-white font-black text-lg">
+                                {tenant?.name?.[0] || 'B'}
+                            </div>
+                            <span className="text-white font-bold text-lg">{tenant?.name || 'BE3'}</span>
                         </div>
                     )}
-                    <h1 className="text-2xl font-semibold tracking-tight text-gray-900">Welcome back</h1>
-                    <p className="text-sm text-gray-500">
-                        Enter your credentials to access your account
-                    </p>
                 </div>
 
-                <Card className="border-none shadow-md">
-                    <CardHeader className="space-y-1 pb-4">
-                        <CardTitle className="text-xl">Sign in</CardTitle>
-                        <CardDescription>
-                            Sign in to manage your orders and profile
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        {error && (
-                            <div className="mb-4 p-3 bg-red-50 border border-red-100 rounded-lg text-red-600 text-sm font-medium">
-                                {error}
+                {/* Hero copy */}
+                <div className="relative z-10 space-y-8">
+                    <div>
+                        <h2 className="text-4xl font-black text-white leading-tight mb-3">
+                            Welcome back 👋
+                        </h2>
+                        <p className="text-blue-100/80 text-base leading-relaxed max-w-xs">
+                            Sign in to track orders, manage your wishlist, and enjoy exclusive member benefits.
+                        </p>
+                    </div>
+
+                    <div className="space-y-4">
+                        {PERKS.map(({ icon: Icon, text }) => (
+                            <div key={text} className="flex items-center gap-3">
+                                <div className="w-8 h-8 rounded-xl bg-white/15 flex items-center justify-center flex-shrink-0">
+                                    <Icon className="w-4 h-4 text-white" />
+                                </div>
+                                <span className="text-sm text-blue-100 font-medium">{text}</span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                {/* Bottom tagline */}
+                <p className="relative z-10 text-blue-200/60 text-xs">
+                    © {new Date().getFullYear()} {tenant?.name || 'BE3'}. All rights reserved.
+                </p>
+            </div>
+
+            {/* ── Right panel (form) ── */}
+            <div className="flex-1 flex flex-col items-center justify-center px-6 py-12 bg-white">
+                <div className="w-full max-w-[400px] space-y-7">
+
+                    {/* Mobile logo */}
+                    <div className="lg:hidden flex justify-center">
+                        {theme?.variables?.logo ? (
+                            <img src={theme.variables.logo} alt={tenant?.name} className="h-10 w-auto object-contain" />
+                        ) : (
+                            <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-black text-lg" style={{ background: '#1a56e8' }}>
+                                {tenant?.name?.[0] || 'B'}
                             </div>
                         )}
-                        <form onSubmit={handleSubmit} className="space-y-4">
-                            <div className="space-y-2">
-                                <label className="text-sm font-medium text-gray-700">Email</label>
-                                <Input
-                                    type="email"
-                                    name="email"
+                    </div>
+
+                    {/* Heading */}
+                    <div>
+                        <h1 className="text-2xl font-black text-gray-900">Sign in</h1>
+                        <p className="text-sm text-gray-400 mt-1">Enter your credentials to access your account</p>
+                    </div>
+
+                    {/* Google */}
+                    <button
+                        onClick={handleGoogleLogin}
+                        className="w-full flex items-center justify-center gap-3 px-4 py-3 bg-white border border-gray-200 rounded-2xl text-sm font-semibold text-gray-700 hover:bg-gray-50 hover:border-gray-300 transition-all shadow-sm"
+                    >
+                        <GoogleIcon />
+                        Continue with Google
+                    </button>
+
+                    {/* Divider */}
+                    <div className="flex items-center gap-3">
+                        <div className="flex-1 h-px bg-gray-100" />
+                        <span className="text-xs text-gray-400 font-medium">or sign in with email</span>
+                        <div className="flex-1 h-px bg-gray-100" />
+                    </div>
+
+                    {/* Error */}
+                    {error && (
+                        <div className="px-4 py-3 bg-red-50 border border-red-100 rounded-2xl text-red-600 text-sm font-medium">
+                            {error}
+                        </div>
+                    )}
+
+                    {/* Form */}
+                    <form onSubmit={handleSubmit} className="space-y-4">
+                        {/* Email */}
+                        <div className="space-y-1.5">
+                            <label className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Email</label>
+                            <div className="relative">
+                                <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                                <input
+                                    type="email" name="email" required
                                     placeholder="name@example.com"
-                                    icon={Mail}
-                                    value={formData.email}
-                                    onChange={handleChange}
-                                    required
+                                    value={formData.email} onChange={handleChange}
+                                    className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-2xl text-sm bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all"
                                 />
                             </div>
-                            <div className="space-y-2">
-                                <div className="flex items-center justify-between">
-                                    <label className="text-sm font-medium text-gray-700">Password</label>
-                                    <Link href="#" className="text-xs text-blue-600 hover:underline">
-                                        Forgot password?
-                                    </Link>
-                                </div>
-                                <Input
-                                    type="password"
-                                    name="password"
+                        </div>
+
+                        {/* Password */}
+                        <div className="space-y-1.5">
+                            <div className="flex items-center justify-between">
+                                <label className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Password</label>
+                                <Link href="#" className="text-xs text-blue-600 hover:underline font-medium">Forgot password?</Link>
+                            </div>
+                            <div className="relative">
+                                <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                                <input
+                                    type={showPw ? "text" : "password"} name="password" required
                                     placeholder="••••••••"
-                                    icon={Lock}
-                                    value={formData.password}
-                                    onChange={handleChange}
-                                    required
+                                    value={formData.password} onChange={handleChange}
+                                    className="w-full pl-10 pr-11 py-3 border border-gray-200 rounded-2xl text-sm bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all"
                                 />
-                            </div>
-                            <Button type="submit" className="w-full" loading={loading}>
-                                Sign In
-                                <ArrowRight className="ml-2 h-4 w-4" />
-                            </Button>
-                        </form>
-                    </CardContent>
-                    <CardFooter className="flex flex-col space-y-4">
-                        <div className="relative py-2 w-full">
-                            <div className="absolute inset-0 flex items-center">
-                                <span className="w-full border-t border-gray-200" />
-                            </div>
-                            <div className="relative flex justify-center text-xs uppercase">
-                                <span className="bg-white px-2 text-gray-500">Or continue with</span>
+                                <button type="button" onClick={() => setShowPw(p => !p)}
+                                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors">
+                                    {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                </button>
                             </div>
                         </div>
 
-                        <Button
-                            type="button"
-                            variant="outline"
-                            className="w-full bg-white hover:bg-gray-50 text-gray-700 border-gray-300"
-                            onClick={handleGoogleLogin}
+                        {/* Submit */}
+                        <button type="submit" disabled={loading}
+                            className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl text-sm font-bold text-white transition-all disabled:opacity-60"
+                            style={{ background: '#1a56e8' }}
                         >
-                            <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
-                                <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
-                                <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
-                                <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
-                                <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
-                            </svg>
-                            Google
-                        </Button>
+                            {loading ? (
+                                <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                                </svg>
+                            ) : <>Sign In <ArrowRight className="w-4 h-4" /></>}
+                        </button>
+                    </form>
 
-                        <div className="text-center text-sm text-gray-500 mt-2">
-                            Don&apos;t have an account?{" "}
-                            <Link href="/signup" className="font-medium text-blue-600 hover:underline">
-                                Create an account
-                            </Link>
-                        </div>
-                    </CardFooter>
-                </Card>
+                    {/* Footer */}
+                    <p className="text-center text-sm text-gray-500">
+                        Don&apos;t have an account?{" "}
+                        <Link href="/signup" className="font-bold text-blue-600 hover:underline">Create one</Link>
+                    </p>
 
-                <p className="px-8 text-center text-xs text-gray-500 leading-relaxed">
-                    By clicking continue, you agree to our{" "}
-                    <Link href="/terms" className="underline underline-offset-4 hover:text-blue-600">
-                        Terms of Service
-                    </Link>{" "}
-                    and{" "}
-                    <Link href="/privacy" className="underline underline-offset-4 hover:text-blue-600">
-                        Privacy Policy
-                    </Link>.
-                </p>
+                    <p className="text-center text-xs text-gray-400 leading-relaxed">
+                        By signing in, you agree to our{" "}
+                        <Link href="/terms" className="underline hover:text-blue-600">Terms</Link>{" "}
+                        and{" "}
+                        <Link href="/privacy" className="underline hover:text-blue-600">Privacy Policy</Link>.
+                    </p>
+                </div>
             </div>
         </div>
     );
 }
-
