@@ -109,8 +109,9 @@ export default function SignupPage() {
                 {/* Hero copy */}
                 <div className="relative z-10 space-y-8">
                     <div>
-                        <h2 className="text-4xl font-black text-white leading-tight mb-3">
-                            Join the community ✨
+                        <h2 className="text-4xl font-black text-white leading-tight mb-3 flex items-center gap-3">
+                            Join the community
+                            <img src="/carts.svg" alt="" className="h-10 w-auto inline-block" />
                         </h2>
                         <p className="text-blue-100/80 text-base leading-relaxed max-w-xs">
                             Create your account and unlock a world of products, deals, and seamless shopping.

@@ -76,16 +76,26 @@ export default function ProductInfoSidebar({ product }) {
                             </div>
                         )}
                         <div>
-                            <p className="font-bold text-gray-900 text-sm flex items-center gap-1.5">
-                                {product?.vendor || 'Official Store'}
-                                {product?.vendor_verified && (
-                                    <img
-                                        src="/verified.png"
-                                        alt="Verified Business"
-                                        title="Verified Business"
-                                        className="w-5 h-5 object-contain flex-shrink-0"
-                                    />
-                                )}
+                            <p className="font-bold text-gray-900 text-sm leading-snug">
+                                {product?.vendor_verified ? (() => {
+                                    // Wrap last word + badge in nowrap so badge never orphans on its own line
+                                    const parts = (product?.vendor || 'Official Store').split(' ');
+                                    const lastWord = parts.pop();
+                                    return (
+                                        <>
+                                            {parts.length > 0 && parts.join(' ') + ' '}
+                                            <span className="whitespace-nowrap">
+                                                {lastWord}
+                                                <img
+                                                    src="/verified.svg"
+                                                    alt="Verified Business"
+                                                    title="Verified Business"
+                                                    className="w-4 h-4 object-contain inline-block align-middle ml-1"
+                                                />
+                                            </span>
+                                        </>
+                                    );
+                                })() : (product?.vendor || 'Official Store')}
                             </p>
                             <div className="flex items-center gap-1 mt-0.5">
                                 <Star className="w-3.5 h-3.5 fill-yellow-400 text-yellow-400" />
@@ -94,7 +104,7 @@ export default function ProductInfoSidebar({ product }) {
                             </div>
                         </div>
                         {product?.store_collection?.slug && (
-                            <Link href={`/collections/${product.store_collection.slug}`} className="ml-auto flex items-center gap-1 text-xs text-blue-600 font-semibold border border-blue-200 rounded-lg px-3 py-1.5 hover:bg-blue-50 transition-colors">
+                            <Link href={`/collections/${product.store_collection.slug}`} className="ml-auto self-start flex items-center gap-1 text-xs text-blue-600 font-semibold border border-blue-200 rounded-lg px-3 py-1.5 hover:bg-blue-50 transition-colors whitespace-nowrap">
                                 Visit Store <ChevronRight className="w-3 h-3" />
                             </Link>
                         )}

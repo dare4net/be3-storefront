@@ -87,8 +87,9 @@ export default function LoginPage() {
                 {/* Hero copy */}
                 <div className="relative z-10 space-y-8">
                     <div>
-                        <h2 className="text-4xl font-black text-white leading-tight mb-3">
-                            Welcome back 👋
+                        <h2 className="text-4xl font-black text-white leading-tight mb-3 flex items-center gap-3">
+                            Welcome back
+                            <img src="/wave.svg" alt="" className="h-10 w-auto inline-block" />
                         </h2>
                         <p className="text-blue-100/80 text-base leading-relaxed max-w-xs">
                             Sign in to track orders, manage your wishlist, and enjoy exclusive member benefits.

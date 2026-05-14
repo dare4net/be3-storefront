@@ -72,16 +72,25 @@ function CollectionHero({ entity: collection }) {
 
                     {/* Name + Description */}
                     <div className="flex flex-col gap-2">
-                        <h1 className="text-4xl lg:text-7xl font-extrabold tracking-tight flex items-center gap-3">
-                            {collection.name}
-                            {collection.vendor_verified && (
-                                <img
-                                    src="/verified.png"
-                                    alt="Verified Business"
-                                    title="Verified Business"
-                                    className="w-6 h-6 lg:w-8 lg:h-8 object-contain drop-shadow-lg flex-shrink-0 inline-block"
-                                />
-                            )}
+                        <h1 className="text-4xl lg:text-7xl font-extrabold tracking-tight">
+                            {collection.vendor_verified ? (() => {
+                                const parts = collection.name.split(' ');
+                                const lastWord = parts.pop();
+                                return (
+                                    <>
+                                        {parts.length > 0 && parts.join(' ') + ' '}
+                                        <span className="whitespace-nowrap">
+                                            {lastWord}
+                                            <img
+                                                src="/verified.svg"
+                                                alt="Verified Business"
+                                                title="Verified Business"
+                                                className="w-8 h-8 lg:w-10 lg:h-10 object-contain drop-shadow-lg inline-block align-middle ml-3"
+                                            />
+                                        </span>
+                                    </>
+                                );
+                            })() : collection.name}
                         </h1>
                         {collection.description && (
                             <p className="text-base lg:text-lg text-gray-300/90 font-light leading-snug max-w-2xl">
