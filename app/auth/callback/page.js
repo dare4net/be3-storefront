@@ -17,22 +17,49 @@ export default function AuthCallbackPage() {
     useEffect(() => {
         const handleCallback = async () => {
             const success = searchParams.get("success");
-            
-            if (success === "true") {
-                setStatus("Syncing session...");
-                const syncResult = await syncSession();
-                
-                if (syncResult.success) {
-                    setStatus("Redirecting...");
-                    const redirectTo = localStorage.getItem("oauth_redirect_to") || "/";
-                    localStorage.removeItem("oauth_redirect_to");
-                    router.push(redirectTo);
-                } else {
-                    setStatus("Failed to sync session. Please try logging in again.");
-                    setTimeout(() => router.push("/login"), 3000);
-                }
-            } else {
+            const payloadB64 = searchParams.get("payload");
+
+            if (success !== "true") {
                 setStatus("Authentication failed. Redirecting to login...");
+                setTimeout(() => router.push("/login"), 3000);
+                return;
+            }
+
+            // Fast path: backend sent token+user in the redirect URL (no cross-domain cookie needed)
+            if (payloadB64) {
+                try {
+                    const decoded = JSON.parse(
+                        atob(payloadB64.replace(/-/g, '+').replace(/_/g, '/'))
+                    );
+                    const { accessToken, refreshToken, user: userData } = decoded;
+
+                    if (accessToken && userData) {
+                        // Store exactly like the normal email/password login does
+                        localStorage.setItem('auth_token', accessToken);
+                        if (refreshToken) localStorage.setItem('auth_refresh_token', refreshToken);
+                        localStorage.setItem('auth_user', JSON.stringify(userData));
+
+                        setStatus("Redirecting...");
+                        const redirectTo = localStorage.getItem("oauth_redirect_to") || "/account";
+                        localStorage.removeItem("oauth_redirect_to");
+                        router.push(redirectTo);
+                        return;
+                    }
+                } catch (e) {
+                    console.error("[AuthCallback] Failed to decode payload:", e);
+                }
+            }
+
+            // Fallback path: try cookie-based session sync
+            setStatus("Syncing session...");
+            const syncResult = await syncSession();
+            if (syncResult.success) {
+                setStatus("Redirecting...");
+                const redirectTo = localStorage.getItem("oauth_redirect_to") || "/";
+                localStorage.removeItem("oauth_redirect_to");
+                router.push(redirectTo);
+            } else {
+                setStatus("Failed to sync session. Please try logging in again.");
                 setTimeout(() => router.push("/login"), 3000);
             }
         };
