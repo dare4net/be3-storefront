@@ -15,38 +15,65 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+// Order status — operational
 const STATUS_CONFIG = {
-    processing:      { label: "Processing",         color: "text-blue-700",   bg: "bg-blue-50",    border: "border-blue-200",   dot: "bg-blue-500",    Icon: Clock        },
-    paid:            { label: "Payment Confirmed",   color: "text-green-700",  bg: "bg-green-50",   border: "border-green-200",  dot: "bg-green-500",   Icon: CheckCircle2 },
-    pending:         { label: "Verifying Payment",   color: "text-amber-700",  bg: "bg-amber-50",   border: "border-amber-200",  dot: "bg-amber-500",   Icon: Clock        },
-    pending_payment: { label: "Awaiting Payment",    color: "text-amber-700",  bg: "bg-amber-50",   border: "border-amber-200",  dot: "bg-amber-500",   Icon: Clock        },
-    failed:          { label: "Payment Failed",      color: "text-red-700",    bg: "bg-red-50",     border: "border-red-200",    dot: "bg-red-500",     Icon: XCircle      },
-    payment_failed:  { label: "Payment Failed",      color: "text-red-700",    bg: "bg-red-50",     border: "border-red-200",    dot: "bg-red-500",     Icon: XCircle      },
-    shipped:         { label: "Shipped",             color: "text-indigo-700", bg: "bg-indigo-50",  border: "border-indigo-200", dot: "bg-indigo-500",  Icon: Truck        },
-    delivered:       { label: "Delivered",           color: "text-green-700",  bg: "bg-green-50",   border: "border-green-200",  dot: "bg-green-500",   Icon: CheckCircle2 },
-    completed:       { label: "Completed",           color: "text-violet-700", bg: "bg-violet-50",  border: "border-violet-200", dot: "bg-violet-500",  Icon: CheckCircle2 },
-    cancelled:       { label: "Cancelled",           color: "text-gray-600",   bg: "bg-gray-50",    border: "border-gray-200",   dot: "bg-gray-400",    Icon: XCircle      },
-    refunded:        { label: "Refunded",            color: "text-gray-600",   bg: "bg-gray-50",    border: "border-gray-200",   dot: "bg-gray-400",    Icon: RotateCcw    },
+    pending:    { label: "Pending",    color: "text-amber-700",  bg: "bg-amber-50",   border: "border-amber-200",  dot: "bg-amber-500",  Icon: Clock        },
+    processing: { label: "Processing", color: "text-blue-700",   bg: "bg-blue-50",    border: "border-blue-200",   dot: "bg-blue-500",  Icon: Clock        },
+    shipped:    { label: "Shipped",    color: "text-indigo-700", bg: "bg-indigo-50",  border: "border-indigo-200", dot: "bg-indigo-500", Icon: Truck        },
+    delivered:  { label: "Delivered",  color: "text-green-700",  bg: "bg-green-50",   border: "border-green-200",  dot: "bg-green-500",  Icon: CheckCircle2 },
+    returned:   { label: "Returned",   color: "text-orange-700", bg: "bg-orange-50",  border: "border-orange-200", dot: "bg-orange-500", Icon: RotateCcw    },
+    cancelled:  { label: "Cancelled",  color: "text-gray-600",   bg: "bg-gray-50",    border: "border-gray-200",   dot: "bg-gray-400",  Icon: XCircle      },
 };
 
 /* ── Payment Banner ── */
 function PaymentStatusBanner({ order, onRetry, retrying }) {
-    const status = order.payment_status;
-    const isTimedOut = status === 'pending' && (Date.now() - new Date(order.created_at).getTime()) / 60000 > 30;
+    const ps = order.payment_status;
+    const isWhatsApp = order.checkout_type === 'whatsapp';
+    const isTimedOut = ps === 'unpaid' && !isWhatsApp && (Date.now() - new Date(order.created_at).getTime()) / 60000 > 30;
 
-    if (status === 'paid') return (
+    // Paid via platform (Paystack webhook)
+    if (ps === 'paid') return (
         <div className="flex items-center gap-3 bg-green-50 border border-green-200 rounded-2xl px-5 py-4">
             <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0" />
             <div>
                 <p className="text-sm font-bold text-green-900">Payment Confirmed</p>
                 <p className="text-xs text-green-700 mt-0.5">
-                    {order.paid_at ? `Paid on ${new Date(order.paid_at).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}` : "Your payment was received successfully."}
+                    {order.paid_at
+                        ? `Paid on ${new Date(order.paid_at).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}`
+                        : 'Your payment was received successfully.'}
                 </p>
             </div>
         </div>
     );
 
-    if (status === 'failed') return (
+    // Manually confirmed by vendor (bank transfer, cash, etc.)
+    if (ps === 'fulfilled') return (
+        <div className="flex items-center gap-3 bg-teal-50 border border-teal-200 rounded-2xl px-5 py-4">
+            <CheckCircle2 className="w-5 h-5 text-teal-600 flex-shrink-0" />
+            <div>
+                <p className="text-sm font-bold text-teal-900">Payment Confirmed by Vendor</p>
+                <p className="text-xs text-teal-700 mt-0.5">
+                    {order.payment_confirmed_at
+                        ? `Confirmed on ${new Date(order.payment_confirmed_at).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}`
+                        : 'Your payment has been manually confirmed.'}
+                </p>
+            </div>
+        </div>
+    );
+
+    // Refunded
+    if (ps === 'refunded') return (
+        <div className="flex items-center gap-3 bg-orange-50 border border-orange-200 rounded-2xl px-5 py-4">
+            <RotateCcw className="w-5 h-5 text-orange-600 flex-shrink-0" />
+            <div>
+                <p className="text-sm font-bold text-orange-900">Refund Issued</p>
+                <p className="text-xs text-orange-700 mt-0.5">A refund has been issued for this order.</p>
+            </div>
+        </div>
+    );
+
+    // Explicitly failed
+    if (ps === 'failed') return (
         <div className="bg-red-50 border border-red-200 rounded-2xl px-5 py-4 space-y-3">
             <div className="flex items-center gap-3">
                 <XCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
@@ -58,11 +85,12 @@ function PaymentStatusBanner({ order, onRetry, retrying }) {
             <button onClick={onRetry} disabled={retrying}
                 className="w-full flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 disabled:opacity-60 text-white font-bold py-2.5 rounded-xl text-sm transition">
                 {retrying ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCcw className="w-4 h-4" />}
-                {retrying ? "Initializing..." : "Retry Payment"}
+                {retrying ? 'Initializing...' : 'Retry Payment'}
             </button>
         </div>
     );
 
+    // Timed-out unpaid platform order (> 30 min, no Paystack activity)
     if (isTimedOut) return (
         <div className="bg-amber-50 border border-amber-200 rounded-2xl px-5 py-4 space-y-3">
             <div className="flex items-center gap-3">
@@ -73,7 +101,7 @@ function PaymentStatusBanner({ order, onRetry, retrying }) {
                 </div>
             </div>
             <div className="text-xs text-amber-800 bg-amber-100/60 rounded-xl px-3 py-2">
-                <strong>Ref:</strong> {order.paystack_reference || "N/A"} · <strong>Order:</strong> {order.order_number}
+                <strong>Ref:</strong> {order.paystack_reference || 'N/A'} · <strong>Order:</strong> {order.order_number}
             </div>
             <Link href={`/messages?subject=Payment+Issue&ref=${order.paystack_reference}`}
                 className="flex items-center justify-center gap-2 bg-amber-600 hover:bg-amber-700 text-white font-bold py-2.5 rounded-xl text-sm transition">
@@ -82,13 +110,62 @@ function PaymentStatusBanner({ order, onRetry, retrying }) {
         </div>
     );
 
-    return (
+    // Still verifying — payment_status is 'processing' (Paystack is processing)
+    if (ps === 'processing') return (
         <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-2xl px-5 py-4">
             <Loader2 className="w-5 h-5 text-amber-600 animate-spin flex-shrink-0" />
             <div>
                 <p className="text-sm font-bold text-amber-900">Verifying Payment</p>
                 <p className="text-xs text-amber-700 mt-0.5">This page will update automatically.</p>
             </div>
+        </div>
+    );
+
+    // WhatsApp order — awaiting vendor confirmation
+    if (isWhatsApp) return (
+        <div className="bg-emerald-50 border border-emerald-200 rounded-2xl px-5 py-4 space-y-3">
+            <div className="flex items-center gap-3">
+                <svg viewBox="0 0 24 24" className="w-5 h-5 fill-[#25D366] flex-shrink-0" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/>
+                    <path d="M12 0C5.373 0 0 5.373 0 12c0 2.124.558 4.117 1.534 5.845L0 24l6.335-1.505A11.945 11.945 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.818a9.818 9.818 0 01-5.006-1.371l-.36-.214-3.727.886.936-3.618-.235-.372A9.818 9.818 0 1112 21.818z"/>
+                </svg>
+                <div>
+                    <p className="text-sm font-bold text-emerald-900">WhatsApp Order — Awaiting Vendor</p>
+                    <p className="text-xs text-emerald-700 mt-0.5">Payment and delivery are arranged directly with the vendor.</p>
+                </div>
+            </div>
+            <a href={`https://wa.me/?text=Hi! Following up on my order ${order.order_number}`}
+                target="_blank" rel="noreferrer"
+                className="w-full flex items-center justify-center gap-2 bg-[#25D366] hover:bg-[#1ebe5d] text-white font-bold py-2.5 rounded-xl text-sm transition">
+                <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/>
+                    <path d="M12 0C5.373 0 0 5.373 0 12c0 2.124.558 4.117 1.534 5.845L0 24l6.335-1.505A11.945 11.945 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.818a9.818 9.818 0 01-5.006-1.371l-.36-.214-3.727.886.936-3.618-.235-.372A9.818 9.818 0 1112 21.818z"/>
+                </svg>
+                Follow Up on WhatsApp
+            </a>
+            <button onClick={onRetry} disabled={retrying}
+                className="w-full flex items-center justify-center gap-2 bg-white hover:bg-gray-50 border border-gray-200 text-gray-700 font-semibold py-2.5 rounded-xl text-sm transition">
+                {retrying ? <Loader2 className="w-4 h-4 animate-spin" /> : <CreditCard className="w-4 h-4" />}
+                {retrying ? 'Initializing...' : 'Pay with Paystack Instead'}
+            </button>
+        </div>
+    );
+
+    // unpaid platform order — hasn't gone through checkout yet
+    return (
+        <div className="bg-gray-50 border border-gray-200 rounded-2xl px-5 py-4 space-y-3">
+            <div className="flex items-center gap-3">
+                <CreditCard className="w-5 h-5 text-gray-500 flex-shrink-0" />
+                <div>
+                    <p className="text-sm font-bold text-gray-900">Payment Pending</p>
+                    <p className="text-xs text-gray-500 mt-0.5">You haven't completed payment for this order yet.</p>
+                </div>
+            </div>
+            <button onClick={onRetry} disabled={retrying}
+                className="w-full flex items-center justify-center gap-2 bg-gray-900 hover:bg-gray-800 disabled:opacity-60 text-white font-bold py-2.5 rounded-xl text-sm transition">
+                {retrying ? <Loader2 className="w-4 h-4 animate-spin" /> : <CreditCard className="w-4 h-4" />}
+                {retrying ? 'Initializing...' : 'Pay Now'}
+            </button>
         </div>
     );
 }
@@ -123,8 +200,9 @@ export default function OrderDetailPage() {
 
     useEffect(() => {
         fetchOrder();
+        // Only poll while payment is actively being processed by Paystack
         const interval = setInterval(() => {
-            if (order && (order.payment_status === 'pending' || order.status === 'pending_payment')) fetchOrder();
+            if (order && order.payment_status === 'processing') fetchOrder();
         }, 10000);
         return () => clearInterval(interval);
     }, [id, tenant?.id]);

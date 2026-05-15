@@ -141,36 +141,48 @@ export function CartProvider({ children }) {
     };
 
     const removeFromCart = async (itemId) => {
-        try {
-            const item = items.find(i => i.id === itemId);
-            await api.delete(`/cart/items/${itemId}`);
+        const prevItems = items;
 
+        const item = items.find(i => i.id === itemId);
+
+        // Optimistic: remove from items immediately
+        setItems(items.filter(i => i.id !== itemId));
+
+        try {
             if (item) {
-                // Track Analytics
                 trackClick({
                     entity_type: 'product',
                     entity_id: item.product_id,
                     event_type: 'remove_from_cart',
-                    metadata: {
-                        name: item.product_name,
-                        quantity: item.quantity
-                    }
+                    metadata: { name: item.product_name, quantity: item.quantity }
                 });
             }
-
+            await api.delete(`/cart/items/${itemId}`);
+            // Sync vendorGroups after confirmed delete
             await fetchCart();
         } catch (err) {
+            setItems(prevItems); // rollback
             console.error("Failed to remove from cart", err);
+            toast.error("Couldn't remove item — please try again");
         }
     };
 
     const updateQuantity = async (itemId, quantity) => {
-        if (quantity < 1) return;
+        if (quantity < 1) return removeFromCart(itemId);
+
+        const prevItems = items;
+
+        // Optimistic: update quantity in items immediately
+        setItems(items.map(i => i.id === itemId ? { ...i, quantity } : i));
+
         try {
             await api.patch(`/cart/items/${itemId}`, { quantity });
+            // Sync vendorGroups after confirmed update
             await fetchCart();
         } catch (err) {
+            setItems(prevItems); // rollback
             console.error("Failed to update quantity", err);
+            toast.error("Couldn't update quantity — please try again");
         }
     };
 
