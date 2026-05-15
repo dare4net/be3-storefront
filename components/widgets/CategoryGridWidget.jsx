@@ -237,6 +237,14 @@ export default function CategoryGridWidget({ config }) {
             list = resolvedFromPlan.multiple
                 ? resolvedFromPlan.selections.map(s => s.selection).filter(Boolean)
                 : (resolvedFromPlan.selection ? [resolvedFromPlan.selection] : []);
+
+            // Apply sort order to randomized results
+            const resolvedSort = resolvedFromPlan.resolvedSort || sortOrder;
+            if (resolvedSort === 'alphabetical') {
+                list = [...list].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+            } else if (resolvedSort === 'random') {
+                list = [...list].sort(() => Math.random() - 0.5);
+            }
         }
 
         // Deduplicate and sanitize
@@ -248,7 +256,7 @@ export default function CategoryGridWidget({ config }) {
             seen.add(key);
             return true;
         });
-    }, [categories, resolvedFromPlan, config.randomize?.enabled]);
+    }, [categories, resolvedFromPlan, config.randomize?.enabled, sortOrder]);
 
     // Main data fetching effect (Now only for NON-randomized or initial loading)
     useEffect(() => {
@@ -320,6 +328,8 @@ export default function CategoryGridWidget({ config }) {
             // Apply filtering based on source type
             switch (effectiveSettings.sourceType) {
                 case 'all':
+                    // All categories that have at least one product (direct or via children)
+                    filtered = filtered.filter(cat => (cat.product_count || 0) > 0);
                     break;
                 case 'top-level':
                     filtered = filtered.filter(cat => !cat.parent_id);
