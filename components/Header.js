@@ -149,8 +149,8 @@ export default function Header({ menuItems = [] }) {
             {/* Notifications — only when logged in */}
             <NotificationBell />
 
-            {/* Wishlist */}
-            <Link href="/wishlist" className="p-1.5 sm:p-2 text-gray-600 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all relative group">
+            {/* Wishlist — desktop only, 4 icons on mobile is too many */}
+            <Link href="/wishlist" className="hidden sm:block p-1.5 sm:p-2 text-gray-600 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all relative group">
                 <Heart className="w-5 h-5 sm:w-6 sm:h-6 group-hover:fill-current" />
                 {wishlist.length > 0 && (
                     <span className="absolute top-1 sm:top-1.5 right-1 sm:right-1.5 bg-red-500 text-white text-[9px] sm:text-[10px] font-bold rounded-full min-w-[16px] sm:min-w-[18px] h-[16px] sm:h-[18px] flex items-center justify-center ring-2 ring-white">
@@ -158,6 +158,7 @@ export default function Header({ menuItems = [] }) {
                     </span>
                 )}
             </Link>
+
 
             {/* Cart */}
             <button
