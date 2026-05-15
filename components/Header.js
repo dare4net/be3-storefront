@@ -26,6 +26,7 @@ import { SearchBar } from "./ui/SearchBar";
 
 import { useRandomizationContext } from "@/lib/contexts/RandomizationContext";
 import { cn } from "@/lib/utils";
+import NotificationBell from "@/components/notifications/NotificationBell";
 
 export default function Header({ menuItems = [] }) {
     const { config, theme } = useStorefront();
@@ -144,6 +145,9 @@ export default function Header({ menuItems = [] }) {
                     </Link>
                 )}
             </div>
+
+            {/* Notifications — only when logged in */}
+            <NotificationBell />
 
             {/* Wishlist */}
             <Link href="/wishlist" className="p-1.5 sm:p-2 text-gray-600 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all relative group">

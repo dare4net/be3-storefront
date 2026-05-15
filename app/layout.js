@@ -16,6 +16,7 @@ import { StorefrontProvider } from "@/components/providers/StorefrontProvider";
 import { WishlistProvider } from "@/components/providers/WishlistContext";
 import { RandomizationProvider } from "@/lib/contexts/RandomizationContext";
 import { ChatProvider } from "@/components/providers/ChatContext";
+import { SocketProvider } from "@/components/providers/SocketContext";
 
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
@@ -193,6 +194,7 @@ export default async function RootLayout({ children }) {
                 <TenantProvider tenant={tenant}>
                     <AxiosTenantProvider>
                         <AuthProvider>
+                            <SocketProvider>
                             <ChatProvider>
                                 <CartProvider>
                                     <WishlistProvider>
@@ -209,6 +211,7 @@ export default async function RootLayout({ children }) {
                                     </WishlistProvider>
                                 </CartProvider>
                             </ChatProvider>
+                            </SocketProvider>
                         </AuthProvider>
                     </AxiosTenantProvider>
                 </TenantProvider>
