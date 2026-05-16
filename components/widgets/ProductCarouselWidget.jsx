@@ -827,8 +827,17 @@ export default function ProductCarouselWidget({ config }) {
                                                     {(effectiveShowVendor || effectiveShowAttributes) && product.attributes && (
                                                         <div className="flex flex-wrap gap-1 mt-1">
                                                             {effectiveShowVendor && product.attributes.vendor && (
-                                                                <span className="px-2 py-0.5 bg-blue-50 border border-blue-100 text-blue-700 rounded font-medium flex items-center gap-1" style={{ fontSize: `clamp(${0.65 * scale}rem, ${0.6 * scale}rem + ${0.1 * scale}vw, ${0.75 * scale}rem)` }}>
+                                                                <span className="px-2 py-0.5 bg-blue-50 border border-blue-100 text-blue-700 rounded font-semibold flex items-center gap-1" style={{ fontSize: `clamp(${0.65 * scale}rem, ${0.6 * scale}rem + ${0.1 * scale}vw, ${0.75 * scale}rem)` }}>
                                                                     {product.attributes.vendor}
+                                                                    {product.vendor_verified && (
+                                                                        <img
+                                                                            src="/verified.svg"
+                                                                            alt="Verified Business"
+                                                                            title="Verified Business"
+                                                                            className="object-contain shrink-0"
+                                                                            style={{ width: `${0.85 * scale}rem`, height: `${0.85 * scale}rem` }}
+                                                                        />
+                                                                    )}
                                                                 </span>
                                                             )}
                                                             {effectiveShowAttributes && Object.entries(product.attributes)
@@ -859,13 +868,13 @@ export default function ProductCarouselWidget({ config }) {
                                                 )}
 
                                                 {effectiveShowSocialProof && (
-                                                    <div className="flex items-center gap-3 text-gray-400 mt-2" style={{ fontSize: `${0.75 * scale}rem` }}>
-                                                        <span className="flex items-center gap-1">
-                                                            <Eye className="w-3 h-3" style={{ width: `${0.75 * scale}rem`, height: `${0.75 * scale}rem` }} />
+                                                    <div className="flex items-center gap-3 text-gray-500 font-medium mt-2" style={{ fontSize: `${0.75 * scale}rem` }}>
+                                                        <span className="flex items-center gap-1.5">
+                                                            <Eye className="w-3 h-3 text-gray-500" style={{ width: `${0.85 * scale}rem`, height: `${0.85 * scale}rem` }} />
                                                             {product.stats?.impressions || 0}
                                                         </span>
-                                                        <span className="flex items-center gap-1">
-                                                            <Heart className="w-3 h-3" style={{ width: `${0.75 * scale}rem`, height: `${0.75 * scale}rem` }} />
+                                                        <span className="flex items-center gap-1.5">
+                                                            <Heart className="w-3 h-3 text-gray-500" style={{ width: `${0.85 * scale}rem`, height: `${0.85 * scale}rem` }} />
                                                             {product.stats?.wishlist_count || 0}
                                                         </span>
                                                     </div>
