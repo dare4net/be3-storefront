@@ -170,10 +170,38 @@ export default function ProductCardPremium({
                     {/* Attributes */}
                     {showAttributes && product.attributes && Object.keys(product.attributes).length > 0 && (
                         <div className="flex flex-wrap items-center gap-1.5 mb-2">
-                            {Object.values(product.attributes).slice(0, 2).map((value, i) => (
+                            {product.attributes.vendor && (
+                                <div
+                                    className="inline-block px-2 py-0.5 bg-blue-50 border border-blue-100 text-blue-700 rounded font-semibold leading-relaxed"
+                                    style={{ fontSize: `clamp(${0.65 * scale}rem, ${0.6 * scale}rem + ${0.1 * scale}vw, ${0.75 * scale}rem)` }}
+                                >
+                                    {product.vendor_verified ? (() => {
+                                        const parts = product.attributes.vendor.split(' ');
+                                        const lastWord = parts.pop();
+                                        return (
+                                            <>
+                                                {parts.length > 0 && parts.join(' ') + ' '}
+                                                <span className="inline-flex items-center gap-1 whitespace-nowrap align-middle ml-1 sm:ml-0">
+                                                    {lastWord}
+                                                    <img
+                                                        src="/verified.svg"
+                                                        alt="Verified Business"
+                                                        title="Verified Business"
+                                                        className="object-contain shrink-0 relative top-[-1px]"
+                                                        style={{ width: `${0.85 * scale}rem`, height: `${0.85 * scale}rem` }}
+                                                    />
+                                                </span>
+                                            </>
+                                        );
+                                    })() : (
+                                        product.attributes.vendor
+                                    )}
+                                </div>
+                            )}
+                            {Object.entries(product.attributes).filter(([key]) => key !== 'vendor').slice(0, 2).map(([key, value], i) => (
                                 <div
                                     key={i}
-                                    className="inline-flex items-center px-2 py-1 bg-gray-50 border border-gray-100 text-gray-600 rounded"
+                                    className="inline-flex items-center px-2 py-0.5 bg-gray-50 border border-gray-100 text-gray-600 rounded"
                                     style={{ fontSize: `clamp(${0.65 * scale}rem, ${0.6 * scale}rem + ${0.1 * scale}vw, ${0.75 * scale}rem)` }}
                                 >
                                     <span className="whitespace-nowrap">{formatAttributeValue(value)}</span>
@@ -200,15 +228,15 @@ export default function ProductCardPremium({
                     {/* Social Proof */}
                     {showSocialProof && (
                         <div
-                            className="flex items-center gap-3 text-gray-400 mb-2"
+                            className="flex items-center gap-3 text-gray-500 font-medium mb-2"
                             style={{ fontSize: `clamp(${0.65 * scale}rem, ${0.6 * scale}rem + ${0.1 * scale}vw, ${0.75 * scale}rem)` }}
                         >
-                            <span className="flex items-center gap-1">
-                                <Eye style={{ width: `${0.8 * scale}rem`, height: `${0.8 * scale}rem` }} />
+                            <span className="flex items-center gap-1.5">
+                                <Eye className="text-gray-500" style={{ width: `${0.85 * scale}rem`, height: `${0.85 * scale}rem` }} />
                                 {product.stats?.impressions || 0}
                             </span>
-                            <span className="flex items-center gap-1">
-                                <Heart style={{ width: `${0.8 * scale}rem`, height: `${0.8 * scale}rem` }} />
+                            <span className="flex items-center gap-1.5">
+                                <Heart className="text-gray-500" style={{ width: `${0.85 * scale}rem`, height: `${0.85 * scale}rem` }} />
                                 {product.stats?.wishlist_count || 0}
                             </span>
                         </div>
@@ -219,7 +247,7 @@ export default function ProductCardPremium({
                         <div className="flex items-center gap-1.5 mb-2" style={{ fontSize: `${0.75 * scale}rem` }}>
                             <Star className="fill-yellow-400 text-yellow-400" style={{ width: `${0.8 * scale}rem`, height: `${0.8 * scale}rem` }} />
                             <span className="font-semibold text-gray-700">{parseFloat(product.rating_summary.average_rating).toFixed(1)}</span>
-                            <span className="text-gray-400">({parseInt(product.rating_summary.total_reviews || 0)} review{parseInt(product.rating_summary.total_reviews || 0) !== 1 ? 's' : ''})</span>
+                            <span className="text-gray-500 font-medium">({parseInt(product.rating_summary.total_reviews || 0)} review{parseInt(product.rating_summary.total_reviews || 0) !== 1 ? 's' : ''})</span>
                         </div>
                     )}
 

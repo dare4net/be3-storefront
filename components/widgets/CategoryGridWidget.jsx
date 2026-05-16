@@ -467,24 +467,38 @@ export default function CategoryGridWidget({ config }) {
                             /* ----------------------------------------------------
                                BENTO GRID GAP KILLER (Bulletproof Masonry Math)
                                ---------------------------------------------------- */
-                            /* Mobile Pattern (Strict 2-Column) */
-                            /* Mobile Gap Killer Patches (Exact Count Spans) */
-                            .bento-grid:has(> div:nth-child(2):last-child) > div:nth-child(2) { grid-column: span 2 !important; }
-                            .bento-grid:has(> div:nth-child(5):last-child) > div:nth-child(5) { grid-column: span 2 !important; }
-                            .bento-grid:has(> div:nth-child(8):last-child) > div:nth-child(8) { grid-column: span 2 !important; }
-                            .bento-grid:has(> div:nth-child(11):last-child) > div:nth-child(11) { grid-column: span 2 !important; }
+                            /* Mobile Gap Killer Patches (Vertical Masonry) */
+                            /* If the cutoff is a tower, collapse it to a square and span horizontally */
+                            .bento-grid:has(> div:nth-child(1):last-child) > div:nth-child(1),
+                            .bento-grid:has(> div:nth-child(4):last-child) > div:nth-child(4),
+                            .bento-grid:has(> div:nth-child(7):last-child) > div:nth-child(7),
+                            .bento-grid:has(> div:nth-child(10):last-child) > div:nth-child(10) {
+                                grid-row: span 1 !important;
+                                grid-column: 1 / -1 !important;
+                            }
+
+                            /* If the cutoff is a single square next to a tower, it must stretch vertically */
+                            .bento-grid:has(> div:nth-child(2):last-child) > div:nth-child(2),
+                            .bento-grid:has(> div:nth-child(5):last-child) > div:nth-child(5),
+                            .bento-grid:has(> div:nth-child(8):last-child) > div:nth-child(8),
+                            .bento-grid:has(> div:nth-child(11):last-child) > div:nth-child(11) {
+                                grid-row: span 2 !important;
+                            }
                             
-                            /* Mobile Pattern (Strict 2-Column) */
-                            .bento-item-0 { grid-column: span 2; grid-row: span 1; }
+                            /* Mobile Pattern (Alternating Vertical Towers) */
+                            .bento-item-0 { grid-column: span 1; grid-row: span 2; }
                             .bento-item-1 { grid-column: span 1; grid-row: span 1; }
                             .bento-item-2 { grid-column: span 1; grid-row: span 1; }
-                            .bento-item-3 { grid-column: span 2; grid-row: span 1; }
+                            
+                            .bento-item-3 { grid-column: 2; grid-row: span 2; } /* Shift tower to the right */
                             .bento-item-4 { grid-column: span 1; grid-row: span 1; }
                             .bento-item-5 { grid-column: span 1; grid-row: span 1; }
-                            .bento-item-6 { grid-column: span 2; grid-row: span 1; }
+                            
+                            .bento-item-6 { grid-column: span 1; grid-row: span 2; }
                             .bento-item-7 { grid-column: span 1; grid-row: span 1; }
                             .bento-item-8 { grid-column: span 1; grid-row: span 1; }
-                            .bento-item-9 { grid-column: span 2; grid-row: span 1; }
+                            
+                            .bento-item-9 { grid-column: 2; grid-row: span 2; } /* Shift tower to the right */
                             .bento-item-10 { grid-column: span 1; grid-row: span 1; }
                             .bento-item-11 { grid-column: span 1; grid-row: span 1; }
                             

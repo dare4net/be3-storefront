@@ -78,12 +78,40 @@ export default function ProductCard({ product, trackClick }) {
                     </h3>
                 </Link>
 
+                {/* Vendor Tag */}
+                {product.attributes?.vendor && (
+                    <div className="mt-1 flex">
+                        <span className="inline-block px-2 py-0.5 bg-blue-50 border border-blue-100 text-blue-700 rounded font-semibold leading-relaxed text-[clamp(0.65rem,0.6rem+0.1vw,0.75rem)]">
+                            {product.vendor_verified ? (() => {
+                                const parts = product.attributes.vendor.split(' ');
+                                const lastWord = parts.pop();
+                                return (
+                                    <>
+                                        {parts.length > 0 && parts.join(' ') + ' '}
+                                        <span className="inline-flex items-center gap-1 whitespace-nowrap align-middle ml-1 sm:ml-0">
+                                            {lastWord}
+                                            <img
+                                                src="/verified.svg"
+                                                alt="Verified Business"
+                                                title="Verified Business"
+                                                className="w-3.5 h-3.5 object-contain shrink-0 relative top-[-1px]"
+                                            />
+                                        </span>
+                                    </>
+                                );
+                            })() : (
+                                product.attributes.vendor
+                            )}
+                        </span>
+                    </div>
+                )}
+
                 {/* Rating */}
                 {product.rating_summary && parseFloat(product.rating_summary.average_rating) > 0 && (
                     <div className="flex items-center gap-1.5 mt-1 text-xs">
                         <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
                         <span className="font-semibold text-gray-700">{parseFloat(product.rating_summary.average_rating).toFixed(1)}</span>
-                        <span className="text-gray-400">({parseInt(product.rating_summary.total_reviews || 0)} review{parseInt(product.rating_summary.total_reviews || 0) !== 1 ? 's' : ''})</span>
+                        <span className="text-gray-500 font-medium">({parseInt(product.rating_summary.total_reviews || 0)} review{parseInt(product.rating_summary.total_reviews || 0) !== 1 ? 's' : ''})</span>
                     </div>
                 )}
 
@@ -109,13 +137,13 @@ export default function ProductCard({ product, trackClick }) {
                 </div>
 
                 {/* Social Proof Stats */}
-                <div className="mt-2 flex items-center gap-3 text-xs text-gray-500">
-                    <div className="flex items-center gap-1">
-                        <Eye className="w-3 h-3 sm:w-4 sm:h-4" />
+                <div className="mt-2 flex items-center gap-3 text-xs text-gray-500 font-medium">
+                    <div className="flex items-center gap-1.5">
+                        <Eye className="w-3 h-3 sm:w-4 sm:h-4 text-gray-500" />
                         <span>{stats.impressions || 0}</span>
                     </div>
-                    <div className="flex items-center gap-1">
-                        <Heart className="w-3 h-3 sm:w-4 sm:h-4" />
+                    <div className="flex items-center gap-1.5">
+                        <Heart className="w-3 h-3 sm:w-4 sm:h-4 text-gray-500" />
                         <span>{stats.wishlist_count || 0}</span>
                     </div>
                 </div>
