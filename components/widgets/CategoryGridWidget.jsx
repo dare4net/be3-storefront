@@ -217,7 +217,8 @@ export default function CategoryGridWidget({ config }) {
             registerWidget(widgetId, {
                 allowedTypes: ['category'],
                 sourceType: effectiveSourceTypeForContext,
-                randomCount: randomCount,
+                randomCount: maxCategories || randomCount || 6,
+                count: maxCategories || randomCount || 6,
                 parentCategoryId: effectiveParentCategoryId,
                 manualCategoryIds: manualCategoryIds
             }, {
@@ -463,11 +464,29 @@ export default function CategoryGridWidget({ config }) {
                                 grid-auto-flow: dense;
                             }
                             
-                            /* Mobile Pattern (Strict 2-Column Masonry) 
-                                Items never span full width (span 2) to maintain distinct 2 columns */
-                            .bento-item-0 { grid-column: span 1; grid-row: span 2; } /* Tall, not Wide */
-                            .bento-item-3 { grid-column: span 1; grid-row: span 2; } /* Tall */
-                            .bento-item-6 { grid-column: span 1; grid-row: span 2; } /* Another Tall for variety */
+                            /* ----------------------------------------------------
+                               BENTO GRID GAP KILLER (Bulletproof Masonry Math)
+                               ---------------------------------------------------- */
+                            /* Mobile Pattern (Strict 2-Column) */
+                            /* Mobile Gap Killer Patches (Exact Count Spans) */
+                            .bento-grid:has(> div:nth-child(2):last-child) > div:nth-child(2) { grid-column: span 2 !important; }
+                            .bento-grid:has(> div:nth-child(5):last-child) > div:nth-child(5) { grid-column: span 2 !important; }
+                            .bento-grid:has(> div:nth-child(8):last-child) > div:nth-child(8) { grid-column: span 2 !important; }
+                            .bento-grid:has(> div:nth-child(11):last-child) > div:nth-child(11) { grid-column: span 2 !important; }
+                            
+                            /* Mobile Pattern (Strict 2-Column) */
+                            .bento-item-0 { grid-column: span 2; grid-row: span 1; }
+                            .bento-item-1 { grid-column: span 1; grid-row: span 1; }
+                            .bento-item-2 { grid-column: span 1; grid-row: span 1; }
+                            .bento-item-3 { grid-column: span 2; grid-row: span 1; }
+                            .bento-item-4 { grid-column: span 1; grid-row: span 1; }
+                            .bento-item-5 { grid-column: span 1; grid-row: span 1; }
+                            .bento-item-6 { grid-column: span 2; grid-row: span 1; }
+                            .bento-item-7 { grid-column: span 1; grid-row: span 1; }
+                            .bento-item-8 { grid-column: span 1; grid-row: span 1; }
+                            .bento-item-9 { grid-column: span 2; grid-row: span 1; }
+                            .bento-item-10 { grid-column: span 1; grid-row: span 1; }
+                            .bento-item-11 { grid-column: span 1; grid-row: span 1; }
                             
                             @media (min-width: 768px) {
                                 .bento-grid {
@@ -475,13 +494,32 @@ export default function CategoryGridWidget({ config }) {
                                     grid-auto-rows: minmax(220px, auto);
                                 }
                                 /* Tablet Pattern (3 cols) */
-                                .bento-item-0 { grid-column: span 2; grid-row: span 2; } /* Restore Big Hero */
+                                .bento-item-0 { grid-column: span 2; grid-row: span 2; }
                                 .bento-item-1 { grid-column: span 1; grid-row: span 1; }
-                                .bento-item-2 { grid-column: span 1; grid-row: span 2; } 
-                                .bento-item-3 { grid-column: span 2; grid-row: span 1; } /* Restore Wide */
+                                .bento-item-2 { grid-column: span 1; grid-row: span 1; }
+                                .bento-item-3 { grid-column: span 2; grid-row: span 1; }
                                 .bento-item-4 { grid-column: span 1; grid-row: span 1; }
                                 .bento-item-5 { grid-column: span 1; grid-row: span 1; }
-                                .bento-item-6 { grid-column: span 1; grid-row: span 1; } /* Reset mobile overrides */
+                                .bento-item-6 { grid-column: span 2; grid-row: span 1; }
+                                .bento-item-7 { grid-column: span 1; grid-row: span 1; }
+                                .bento-item-8 { grid-column: span 1; grid-row: span 1; }
+                                .bento-item-9 { grid-column: span 1; grid-row: span 1; }
+                                .bento-item-10 { grid-column: span 2; grid-row: span 1; }
+                                .bento-item-11 { grid-column: span 1; grid-row: span 1; }
+
+                                /* Tablet Gap Killer Patches (Exact Count Spans) */
+                                .bento-grid:has(> div:nth-child(1):last-child) > div:nth-child(1) { grid-column: span 3 !important; }
+                                .bento-grid:has(> div:nth-child(2):last-child) > div:nth-child(2) { grid-row: span 2 !important; }
+                                /* 3 is perfect */
+                                .bento-grid:has(> div:nth-child(4):last-child) > div:nth-child(4) { grid-column: span 3 !important; }
+                                /* 5 is perfect */
+                                .bento-grid:has(> div:nth-child(6):last-child) > div:nth-child(6) { grid-column: span 3 !important; }
+                                /* 7 is perfect */
+                                .bento-grid:has(> div:nth-child(8):last-child) > div:nth-child(8) { grid-column: span 3 !important; }
+                                .bento-grid:has(> div:nth-child(9):last-child) > div:nth-child(9) { grid-column: span 2 !important; }
+                                /* 10 is perfect */
+                                .bento-grid:has(> div:nth-child(11):last-child) > div:nth-child(11) { grid-column: span 3 !important; }
+                                /* 12 is perfect */
                             }
 
                             @media (min-width: 1024px) {
@@ -493,11 +531,31 @@ export default function CategoryGridWidget({ config }) {
                                 .bento-item-0 { grid-column: span 2; grid-row: span 2; }
                                 .bento-item-1 { grid-column: span 1; grid-row: span 1; }
                                 .bento-item-2 { grid-column: span 1; grid-row: span 1; }
-                                .bento-item-3 { grid-column: span 1; grid-row: span 2; }
+                                .bento-item-3 { grid-column: span 2; grid-row: span 1; }
                                 .bento-item-4 { grid-column: span 1; grid-row: span 1; }
-                                .bento-item-5 { grid-column: span 2; grid-row: span 1; }
-                                .bento-item-6 { grid-column: span 1; grid-row: span 1; }
-                                .bento-item-7 { grid-column: span 1; grid-row: span 1; }
+                                .bento-item-5 { grid-column: span 1; grid-row: span 1; }
+                                .bento-item-6 { grid-column: span 2; grid-row: span 2; }
+                                .bento-item-7 { grid-column: span 2; grid-row: span 1; }
+                                .bento-item-8 { grid-column: span 2; grid-row: span 1; }
+                                .bento-item-9 { grid-column: span 2; grid-row: span 1; }
+                                .bento-item-10 { grid-column: span 1; grid-row: span 1; }
+                                .bento-item-11 { grid-column: span 3; grid-row: span 1; }
+
+                                /* Desktop Gap Killer Patches (Exact Count Spans) */
+                                .bento-grid:has(> div:nth-child(1):last-child) > div:nth-child(1) { grid-column: span 4 !important; }
+                                .bento-grid:has(> div:nth-child(2):last-child) > div:nth-child(2) { grid-column: span 2 !important; grid-row: span 2 !important; }
+                                .bento-grid:has(> div:nth-child(3):last-child) > div:nth-child(2) { grid-row: span 2 !important; }
+                                .bento-grid:has(> div:nth-child(3):last-child) > div:nth-child(3) { grid-row: span 2 !important; }
+                                /* 4 is perfect */
+                                .bento-grid:has(> div:nth-child(5):last-child) > div:nth-child(5) { grid-column: span 4 !important; }
+                                .bento-grid:has(> div:nth-child(6):last-child) > div:nth-child(6) { grid-column: span 3 !important; }
+                                .bento-grid:has(> div:nth-child(7):last-child) > div:nth-child(5) { grid-row: span 2 !important; }
+                                .bento-grid:has(> div:nth-child(7):last-child) > div:nth-child(6) { grid-row: span 2 !important; }
+                                /* 8 is perfect */
+                                .bento-grid:has(> div:nth-child(9):last-child) > div:nth-child(9) { grid-column: span 4 !important; }
+                                /* 10 is perfect */
+                                .bento-grid:has(> div:nth-child(11):last-child) > div:nth-child(11) { grid-column: span 4 !important; }
+                                /* 12 is perfect */
                             }
                             `
                         }} />
@@ -532,10 +590,10 @@ export default function CategoryGridWidget({ config }) {
 
                     {displayCategories.length === 0 && (loading || (config.randomize?.enabled && !resolvedFromPlan)) ? (
                         <div className={isBento ? 'bento-grid' : `category-grid-widget-${columns?.mobile || 2}-${columns?.tablet || 3}-${columns?.desktop || 4}`}>
-                            {Array.from({ length: isBento ? 8 : (columns?.desktop || 4) }).map((_, index) => (
+                            {Array.from({ length: isBento ? 12 : (columns?.desktop || 4) }).map((_, index) => (
                                 <div
                                     key={index}
-                                    className={`bg-gray-200 animate-pulse rounded-2xl ${isBento ? `bento-item-${index % 8}` : 'aspect-square'}`}
+                                    className={`bg-gray-200 animate-pulse rounded-2xl ${isBento ? `bento-item-${index % 12}` : 'aspect-square'}`}
                                     style={isBento ? { minHeight: '200px' } : {}}
                                 ></div>
                             ))}
@@ -547,7 +605,7 @@ export default function CategoryGridWidget({ config }) {
                                     key={`${category.id || category.slug}-${index}`}
                                     delayIndex={index % 6} // Slightly larger stagger loop for categories
                                     enabled={enableEntryAnimation}
-                                    className={isBento ? `bento-item-${index % 8}` : ''}
+                                    className={isBento ? `bento-item-${index % 12}` : ''}
                                     style={isBento ? { minHeight: '200px' } : {}}
                                 >
                                     <CategoryCard

@@ -249,7 +249,8 @@ export default function CategoryCarouselWidget({ config = {} }) {
             registerWidget(widgetId, {
                 allowedTypes: ['category'],
                 sourceType: effectiveSourceTypeForContext,
-                randomCount: settings.randomCount,
+                randomCount: settings.maxCategories || settings.randomCount || 10,
+                count: settings.maxCategories || settings.randomCount || 10,
                 parentCategoryId: effectiveParentCategoryId,
                 manualCategoryIds: settings.manualCategoryIds
             }, {
