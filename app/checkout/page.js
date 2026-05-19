@@ -60,6 +60,29 @@ function CheckoutContent() {
     const discount = appliedCoupon ? appliedCoupon.discount_amount : 0;
     const total = Math.max(0, subtotal + shipping - discount);
 
+    const getDiscountedItemPrice = (item) => {
+        if (!appliedCoupon || !appliedCoupon.eligible_product_ids?.includes(item.product_id)) {
+            return null;
+        }
+        const itemTotal = parseFloat(item.price) * item.quantity;
+        
+        if (appliedCoupon.type === 'percentage') {
+            const discountVal = (itemTotal * parseFloat(appliedCoupon.value)) / 100;
+            return itemTotal - discountVal;
+        } else if (appliedCoupon.type === 'fixed') {
+            const eligibleSubtotal = items
+                .filter(i => appliedCoupon.eligible_product_ids.includes(i.product_id))
+                .reduce((sum, i) => sum + (parseFloat(i.price) * i.quantity), 0);
+                
+            if (eligibleSubtotal === 0) return null;
+            
+            const weight = itemTotal / eligibleSubtotal;
+            const discountShare = appliedCoupon.discount_amount * weight;
+            return itemTotal - discountShare;
+        }
+        return null; 
+    };
+
     const handleApplyCoupon = async () => {
         if (!couponCode.trim()) return;
         setValidatingCoupon(true);
@@ -67,14 +90,15 @@ function CheckoutContent() {
         try {
             const res = await api.post('/discounts/validate', {
                 code: couponCode,
-                order_total: subtotal,
-                product_ids: items.map(i => i.product_id)
+                items: items.map(i => ({ product_id: i.product_id, price: i.price, quantity: i.quantity })),
+                vendor_id: vendorId || null
             }, { headers: { 'X-Tenant-ID': tenant?.id } });
             
             if (res.data.success && res.data.valid) {
                 setAppliedCoupon({
                     ...res.data.coupon,
-                    discount_amount: res.data.discount_amount
+                    discount_amount: res.data.discount_amount,
+                    eligible_product_ids: res.data.eligible_product_ids
                 });
                 setCouponCode("");
             }
@@ -311,7 +335,10 @@ function CheckoutContent() {
                                 <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
                                     <h2 className="font-bold text-gray-900 mb-4">Order Items</h2>
                                     <div className="space-y-3">
-                                        {items.map(item => (
+                                        {items.map(item => {
+                                            const discountedPrice = getDiscountedItemPrice(item);
+                                            const originalPrice = parseFloat(item.price) * item.quantity;
+                                            return (
                                             <div key={item.id} className="flex items-center gap-3">
                                                 <div className="w-12 h-12 rounded-xl bg-gray-100 overflow-hidden flex-shrink-0">
                                                     {item.image_url
@@ -320,14 +347,32 @@ function CheckoutContent() {
                                                     }
                                                 </div>
                                                 <div className="flex-1 min-w-0">
-                                                    <p className="text-sm font-medium text-gray-900 truncate">{item.product_name || item.name}</p>
+                                                    <div className="flex items-center gap-2">
+                                                        <p className="text-sm font-medium text-gray-900 truncate">{item.product_name || item.name}</p>
+                                                        {discountedPrice !== null && (
+                                                            <span className="text-[10px] uppercase font-bold text-green-600 bg-green-50 px-1.5 py-0.5 rounded border border-green-200">Eligible</span>
+                                                        )}
+                                                    </div>
                                                     <p className="text-xs text-gray-400">Qty: {item.quantity}</p>
                                                 </div>
-                                                <p className="text-sm font-bold text-gray-900 flex-shrink-0">
-                                                    ₦{(parseFloat(item.price) * item.quantity).toLocaleString("en-NG", { minimumFractionDigits: 2 })}
-                                                </p>
+                                                <div className="text-right flex-shrink-0">
+                                                    {discountedPrice !== null ? (
+                                                        <>
+                                                            <p className="text-xs text-gray-400 line-through">
+                                                                ₦{originalPrice.toLocaleString("en-NG", { minimumFractionDigits: 2 })}
+                                                            </p>
+                                                            <p className="text-sm font-bold text-gray-900">
+                                                                ₦{discountedPrice.toLocaleString("en-NG", { minimumFractionDigits: 2 })}
+                                                            </p>
+                                                        </>
+                                                    ) : (
+                                                        <p className="text-sm font-bold text-gray-900">
+                                                            ₦{originalPrice.toLocaleString("en-NG", { minimumFractionDigits: 2 })}
+                                                        </p>
+                                                    )}
+                                                </div>
                                             </div>
-                                        ))}
+                                        )})}
                                     </div>
                                 </div>
 
@@ -370,14 +415,35 @@ function CheckoutContent() {
                         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 sticky top-24 space-y-4">
                             <h2 className="font-bold text-gray-900">Order Summary</h2>
                             <div className="space-y-2 text-sm">
-                                {items.map(item => (
+                                {items.map(item => {
+                                    const discountedPrice = getDiscountedItemPrice(item);
+                                    const originalPrice = parseFloat(item.price) * item.quantity;
+                                    return (
                                     <div key={item.id} className="flex justify-between text-gray-600">
-                                        <span className="truncate mr-2">{item.product_name || item.name} × {item.quantity}</span>
-                                        <span className="flex-shrink-0 font-medium text-gray-900">
-                                            ₦{(parseFloat(item.price) * item.quantity).toLocaleString("en-NG", { minimumFractionDigits: 2 })}
-                                        </span>
+                                        <div className="truncate mr-2">
+                                            {item.product_name || item.name} × {item.quantity}
+                                            {discountedPrice !== null && (
+                                                <span className="ml-2 text-[10px] uppercase font-bold text-green-600 bg-green-50 px-1.5 py-0.5 rounded border border-green-200">Eligible</span>
+                                            )}
+                                        </div>
+                                        <div className="flex-shrink-0 text-right">
+                                            {discountedPrice !== null ? (
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-gray-400 line-through text-xs">
+                                                        ₦{originalPrice.toLocaleString("en-NG", { minimumFractionDigits: 2 })}
+                                                    </span>
+                                                    <span className="font-bold text-gray-900">
+                                                        ₦{discountedPrice.toLocaleString("en-NG", { minimumFractionDigits: 2 })}
+                                                    </span>
+                                                </div>
+                                            ) : (
+                                                <span className="font-medium text-gray-900">
+                                                    ₦{originalPrice.toLocaleString("en-NG", { minimumFractionDigits: 2 })}
+                                                </span>
+                                            )}
+                                        </div>
                                     </div>
-                                ))}
+                                )})}
                             </div>
                             <div className="border-t border-gray-50 pt-4 space-y-3 text-sm">
                                 {/* Coupon Input */}
