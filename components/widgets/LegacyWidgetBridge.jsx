@@ -82,7 +82,7 @@ function CollectionHero({ entity: collection }) {
                                         <span className="whitespace-nowrap">
                                             {lastWord}
                                             <img
-                                                src="/verified.svg"
+                                                src="/verified-white.svg"
                                                 alt="Verified Business"
                                                 title="Verified Business"
                                                 className="w-8 h-8 lg:w-10 lg:h-10 object-contain drop-shadow-lg inline-block align-middle ml-3"

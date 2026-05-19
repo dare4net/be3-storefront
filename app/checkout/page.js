@@ -180,6 +180,8 @@ function CheckoutContent() {
                 const res = await api.post("/payments/paystack/initialize", {
                     cartId: cart.id,
                     email: formData.email,
+                    customerName: `${formData.firstName} ${formData.lastName}`.trim(),
+                    customerPhone: formData.phone,
                     vendorId: vendorId || null,
                     shippingAddress,
                     couponCode: appliedCoupon?.code || null,
