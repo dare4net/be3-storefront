@@ -9,7 +9,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
     ArrowLeft, Lock, ChevronRight, Package,
-    MapPin, User, Mail, Phone, Loader2, ShieldCheck
+    MapPin, User, Mail, Phone, Loader2, ShieldCheck, Tag
 } from "lucide-react";
 
 const FLAT_SHIPPING_NGN = 1500;
@@ -39,6 +39,11 @@ function CheckoutContent() {
         phone: "", address: "", city: "", state: "", country: "Nigeria",
     });
 
+    const [couponCode, setCouponCode] = useState("");
+    const [appliedCoupon, setAppliedCoupon] = useState(null);
+    const [couponError, setCouponError] = useState("");
+    const [validatingCoupon, setValidatingCoupon] = useState(false);
+
     useEffect(() => {
         if (user) {
             setFormData(prev => ({
@@ -51,8 +56,40 @@ function CheckoutContent() {
     }, [user]);
 
     const subtotal = items.reduce((sum, item) => sum + (parseFloat(item.price) * item.quantity), 0);
-    const shipping = FLAT_SHIPPING_NGN;
-    const total = subtotal + shipping;
+    const shipping = appliedCoupon?.type === 'free_shipping' ? 0 : FLAT_SHIPPING_NGN;
+    const discount = appliedCoupon ? appliedCoupon.discount_amount : 0;
+    const total = Math.max(0, subtotal + shipping - discount);
+
+    const handleApplyCoupon = async () => {
+        if (!couponCode.trim()) return;
+        setValidatingCoupon(true);
+        setCouponError("");
+        try {
+            const res = await api.post('/discounts/validate', {
+                code: couponCode,
+                order_total: subtotal,
+                product_ids: items.map(i => i.product_id)
+            }, { headers: { 'X-Tenant-ID': tenant?.id } });
+            
+            if (res.data.success && res.data.valid) {
+                setAppliedCoupon({
+                    ...res.data.coupon,
+                    discount_amount: res.data.discount_amount
+                });
+                setCouponCode("");
+            }
+        } catch (err) {
+            setCouponError(err.response?.data?.error || "Invalid coupon code");
+            setAppliedCoupon(null);
+        } finally {
+            setValidatingCoupon(false);
+        }
+    };
+
+    const removeCoupon = () => {
+        setAppliedCoupon(null);
+        setCouponError("");
+    };
 
     const set = (field) => (e) => setFormData(prev => ({ ...prev, [field]: e.target.value }));
 
@@ -94,6 +131,7 @@ function CheckoutContent() {
                     customerEmail: formData.email,
                     shippingAddress,
                     session_id: cart.session_id || null,
+                    couponCode: appliedCoupon?.code || null,
                 }, {
                     headers: {
                         "X-Tenant-ID": tenant.id,
@@ -120,6 +158,7 @@ function CheckoutContent() {
                     email: formData.email,
                     vendorId: vendorId || null,
                     shippingAddress,
+                    couponCode: appliedCoupon?.code || null,
                 }, {
                     headers: {
                         "X-Tenant-ID": tenant.id,
@@ -340,20 +379,61 @@ function CheckoutContent() {
                                     </div>
                                 ))}
                             </div>
-                            <div className="border-t border-gray-50 pt-3 space-y-2 text-sm">
+                            <div className="border-t border-gray-50 pt-4 space-y-3 text-sm">
+                                {/* Coupon Input */}
+                                <div className="space-y-2 pb-2">
+                                    {appliedCoupon ? (
+                                        <div className="flex items-center justify-between bg-green-50 border border-green-200 rounded-xl px-3 py-2 text-sm">
+                                            <div className="flex items-center gap-2 text-green-700">
+                                                <Tag className="w-4 h-4" />
+                                                <span className="font-bold">{appliedCoupon.code}</span>
+                                            </div>
+                                            <button onClick={removeCoupon} className="text-green-600 hover:text-green-800 font-semibold text-xs">Remove</button>
+                                        </div>
+                                    ) : (
+                                        <div className="flex gap-2">
+                                            <input 
+                                                type="text" 
+                                                value={couponCode} 
+                                                onChange={e => { setCouponCode(e.target.value.toUpperCase()); setCouponError(""); }}
+                                                placeholder="Discount code" 
+                                                className="flex-1 px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 uppercase"
+                                                disabled={validatingCoupon}
+                                            />
+                                            <button 
+                                                type="button" 
+                                                onClick={handleApplyCoupon}
+                                                disabled={validatingCoupon || !couponCode.trim()}
+                                                className="px-4 py-2 bg-gray-900 text-white rounded-xl text-sm font-semibold hover:bg-gray-800 disabled:opacity-50 transition"
+                                            >
+                                                Apply
+                                            </button>
+                                        </div>
+                                    )}
+                                    {couponError && <p className="text-xs text-red-500 font-medium px-1">{couponError}</p>}
+                                </div>
+
                                 <div className="flex justify-between text-gray-500">
                                     <span>Subtotal</span>
                                     <span>₦{subtotal.toLocaleString("en-NG", { minimumFractionDigits: 2 })}</span>
                                 </div>
+                                {appliedCoupon && (
+                                    <div className="flex justify-between text-green-600 font-medium">
+                                        <span>Discount ({appliedCoupon.code})</span>
+                                        <span>− ₦{appliedCoupon.discount_amount.toLocaleString("en-NG", { minimumFractionDigits: 2 })}</span>
+                                    </div>
+                                )}
                                 {!isWhatsApp && (
                                     <div className="flex justify-between text-gray-500">
                                         <span>Shipping</span>
-                                        <span>₦{shipping.toLocaleString("en-NG", { minimumFractionDigits: 2 })}</span>
+                                        <span>
+                                            {shipping === 0 ? <span className="text-green-600 font-medium">Free</span> : `₦${shipping.toLocaleString("en-NG", { minimumFractionDigits: 2 })}`}
+                                        </span>
                                     </div>
                                 )}
                                 <div className="flex justify-between font-bold text-gray-900 text-base pt-2 border-t border-gray-50">
                                     <span>Total</span>
-                                    <span>₦{(isWhatsApp ? subtotal : total).toLocaleString("en-NG", { minimumFractionDigits: 2 })}</span>
+                                    <span>₦{(isWhatsApp ? Math.max(0, subtotal - discount) : total).toLocaleString("en-NG", { minimumFractionDigits: 2 })}</span>
                                 </div>
                             </div>
                         </div>

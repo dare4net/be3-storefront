@@ -11,7 +11,7 @@ import {
     Package, CheckCircle, XCircle, Clock, Truck,
     RotateCcw, MessageCircle, ChevronLeft, Loader2,
     MapPin, CreditCard, ArrowRight, ShieldAlert,
-    CalendarDays, Hash, ShoppingBag, CheckCircle2
+    CalendarDays, Hash, ShoppingBag, CheckCircle2, Download
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -341,7 +341,6 @@ export default function OrderDetailPage() {
                 </div>
             )}
 
-            {/* Actions */}
             <div className="flex flex-col sm:flex-row gap-3 pb-4">
                 <button
                     onClick={() => openChat('order', order.id, `Order ${order.order_number}`)}
@@ -350,6 +349,13 @@ export default function OrderDetailPage() {
                     <MessageCircle className="w-4 h-4" />
                     Chat about this order
                 </button>
+                <a
+                    href={`${process.env.NEXT_PUBLIC_API_URL}/invoices/orders/${order.id}?tenantId=${order.tenant_id}`}
+                    target="_blank" rel="noopener noreferrer"
+                    className="flex-1 flex items-center justify-center gap-2 border border-blue-200 text-blue-600 font-semibold py-3 rounded-2xl text-sm hover:bg-blue-50 transition">
+                    <Download className="w-4 h-4" />
+                    Download Invoice
+                </a>
                 <Link href="/"
                     className="flex-1 flex items-center justify-center gap-2 bg-gray-900 text-white font-semibold py-3 rounded-2xl text-sm hover:bg-gray-700 transition">
                     Continue Shopping <ArrowRight className="w-4 h-4" />
