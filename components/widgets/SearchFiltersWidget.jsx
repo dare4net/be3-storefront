@@ -227,8 +227,8 @@ export default function SearchFiltersWidget({ config = {} }) {
             <div className="flex flex-col gap-2">
               {[
                 { value: 'normal', label: 'Standard Delivery' },
-                { value: 'express', label: 'Express Delivery (⚡)' },
-                { value: 'shipped_from_abroad', label: 'Shipped from Abroad (✈️)' }
+                { value: 'express', label: <span className="flex items-center gap-1.5">Express Delivery <img src="/express.gif" alt="Express" className="w-6 h-6 object-contain object-center" /></span> },
+                { value: 'shipped_from_abroad', label: <span className="flex items-center gap-1.5">Shipped from Abroad <img src="/abroad.gif" alt="Abroad" className="w-6 h-6 object-contain object-center" /></span> }
               ].map(opt => {
                 const isActive = filters.delivery_type === opt.value;
                 return (

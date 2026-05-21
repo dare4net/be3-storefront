@@ -238,8 +238,8 @@ export default function ProductInfoSidebar({ product }) {
                             <div className="flex items-center justify-start mb-3">
                                 {product?.delivery_type === 'express' ? (
                                     <div className="inline-flex overflow-hidden rounded flex-shrink-0 shadow-sm text-[11px]">
-                                        <span className="bg-gray-900 px-2 py-1 flex items-center justify-center">
-                                            <span className="animate-rumble inline-block leading-none relative top-[-0.5px]">⚡</span>
+                                        <span className="bg-transparent px-1 flex items-center justify-center">
+                                            <img src="/express.gif" alt="Express" className="w-6 h-6 object-contain object-center" />
                                         </span>
                                         <span className="bg-[#ff4e00] text-white px-2 py-1 font-bold uppercase tracking-wider inline-flex items-center">
                                             Express Delivery
@@ -247,8 +247,8 @@ export default function ProductInfoSidebar({ product }) {
                                     </div>
                                 ) : product?.delivery_type === 'shipped_from_abroad' ? (
                                     <div className="inline-flex overflow-hidden rounded flex-shrink-0 shadow-sm text-[11px]">
-                                        <span className="bg-gray-900 px-2 py-1 flex items-center justify-center">
-                                            <span className="animate-fly inline-block leading-none relative top-[-0.5px]">✈️</span>
+                                        <span className="bg-transparent px-1 flex items-center justify-center">
+                                            <img src="/abroad.gif" alt="Abroad" className="w-6 h-6 object-contain object-center" />
                                         </span>
                                         <span className="bg-[#0052ff] text-white px-2 py-1 font-bold uppercase tracking-wider inline-flex items-center">
                                             International Delivery
