@@ -99,43 +99,32 @@ export default function ProductInfoSidebar({ product }) {
                 if (res.data.unconfigured) setUnconfigured(true);
                 else setUnconfigured(false);
 
-                let cId = destinationIds.country_id;
-                setDestinationIds(prev => {
-                    if (countries.length > 0 && (!prev.country_id || !countries.find(c => String(c.id) === prev.country_id))) {
-                        // Only auto-select if manual mode explicitly needs a fallback, but never overwrite a valid populated ID
-                        cId = String(countries[0].id);
-                        return { ...prev, country_id: cId, state_id: "", landmark_id: "" };
-                    }
-                    cId = prev.country_id;
-                    return prev;
-                });
+                let currentC = destinationIds.country_id;
+                if (countries.length > 0 && (!currentC || !countries.find(c => String(c.id) === currentC))) {
+                    currentC = String(countries[0].id);
+                    setDestinationIds(prev => ({ ...prev, country_id: currentC, state_id: "", landmark_id: "" }));
+                }
 
-                if (cId) {
-                    const sRes = await api.get(`/shipping/topology/states?country_id=${cId}&vendor_id=${activeVendorId || ''}`, { headers: { 'X-Tenant-ID': tenant?.id } });
+                if (currentC) {
+                    const sRes = await api.get(`/shipping/topology/states?country_id=${currentC}&vendor_id=${activeVendorId || ''}`, { headers: { 'X-Tenant-ID': tenant?.id } });
                     const states = sRes.data.states || [];
                     setTopology(prev => ({ ...prev, states }));
 
-                    let sId = destinationIds.state_id;
-                    setDestinationIds(prev => {
-                        if (states.length > 0 && (!prev.state_id || !states.find(s => String(s.id) === prev.state_id))) {
-                            sId = String(states[0].id);
-                            return { ...prev, state_id: sId, landmark_id: "" };
-                        }
-                        sId = prev.state_id;
-                        return prev;
-                    });
+                    let currentS = destinationIds.state_id;
+                    if (states.length > 0 && (!currentS || !states.find(s => String(s.id) === currentS))) {
+                        currentS = String(states[0].id);
+                        setDestinationIds(prev => ({ ...prev, state_id: currentS, landmark_id: "" }));
+                    }
 
-                    if (sId) {
-                        const lRes = await api.get(`/shipping/topology/landmarks?state_id=${sId}&vendor_id=${activeVendorId || ''}`, { headers: { 'X-Tenant-ID': tenant?.id } });
+                    if (currentS) {
+                        const lRes = await api.get(`/shipping/topology/landmarks?state_id=${currentS}&vendor_id=${activeVendorId || ''}`, { headers: { 'X-Tenant-ID': tenant?.id } });
                         const landmarks = lRes.data.landmarks || [];
                         setTopology(prev => ({ ...prev, landmarks }));
 
-                        setDestinationIds(prev => {
-                            if (landmarks.length > 0 && (!prev.landmark_id || !landmarks.find(l => String(l.id) === prev.landmark_id))) {
-                                return { ...prev, landmark_id: String(landmarks[0].id) };
-                            }
-                            return prev;
-                        });
+                        let currentL = destinationIds.landmark_id;
+                        if (landmarks.length > 0 && (!currentL || !landmarks.find(l => String(l.id) === currentL))) {
+                            setDestinationIds(prev => ({ ...prev, landmark_id: String(landmarks[0].id) }));
+                        }
                     }
                 }
             } catch (e) {
