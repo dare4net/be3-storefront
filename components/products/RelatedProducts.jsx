@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from 'react';
 import ProductCard from './ProductCard';
 import { useAnalytics } from '@/lib/hooks/useAnalytics';
+import api from '@/lib/axios';
 
 export default function RelatedProducts({ categorySlug, currentProductId, tenantId }) {
     const [products, setProducts] = useState([]);
@@ -15,16 +16,14 @@ export default function RelatedProducts({ categorySlug, currentProductId, tenant
 
         async function fetchRelated() {
             try {
-                const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3000';
-                const res = await fetch(`${apiUrl}/products/storefront?category=${categorySlug}&exclude=${currentProductId}&limit=4`, {
+                const res = await api.get(`/products/storefront?category=${categorySlug}&exclude=${currentProductId}&limit=4`, {
                     headers: {
                         'x-tenant-id': tenantId
                     }
                 });
 
-                if (res.ok) {
-                    const data = await res.json();
-                    setProducts(data.data);
+                if (res.data && res.data.data) {
+                    setProducts(res.data.data);
                 }
             } catch (err) {
                 console.error("Failed to fetch related products", err);

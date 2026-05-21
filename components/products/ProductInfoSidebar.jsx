@@ -22,6 +22,49 @@ export default function ProductInfoSidebar({ product }) {
     const [selectedAddress, setSelectedAddress] = useState(null);
     const [showAddressDropdown, setShowAddressDropdown] = useState(false);
 
+    // Coupons specific hooks
+    const [eligibleCoupons, setEligibleCoupons] = useState([]);
+    const [fetchingCoupons, setFetchingCoupons] = useState(true); // default true so we don't flash empty
+    const [copiedCoupon, setCopiedCoupon] = useState(null);
+
+    useEffect(() => {
+        const fetchCoupons = async () => {
+            setFetchingCoupons(true);
+            try {
+                const url = activeVendorId ? `/discounts/storefront?vendor_id=${activeVendorId}` : `/discounts/storefront`;
+                const res = await api.get(url, { headers: { 'X-Tenant-ID': tenant?.id } });
+                const allCoupons = res.data.data || [];
+
+                const validForUs = allCoupons.filter(coupon => {
+                    // Check max global usage
+                    if (coupon.max_uses !== null && coupon.used_count >= coupon.max_uses) return false;
+
+                    // Eligibility logic
+                    if (coupon.applicable_to === 'all') return true;
+                    if (coupon.applicable_to === 'products') return coupon.applicable_ids.includes(product?.id);
+                    if (coupon.applicable_to === 'categories') {
+                        const productCatIds = product?.categories?.map(c => typeof c === 'string' ? c : (c.id || c)) || [];
+                        return coupon.applicable_ids.some(id => productCatIds.includes(String(id)));
+                    }
+                    return false;
+                });
+
+                setEligibleCoupons(validForUs);
+            } catch (e) {
+                console.error("Failed to fetch coupons", e);
+            } finally {
+                setFetchingCoupons(false);
+            }
+        };
+        if (tenant?.id && product?.id) fetchCoupons();
+    }, [tenant?.id, product?.id, activeVendorId]);
+
+    const handleCopyToken = (code) => {
+        navigator.clipboard.writeText(code);
+        setCopiedCoupon(code);
+        setTimeout(() => setCopiedCoupon(null), 2000);
+    };
+
     useEffect(() => {
         if (!token || !user) { setUseManualLocation(true); return; }
         const fetchAddrs = async () => {
@@ -57,10 +100,15 @@ export default function ProductInfoSidebar({ product }) {
                 else setUnconfigured(false);
 
                 let cId = destinationIds.country_id;
-                if (countries.length > 0 && (!cId || !countries.find(c => String(c.id) === cId))) {
-                    cId = String(countries[0].id);
-                    setDestinationIds(prev => ({ ...prev, country_id: cId, state_id: "", landmark_id: "" }));
-                }
+                setDestinationIds(prev => {
+                    if (countries.length > 0 && (!prev.country_id || !countries.find(c => String(c.id) === prev.country_id))) {
+                        // Only auto-select if manual mode explicitly needs a fallback, but never overwrite a valid populated ID
+                        cId = String(countries[0].id);
+                        return { ...prev, country_id: cId, state_id: "", landmark_id: "" };
+                    }
+                    cId = prev.country_id;
+                    return prev;
+                });
 
                 if (cId) {
                     const sRes = await api.get(`/shipping/topology/states?country_id=${cId}&vendor_id=${activeVendorId || ''}`, { headers: { 'X-Tenant-ID': tenant?.id } });
@@ -68,20 +116,26 @@ export default function ProductInfoSidebar({ product }) {
                     setTopology(prev => ({ ...prev, states }));
 
                     let sId = destinationIds.state_id;
-                    if (states.length > 0 && (!sId || !states.find(s => String(s.id) === sId))) {
-                        sId = String(states[0].id);
-                        setDestinationIds(prev => ({ ...prev, state_id: sId, landmark_id: "" }));
-                    }
+                    setDestinationIds(prev => {
+                        if (states.length > 0 && (!prev.state_id || !states.find(s => String(s.id) === prev.state_id))) {
+                            sId = String(states[0].id);
+                            return { ...prev, state_id: sId, landmark_id: "" };
+                        }
+                        sId = prev.state_id;
+                        return prev;
+                    });
 
                     if (sId) {
                         const lRes = await api.get(`/shipping/topology/landmarks?state_id=${sId}&vendor_id=${activeVendorId || ''}`, { headers: { 'X-Tenant-ID': tenant?.id } });
                         const landmarks = lRes.data.landmarks || [];
                         setTopology(prev => ({ ...prev, landmarks }));
 
-                        let lId = destinationIds.landmark_id;
-                        if (landmarks.length > 0 && (!lId || !landmarks.find(l => String(l.id) === lId))) {
-                            setDestinationIds(prev => ({ ...prev, landmark_id: String(landmarks[0].id) }));
-                        }
+                        setDestinationIds(prev => {
+                            if (landmarks.length > 0 && (!prev.landmark_id || !landmarks.find(l => String(l.id) === prev.landmark_id))) {
+                                return { ...prev, landmark_id: String(landmarks[0].id) };
+                            }
+                            return prev;
+                        });
                     }
                 }
             } catch (e) {
@@ -488,21 +542,50 @@ export default function ProductInfoSidebar({ product }) {
                     <Award className="w-5 h-5 text-blue-600" />
                     <span className="font-semibold text-blue-900 text-sm">Available Coupons</span>
                 </div>
-                <div className="px-5 py-4 space-y-3">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <span className="text-xs font-bold text-blue-700 border border-blue-300 rounded px-2 py-0.5 bg-white">SAVE10</span>
-                            <p className="text-xs text-gray-600 mt-1.5">10% off on your first order</p>
+                <div className="px-5 py-4 space-y-3 relative min-h-[40px]">
+                    {fetchingCoupons && (
+                        <div className="absolute inset-0 bg-blue-50/80 backdrop-blur-sm flex items-center justify-center z-10">
+                            <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
                         </div>
-                        <button className="text-xs text-blue-600 font-bold ml-4">Claim</button>
-                    </div>
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <span className="text-xs font-bold text-blue-700 border border-blue-300 rounded px-2 py-0.5 bg-white">FREESHIP</span>
-                            <p className="text-xs text-gray-600 mt-1.5">Free shipping on orders $50+</p>
-                        </div>
-                        <button className="text-xs text-blue-600 font-bold ml-4">Claim</button>
-                    </div>
+                    )}
+
+                    {eligibleCoupons.length > 0 ? (
+                        <>
+                            {eligibleCoupons.slice(0, 3).map((coupon) => (
+                                <div key={coupon.id} className="flex items-center justify-between py-1 border-b border-blue-100/50 last:border-0 last:pb-0">
+                                    <div className="flex-1 pr-4">
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-[10px] font-bold text-blue-700 border border-blue-300 rounded px-1.5 py-0.5 bg-white uppercase tracking-widest leading-none">
+                                                {coupon.code}
+                                            </span>
+                                            <span className="text-[10px] font-bold text-orange-600 bg-orange-100 px-1.5 py-0.5 rounded uppercase tracking-wider leading-none">
+                                                {coupon.type === 'percentage' ? `${coupon.value}% OFF` : coupon.type === 'fixed' ? `$${parseFloat(coupon.value).toFixed(2)} OFF` : 'Free Shipping'}
+                                            </span>
+                                        </div>
+                                        <p className="text-[11px] text-gray-600 mt-1.5 font-medium leading-snug line-clamp-1">{coupon.description}</p>
+                                    </div>
+                                    <button
+                                        onClick={() => handleCopyToken(coupon.code)}
+                                        className="text-[11px] text-blue-600 font-bold ml-2 px-3 py-1.5 rounded-lg border border-transparent hover:border-blue-200 hover:bg-blue-100 transition-all uppercase tracking-widest min-w-[70px] text-center"
+                                    >
+                                        {copiedCoupon === coupon.code ? 'Copied!' : 'Claim'}
+                                    </button>
+                                </div>
+                            ))}
+                            <Link href="/coupons" className="mt-4 block w-full py-2.5 text-[11px] font-bold text-blue-700 bg-white border border-blue-200 rounded-lg text-center uppercase tracking-widest hover:bg-blue-50 transition-colors">
+                                See More Coupons
+                            </Link>
+                        </>
+                    ) : (
+                        !fetchingCoupons && (
+                            <div className="text-center py-2">
+                                <p className="text-[11px] text-gray-500 font-medium mb-3">No active coupons available specifically for this product.</p>
+                                <Link href="/coupons" className="inline-block w-full py-2.5 text-[11px] font-bold text-blue-700 bg-white border border-blue-200 rounded-lg text-center uppercase tracking-widest hover:bg-blue-50 transition-colors">
+                                    Browse All Store Coupons
+                                </Link>
+                            </div>
+                        )
+                    )}
                 </div>
             </div>
 

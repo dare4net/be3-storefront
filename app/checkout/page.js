@@ -62,6 +62,7 @@ function CheckoutContent() {
     }, [user]);
 
     const activeVendorId = vendorId || (vendorGroups?.[0]?.vendorId) || null;
+    const activeVendorName = vendorGroups?.find(g => g.vendorId === activeVendorId)?.businessName || "This store";
 
     const [userAddresses, setUserAddresses] = useState([]);
     const [useManualLocation, setUseManualLocation] = useState(false);
@@ -335,6 +336,9 @@ function CheckoutContent() {
             city: formData.city,
             state: formData.state,
             country: formData.country,
+            country_id: destinationIds.country_id ? parseInt(destinationIds.country_id) : null,
+            state_id: destinationIds.state_id ? parseInt(destinationIds.state_id) : null,
+            landmark_id: destinationIds.landmark_id ? parseInt(destinationIds.landmark_id) : null,
         };
 
         try {
@@ -345,7 +349,8 @@ function CheckoutContent() {
                     cartId: cart.id,
                     vendorId: vendorId || null,
                     items,
-                    total: groupTotal,
+                    total: total,
+                    shippingFee: shipping,
                     customerName: `${formData.firstName} ${formData.lastName}`.trim(),
                     customerEmail: formData.email,
                     shippingAddress,
@@ -363,7 +368,8 @@ function CheckoutContent() {
                     const itemsList = items
                         .map(i => `- ${i.product_name} x${i.quantity} (\u20a6${(parseFloat(i.price) * i.quantity).toLocaleString("en-NG")})`)
                         .join("%0A");
-                    const waMessage = `Hello! I'd like to order:%0A%0A${itemsList}%0A%0ATotal: \u20a6${groupTotal.toLocaleString("en-NG")}%0AOrder Ref: ${order.order_number}%0AName: ${formData.firstName} ${formData.lastName}%0APhone: ${formData.phone}%0AAddress: ${formData.address}, ${formData.city}`;
+                    const discountLine = discount > 0 ? `%0ADiscount: -\u20a6${discount.toLocaleString("en-NG")}` : "";
+                    const waMessage = `Hello! I'd like to order:%0A%0A${itemsList}%0A%0ASubtotal: \u20a6${subtotal.toLocaleString("en-NG")}%0AShipping: ${shipping > 0 ? `\u20a6${shipping.toLocaleString("en-NG")}` : "Free"}${discountLine}%0ATotal: \u20a6${total.toLocaleString("en-NG")}%0A%0AOrder Ref: ${order.order_number}%0AName: ${formData.firstName} ${formData.lastName}%0APhone: ${formData.phone}%0AAddress: ${formData.address}, ${formData.city}`;
                     const phone = vendorGroup?.whatsappPhone?.replace(/[^0-9]/g, "");
 
                     await refreshCart();
@@ -379,6 +385,7 @@ function CheckoutContent() {
                     customerPhone: formData.phone,
                     vendorId: vendorId || null,
                     shippingAddress,
+                    shippingFee: shipping,
                     couponCode: appliedCoupon?.code || null,
                 }, {
                     headers: {
@@ -480,7 +487,18 @@ function CheckoutContent() {
                                             <MapPin className="w-4 h-4 text-gray-400" /> Delivery Destination
                                         </h2>
                                         {userAddresses.length > 0 && (
-                                            <button type="button" onClick={() => setUseManualLocation(!useManualLocation)} className="text-xs font-semibold text-blue-600 hover:text-blue-700">
+                                            <button type="button" onClick={() => {
+                                                if (!useManualLocation) {
+                                                    setUseManualLocation(true);
+                                                    setTopology(prev => ({ ...prev, states: [], landmarks: [] }));
+                                                    setDestinationIds({ country_id: "", state_id: "", landmark_id: "" });
+                                                    setFormData(prev => ({ ...prev, country: "", state: "", city: "", address: "" }));
+                                                } else {
+                                                    setUseManualLocation(false);
+                                                    const addrToApply = userAddresses.find(a => a.id === selectedAddressId) || userAddresses[0];
+                                                    if (addrToApply) applySavedAddress(addrToApply);
+                                                }
+                                            }} className="text-xs font-semibold text-blue-600 hover:text-blue-700">
                                                 {useManualLocation ? "Use Address Book" : "+ Ship to a different location"}
                                             </button>
                                         )}
@@ -728,7 +746,7 @@ function CheckoutContent() {
                                     </div>
                                 )}
                                 {!isWhatsApp && (
-                                    <div className="flex justify-between items-center text-gray-500">
+                                    <div className="flex justify-between items-start text-gray-500">
                                         <div>
                                             <span className="flex items-center gap-2">Shipping {calculatingShipping && <Loader2 className="w-3 h-3 animate-spin" />}</span>
                                             {shippingData?.breakdowns?.[activeVendorId] && (
@@ -736,10 +754,17 @@ function CheckoutContent() {
                                                     Est. {shippingData.breakdowns[activeVendorId].delivery_days_min} - {shippingData.breakdowns[activeVendorId].delivery_days_max} days
                                                 </p>
                                             )}
+                                            {shippingError && (
+                                                <p className="text-[10px] text-red-500 mt-1 max-w-[200px] leading-snug">
+                                                    {shippingError.includes('does not deliver')
+                                                        ? `${activeVendorName} currently does not offer delivery to this specific region.`
+                                                        : shippingError}
+                                                </p>
+                                            )}
                                         </div>
                                         <span>
                                             {shippingError ? (
-                                                <span className="text-red-500 font-medium text-right text-xs max-w-[140px] block">{shippingError}</span>
+                                                <span className="text-red-500 font-bold text-[10px] uppercase tracking-widest bg-red-50 px-2 py-1 rounded border border-red-100">Unavailable</span>
                                             ) : (
                                                 shipping === 0 ? <span className="text-green-600 font-medium">Free</span> : `₦${shipping.toLocaleString("en-NG", { minimumFractionDigits: 2 })}`
                                             )}
