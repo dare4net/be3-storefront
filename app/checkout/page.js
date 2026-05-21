@@ -44,6 +44,12 @@ function CheckoutContent() {
     const [couponError, setCouponError] = useState("");
     const [validatingCoupon, setValidatingCoupon] = useState(false);
 
+    const [topology, setTopology] = useState({ countries: [], states: [], landmarks: [] });
+    const [destinationIds, setDestinationIds] = useState({ country_id: "", state_id: "", landmark_id: "" });
+    const [shippingData, setShippingData] = useState(null);
+    const [calculatingShipping, setCalculatingShipping] = useState(false);
+    const [shippingError, setShippingError] = useState("");
+
     useEffect(() => {
         if (user) {
             setFormData(prev => ({
@@ -55,8 +61,179 @@ function CheckoutContent() {
         }
     }, [user]);
 
+    const activeVendorId = vendorId || (vendorGroups?.[0]?.vendorId) || null;
+
+    const [userAddresses, setUserAddresses] = useState([]);
+    const [useManualLocation, setUseManualLocation] = useState(false);
+    const [selectedAddressId, setSelectedAddressId] = useState("");
+    const [saveAddress, setSaveAddress] = useState(false);
+
+    const applySavedAddress = (addr) => {
+        setSelectedAddressId(addr.id);
+        const cId = String(addr.country_id || "");
+        const sId = String(addr.state_id || "");
+        const lId = String(addr.landmark_id || "");
+
+        setTopology(prev => {
+            const hasC = prev.countries.some(c => String(c.id) === cId);
+            const hasS = prev.states.some(s => String(s.id) === sId);
+            const hasL = prev.landmarks.some(l => String(l.id) === lId);
+            return {
+                countries: hasC ? prev.countries : [...prev.countries, { id: cId, name: addr.country_name }],
+                states: hasS ? prev.states : [...prev.states, { id: sId, name: addr.state_name }],
+                landmarks: hasL ? prev.landmarks : [...prev.landmarks, { id: lId, name: addr.landmark_name }]
+            };
+        });
+
+        setDestinationIds({ country_id: cId, state_id: sId, landmark_id: lId });
+        setFormData(prev => ({
+            ...prev,
+            address: addr.street_address, phone: addr.phone, firstName: addr.first_name,
+            lastName: addr.last_name, country: addr.country_name, state: addr.state_name, city: addr.landmark_name
+        }));
+    };
+
+    useEffect(() => {
+        if (!token || !user) { setUseManualLocation(true); return; }
+        const fetchAddrs = async () => {
+            try {
+                const res = await api.get('/auth/me/addresses', { headers: { 'X-Tenant-ID': tenant?.id, 'Authorization': `Bearer ${token}` } });
+                const addrs = res.data.addresses || [];
+                setUserAddresses(addrs);
+                if (addrs.length > 0) {
+                    setUseManualLocation(false);
+                    applySavedAddress(addrs.find(a => a.is_default) || addrs[0]);
+                } else {
+                    setUseManualLocation(true);
+                }
+            } catch (e) { setUseManualLocation(true); }
+        };
+        fetchAddrs();
+    }, [user, tenant, token]);
+
+    useEffect(() => {
+        const fetchCountries = async () => {
+            if (!useManualLocation) return;
+            try {
+                const res = await api.get(`/shipping/topology/countries?vendor_id=${activeVendorId || ''}`, { headers: { 'X-Tenant-ID': tenant?.id } });
+                const countries = res.data.countries || [];
+                setTopology(prev => ({ ...prev, countries }));
+
+                if (countries.length > 0 && !destinationIds.country_id) {
+                    const cId = String(countries[0].id);
+                    const cName = countries[0].name;
+
+                    const sRes = await api.get(`/shipping/topology/states?country_id=${cId}&vendor_id=${activeVendorId || ''}`, { headers: { 'X-Tenant-ID': tenant?.id } });
+                    const states = sRes.data.states || [];
+                    setTopology(prev => ({ ...prev, states }));
+
+                    if (states.length > 0) {
+                        const sId = String(states[0].id);
+                        const sName = states[0].name;
+
+                        const lRes = await api.get(`/shipping/topology/landmarks?state_id=${sId}&vendor_id=${activeVendorId || ''}`, { headers: { 'X-Tenant-ID': tenant?.id } });
+                        const landmarks = lRes.data.landmarks || [];
+                        setTopology(prev => ({ ...prev, landmarks }));
+
+                        if (landmarks.length > 0) {
+                            setDestinationIds({ country_id: cId, state_id: sId, landmark_id: String(landmarks[0].id) });
+                            setFormData(prev => ({ ...prev, country: cName, state: sName, city: landmarks[0].name }));
+                        } else {
+                            setDestinationIds({ country_id: cId, state_id: sId, landmark_id: "" });
+                            setFormData(prev => ({ ...prev, country: cName, state: sName, city: "" }));
+                        }
+                    } else {
+                        setDestinationIds({ country_id: cId, state_id: "", landmark_id: "" });
+                        setFormData(prev => ({ ...prev, country: cName, state: "", city: "" }));
+                    }
+                }
+            } catch (e) {
+                console.error("Topology auto-select error:", e);
+            }
+        };
+        if (tenant?.id && activeVendorId) fetchCountries();
+    }, [tenant, activeVendorId, useManualLocation]);
+
+
+    useEffect(() => {
+        const calculateShipping = async () => {
+            if (!destinationIds.country_id && !destinationIds.state_id && !destinationIds.landmark_id) {
+                setShippingData(null);
+                return;
+            }
+            if (!activeVendorId) return;
+
+            setCalculatingShipping(true);
+            try {
+                const res = await api.post("/shipping/calculate", {
+                    vendor_id: activeVendorId,
+                    cart_items: items.map(i => ({
+                        product_id: i.product_id,
+                        quantity: i.quantity,
+                        vendor_id: i.vendorId || i.vendor_id || activeVendorId
+                    })),
+                    destination: {
+                        country_id: destinationIds.country_id ? parseInt(destinationIds.country_id) : null,
+                        state_id: destinationIds.state_id ? parseInt(destinationIds.state_id) : null,
+                        landmark_id: destinationIds.landmark_id ? parseInt(destinationIds.landmark_id) : null
+                    }
+                }, { headers: { 'X-Tenant-ID': tenant?.id } });
+
+                if (res.data.success) {
+                    setShippingData(res.data);
+                    setShippingError("");
+                }
+            } catch (e) {
+                console.error("Shipping calc error", e);
+                setShippingError(e.response?.data?.error || "Calculating error");
+                setShippingData(null);
+            } finally {
+                setCalculatingShipping(false);
+            }
+        };
+
+        const timer = setTimeout(calculateShipping, 500);
+        return () => clearTimeout(timer);
+    }, [destinationIds, activeVendorId, items, tenant]);
+
+    const handleCountryChange = async (e) => {
+        const cId = e.target.value;
+        const cName = topology.countries.find(c => c.id == cId)?.name || "";
+        setDestinationIds(prev => ({ ...prev, country_id: cId, state_id: "", landmark_id: "" }));
+        setFormData(prev => ({ ...prev, country: cName, state: "", city: "" }));
+        setTopology(prev => ({ ...prev, states: [], landmarks: [] }));
+        if (cId) {
+            try {
+                const res = await api.get(`/shipping/topology/states?country_id=${cId}&vendor_id=${activeVendorId || ''}`, { headers: { 'X-Tenant-ID': tenant?.id } });
+                setTopology(prev => ({ ...prev, states: res.data.states || [] }));
+            } catch (e) { }
+        }
+    };
+
+    const handleStateChange = async (e) => {
+        const sId = e.target.value;
+        const sName = topology.states.find(s => s.id == sId)?.name || "";
+        setDestinationIds(prev => ({ ...prev, state_id: sId, landmark_id: "" }));
+        setFormData(prev => ({ ...prev, state: sName, city: "" }));
+        setTopology(prev => ({ ...prev, landmarks: [] }));
+        if (sId) {
+            try {
+                const res = await api.get(`/shipping/topology/landmarks?state_id=${sId}&vendor_id=${activeVendorId || ''}`, { headers: { 'X-Tenant-ID': tenant?.id } });
+                setTopology(prev => ({ ...prev, landmarks: res.data.landmarks || [] }));
+            } catch (e) { }
+        }
+    };
+
+    const handleLandmarkChange = (e) => {
+        const lId = e.target.value;
+        const lName = topology.landmarks.find(l => l.id == lId)?.name || "";
+        setDestinationIds(prev => ({ ...prev, landmark_id: lId }));
+        setFormData(prev => ({ ...prev, city: lName }));
+    };
+
     const subtotal = items.reduce((sum, item) => sum + (parseFloat(item.price) * item.quantity), 0);
-    const shipping = appliedCoupon?.type === 'free_shipping' ? 0 : FLAT_SHIPPING_NGN;
+    const shippingBase = shippingData ? parseFloat(shippingData.total_fee) : FLAT_SHIPPING_NGN;
+    const shipping = appliedCoupon?.type === 'free_shipping' ? 0 : shippingBase;
     const discount = appliedCoupon ? appliedCoupon.discount_amount : 0;
     const total = Math.max(0, subtotal + shipping - discount);
 
@@ -65,7 +242,7 @@ function CheckoutContent() {
             return null;
         }
         const itemTotal = parseFloat(item.price) * item.quantity;
-        
+
         if (appliedCoupon.type === 'percentage') {
             const discountVal = (itemTotal * parseFloat(appliedCoupon.value)) / 100;
             return itemTotal - discountVal;
@@ -73,14 +250,14 @@ function CheckoutContent() {
             const eligibleSubtotal = items
                 .filter(i => appliedCoupon.eligible_product_ids.includes(i.product_id))
                 .reduce((sum, i) => sum + (parseFloat(i.price) * i.quantity), 0);
-                
+
             if (eligibleSubtotal === 0) return null;
-            
+
             const weight = itemTotal / eligibleSubtotal;
             const discountShare = appliedCoupon.discount_amount * weight;
             return itemTotal - discountShare;
         }
-        return null; 
+        return null;
     };
 
     const handleApplyCoupon = async () => {
@@ -93,7 +270,7 @@ function CheckoutContent() {
                 items: items.map(i => ({ product_id: i.product_id, price: i.price, quantity: i.quantity })),
                 vendor_id: vendorId || null
             }, { headers: { 'X-Tenant-ID': tenant?.id } });
-            
+
             if (res.data.success && res.data.valid) {
                 setAppliedCoupon({
                     ...res.data.coupon,
@@ -117,13 +294,31 @@ function CheckoutContent() {
 
     const set = (field) => (e) => setFormData(prev => ({ ...prev, [field]: e.target.value }));
 
-    const handleProceed = (e) => {
+    const handleProceed = async (e) => {
         e.preventDefault();
         if (!formData.email || !formData.firstName || !formData.address || !formData.city) {
             setError("Please fill in all required fields.");
             return;
         }
         setError("");
+
+        if (saveAddress && user && useManualLocation) {
+            try {
+                await api.post(`/auth/me/addresses`, {
+                    first_name: formData.firstName,
+                    last_name: formData.lastName,
+                    phone: formData.phone,
+                    street_address: formData.address,
+                    country_id: destinationIds.country_id ? parseInt(destinationIds.country_id) : null,
+                    state_id: destinationIds.state_id ? parseInt(destinationIds.state_id) : null,
+                    landmark_id: destinationIds.landmark_id ? parseInt(destinationIds.landmark_id) : null,
+                    is_default: false
+                }, { headers: { 'X-Tenant-ID': tenant?.id, 'Authorization': `Bearer ${token}` } });
+            } catch (err) {
+                console.error("Failed to save address", err);
+            }
+        }
+
         setStep(2);
     };
 
@@ -280,32 +475,72 @@ function CheckoutContent() {
 
                                 {/* Delivery */}
                                 <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-4">
-                                    <h2 className="font-bold text-gray-900 flex items-center gap-2">
-                                        <MapPin className="w-4 h-4 text-gray-400" /> Delivery Address
-                                    </h2>
-                                    <div>
-                                        <label className={labelClass}>Street Address *</label>
-                                        <input type="text" className={inputClass} value={formData.address} onChange={set("address")} placeholder="123 Main Street" required />
+                                    <div className="flex items-center justify-between">
+                                        <h2 className="font-bold text-gray-900 flex items-center gap-2">
+                                            <MapPin className="w-4 h-4 text-gray-400" /> Delivery Destination
+                                        </h2>
+                                        {userAddresses.length > 0 && (
+                                            <button type="button" onClick={() => setUseManualLocation(!useManualLocation)} className="text-xs font-semibold text-blue-600 hover:text-blue-700">
+                                                {useManualLocation ? "Use Address Book" : "+ Ship to a different location"}
+                                            </button>
+                                        )}
                                     </div>
-                                    <div className="grid grid-cols-2 gap-3">
-                                        <div>
-                                            <label className={labelClass}>City *</label>
-                                            <input type="text" className={inputClass} value={formData.city} onChange={set("city")} placeholder="Lagos" required />
+
+                                    {!useManualLocation && userAddresses.length > 0 ? (
+                                        <div className="space-y-3">
+                                            {userAddresses.map(addr => (
+                                                <div key={addr.id} onClick={() => applySavedAddress(addr)} className={`border rounded-xl p-3 cursor-pointer transition-all ${selectedAddressId === addr.id ? 'border-blue-500 bg-blue-50/20' : 'border-gray-100 hover:border-gray-300 bg-white'}`}>
+                                                    <div className="flex items-start gap-3">
+                                                        <input type="radio" checked={selectedAddressId === addr.id} readOnly className="mt-1 w-4 h-4 text-blue-600 focus:ring-blue-500" />
+                                                        <div>
+                                                            <p className="text-sm font-bold text-gray-900">{addr.first_name} {addr.last_name} <span className="text-gray-400 font-normal">({addr.phone})</span></p>
+                                                            <p className="text-xs text-gray-500 mt-0.5">{addr.street_address}, {[addr.landmark_name, addr.state_name].filter(Boolean).join(", ")}</p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
                                         </div>
-                                        <div>
-                                            <label className={labelClass}>State</label>
-                                            <input type="text" className={inputClass} value={formData.state} onChange={set("state")} placeholder="Lagos State" />
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <label className={labelClass}>Country</label>
-                                        <select className={inputClass} value={formData.country} onChange={set("country")}>
-                                            <option value="Nigeria">Nigeria</option>
-                                            <option value="Ghana">Ghana</option>
-                                            <option value="Kenya">Kenya</option>
-                                            <option value="South Africa">South Africa</option>
-                                        </select>
-                                    </div>
+                                    ) : (
+                                        <>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                                <div>
+                                                    <label className={labelClass}>Country *</label>
+                                                    <select className={inputClass} value={destinationIds.country_id} onChange={handleCountryChange} required>
+                                                        <option value="">Select Country</option>
+                                                        {topology.countries.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                                    </select>
+                                                </div>
+                                                <div>
+                                                    <label className={labelClass}>State *</label>
+                                                    <select className={inputClass} value={destinationIds.state_id} onChange={handleStateChange} required disabled={!destinationIds.country_id}>
+                                                        <option value="">Select State</option>
+                                                        {topology.states.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                                                    </select>
+                                                </div>
+                                            </div>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                                <div>
+                                                    <label className={labelClass}>City / Landmark *</label>
+                                                    <select className={inputClass} value={destinationIds.landmark_id} onChange={handleLandmarkChange} required disabled={!destinationIds.state_id}>
+                                                        <option value="">Select Landmark</option>
+                                                        {topology.landmarks.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+                                                    </select>
+                                                </div>
+                                                <div>
+                                                    <label className={labelClass}>Street Address *</label>
+                                                    <input type="text" className={inputClass} value={formData.address} onChange={set("address")} placeholder="123 Main Street" required />
+                                                </div>
+                                            </div>
+                                            {user && (
+                                                <div className="pt-2">
+                                                    <label className="flex items-center gap-2 cursor-pointer w-max">
+                                                        <input type="checkbox" checked={saveAddress} onChange={e => setSaveAddress(e.target.checked)} className="w-4 h-4 rounded text-blue-600 border-gray-300 focus:ring-blue-500" />
+                                                        <span className="text-xs font-semibold text-gray-700">Save this address to my profile</span>
+                                                    </label>
+                                                </div>
+                                            )}
+                                        </>
+                                    )}
                                 </div>
 
                                 {error && <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-xl px-4 py-3">{error}</p>}
@@ -341,40 +576,41 @@ function CheckoutContent() {
                                             const discountedPrice = getDiscountedItemPrice(item);
                                             const originalPrice = parseFloat(item.price) * item.quantity;
                                             return (
-                                            <div key={item.id} className="flex items-center gap-3">
-                                                <div className="w-12 h-12 rounded-xl bg-gray-100 overflow-hidden flex-shrink-0">
-                                                    {item.image_url
-                                                        ? <img src={item.image_url} alt={item.product_name || item.name} className="w-full h-full object-cover" />
-                                                        : <Package className="w-6 h-6 text-gray-300 m-auto mt-3" />
-                                                    }
-                                                </div>
-                                                <div className="flex-1 min-w-0">
-                                                    <div className="flex items-center gap-2">
-                                                        <p className="text-sm font-medium text-gray-900 truncate">{item.product_name || item.name}</p>
-                                                        {discountedPrice !== null && (
-                                                            <span className="text-[10px] uppercase font-bold text-green-600 bg-green-50 px-1.5 py-0.5 rounded border border-green-200">Eligible</span>
-                                                        )}
+                                                <div key={item.id} className="flex items-center gap-3">
+                                                    <div className="w-12 h-12 rounded-xl bg-gray-100 overflow-hidden flex-shrink-0">
+                                                        {item.image_url
+                                                            ? <img src={item.image_url} alt={item.product_name || item.name} className="w-full h-full object-cover" />
+                                                            : <Package className="w-6 h-6 text-gray-300 m-auto mt-3" />
+                                                        }
                                                     </div>
-                                                    <p className="text-xs text-gray-400">Qty: {item.quantity}</p>
-                                                </div>
-                                                <div className="text-right flex-shrink-0">
-                                                    {discountedPrice !== null ? (
-                                                        <>
-                                                            <p className="text-xs text-gray-400 line-through">
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="flex items-center gap-2">
+                                                            <p className="text-sm font-medium text-gray-900 truncate">{item.product_name || item.name}</p>
+                                                            {discountedPrice !== null && (
+                                                                <span className="text-[10px] uppercase font-bold text-green-600 bg-green-50 px-1.5 py-0.5 rounded border border-green-200">Eligible</span>
+                                                            )}
+                                                        </div>
+                                                        <p className="text-xs text-gray-400">Qty: {item.quantity}</p>
+                                                    </div>
+                                                    <div className="text-right flex-shrink-0">
+                                                        {discountedPrice !== null ? (
+                                                            <>
+                                                                <p className="text-xs text-gray-400 line-through">
+                                                                    ₦{originalPrice.toLocaleString("en-NG", { minimumFractionDigits: 2 })}
+                                                                </p>
+                                                                <p className="text-sm font-bold text-gray-900">
+                                                                    ₦{discountedPrice.toLocaleString("en-NG", { minimumFractionDigits: 2 })}
+                                                                </p>
+                                                            </>
+                                                        ) : (
+                                                            <p className="text-sm font-bold text-gray-900">
                                                                 ₦{originalPrice.toLocaleString("en-NG", { minimumFractionDigits: 2 })}
                                                             </p>
-                                                            <p className="text-sm font-bold text-gray-900">
-                                                                ₦{discountedPrice.toLocaleString("en-NG", { minimumFractionDigits: 2 })}
-                                                            </p>
-                                                        </>
-                                                    ) : (
-                                                        <p className="text-sm font-bold text-gray-900">
-                                                            ₦{originalPrice.toLocaleString("en-NG", { minimumFractionDigits: 2 })}
-                                                        </p>
-                                                    )}
+                                                        )}
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        )})}
+                                            )
+                                        })}
                                     </div>
                                 </div>
 
@@ -382,17 +618,16 @@ function CheckoutContent() {
 
                                 <button
                                     onClick={handlePay}
-                                    disabled={loading}
-                                    className={`w-full disabled:opacity-60 text-white font-bold py-4 rounded-2xl text-sm transition flex items-center justify-center gap-2 shadow-lg ${
-                                        isWhatsApp
-                                            ? "bg-[#25D366] hover:bg-[#1ebe5d] shadow-green-200"
-                                            : "bg-blue-600 hover:bg-blue-700 shadow-blue-200"
-                                    }`}
+                                    disabled={loading || !!shippingError}
+                                    className={`w-full disabled:opacity-60 text-white font-bold py-4 rounded-2xl text-sm transition flex items-center justify-center gap-2 shadow-lg ${isWhatsApp
+                                        ? "bg-[#25D366] hover:bg-[#1ebe5d] shadow-green-200"
+                                        : "bg-blue-600 hover:bg-blue-700 shadow-blue-200"
+                                        }`}
                                 >
                                     {loading
                                         ? <><Loader2 className="w-4 h-4 animate-spin" /> {isWhatsApp ? "Creating Order..." : "Initializing..."}</>
                                         : isWhatsApp
-                                            ? <><svg viewBox="0 0 24 24" className="w-4 h-4 fill-current" xmlns="http://www.w3.org/2000/svg"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.124.558 4.117 1.534 5.845L0 24l6.335-1.505A11.945 11.945 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.818a9.818 9.818 0 01-5.006-1.371l-.36-.214-3.727.886.936-3.618-.235-.372A9.818 9.818 0 1112 21.818z"/></svg> Send WhatsApp Order</>
+                                            ? <><svg viewBox="0 0 24 24" className="w-4 h-4 fill-current" xmlns="http://www.w3.org/2000/svg"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z" /><path d="M12 0C5.373 0 0 5.373 0 12c0 2.124.558 4.117 1.534 5.845L0 24l6.335-1.505A11.945 11.945 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.818a9.818 9.818 0 01-5.006-1.371l-.36-.214-3.727.886.936-3.618-.235-.372A9.818 9.818 0 1112 21.818z" /></svg> Send WhatsApp Order</>
                                             : <><Lock className="w-4 h-4" /> Pay ₦{total.toLocaleString("en-NG", { minimumFractionDigits: 2 })}</>
                                     }
                                 </button>
@@ -421,31 +656,32 @@ function CheckoutContent() {
                                     const discountedPrice = getDiscountedItemPrice(item);
                                     const originalPrice = parseFloat(item.price) * item.quantity;
                                     return (
-                                    <div key={item.id} className="flex justify-between text-gray-600">
-                                        <div className="truncate mr-2">
-                                            {item.product_name || item.name} × {item.quantity}
-                                            {discountedPrice !== null && (
-                                                <span className="ml-2 text-[10px] uppercase font-bold text-green-600 bg-green-50 px-1.5 py-0.5 rounded border border-green-200">Eligible</span>
-                                            )}
-                                        </div>
-                                        <div className="flex-shrink-0 text-right">
-                                            {discountedPrice !== null ? (
-                                                <div className="flex items-center gap-2">
-                                                    <span className="text-gray-400 line-through text-xs">
+                                        <div key={item.id} className="flex justify-between text-gray-600">
+                                            <div className="truncate mr-2">
+                                                {item.product_name || item.name} × {item.quantity}
+                                                {discountedPrice !== null && (
+                                                    <span className="ml-2 text-[10px] uppercase font-bold text-green-600 bg-green-50 px-1.5 py-0.5 rounded border border-green-200">Eligible</span>
+                                                )}
+                                            </div>
+                                            <div className="flex-shrink-0 text-right">
+                                                {discountedPrice !== null ? (
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-gray-400 line-through text-xs">
+                                                            ₦{originalPrice.toLocaleString("en-NG", { minimumFractionDigits: 2 })}
+                                                        </span>
+                                                        <span className="font-bold text-gray-900">
+                                                            ₦{discountedPrice.toLocaleString("en-NG", { minimumFractionDigits: 2 })}
+                                                        </span>
+                                                    </div>
+                                                ) : (
+                                                    <span className="font-medium text-gray-900">
                                                         ₦{originalPrice.toLocaleString("en-NG", { minimumFractionDigits: 2 })}
                                                     </span>
-                                                    <span className="font-bold text-gray-900">
-                                                        ₦{discountedPrice.toLocaleString("en-NG", { minimumFractionDigits: 2 })}
-                                                    </span>
-                                                </div>
-                                            ) : (
-                                                <span className="font-medium text-gray-900">
-                                                    ₦{originalPrice.toLocaleString("en-NG", { minimumFractionDigits: 2 })}
-                                                </span>
-                                            )}
+                                                )}
+                                            </div>
                                         </div>
-                                    </div>
-                                )})}
+                                    )
+                                })}
                             </div>
                             <div className="border-t border-gray-50 pt-4 space-y-3 text-sm">
                                 {/* Coupon Input */}
@@ -460,16 +696,16 @@ function CheckoutContent() {
                                         </div>
                                     ) : (
                                         <div className="flex gap-2">
-                                            <input 
-                                                type="text" 
-                                                value={couponCode} 
+                                            <input
+                                                type="text"
+                                                value={couponCode}
                                                 onChange={e => { setCouponCode(e.target.value.toUpperCase()); setCouponError(""); }}
-                                                placeholder="Discount code" 
+                                                placeholder="Discount code"
                                                 className="flex-1 px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 uppercase"
                                                 disabled={validatingCoupon}
                                             />
-                                            <button 
-                                                type="button" 
+                                            <button
+                                                type="button"
                                                 onClick={handleApplyCoupon}
                                                 disabled={validatingCoupon || !couponCode.trim()}
                                                 className="px-4 py-2 bg-gray-900 text-white rounded-xl text-sm font-semibold hover:bg-gray-800 disabled:opacity-50 transition"
@@ -492,10 +728,21 @@ function CheckoutContent() {
                                     </div>
                                 )}
                                 {!isWhatsApp && (
-                                    <div className="flex justify-between text-gray-500">
-                                        <span>Shipping</span>
+                                    <div className="flex justify-between items-center text-gray-500">
+                                        <div>
+                                            <span className="flex items-center gap-2">Shipping {calculatingShipping && <Loader2 className="w-3 h-3 animate-spin" />}</span>
+                                            {shippingData?.breakdowns?.[activeVendorId] && (
+                                                <p className="text-[10px] text-blue-500 font-medium mt-0.5">
+                                                    Est. {shippingData.breakdowns[activeVendorId].delivery_days_min} - {shippingData.breakdowns[activeVendorId].delivery_days_max} days
+                                                </p>
+                                            )}
+                                        </div>
                                         <span>
-                                            {shipping === 0 ? <span className="text-green-600 font-medium">Free</span> : `₦${shipping.toLocaleString("en-NG", { minimumFractionDigits: 2 })}`}
+                                            {shippingError ? (
+                                                <span className="text-red-500 font-medium text-right text-xs max-w-[140px] block">{shippingError}</span>
+                                            ) : (
+                                                shipping === 0 ? <span className="text-green-600 font-medium">Free</span> : `₦${shipping.toLocaleString("en-NG", { minimumFractionDigits: 2 })}`
+                                            )}
                                         </span>
                                     </div>
                                 )}

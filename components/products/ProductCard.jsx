@@ -71,7 +71,7 @@ export default function ProductCard({ product, trackClick }) {
             </Link>
 
             {/* Content */}
-            <div className="p-2 sm:p-4">
+            <div className="p-2 sm:p-4 relative">
                 <Link href={`/products/${product.handle}`} onClick={handleCardClick}>
                     <h3 className="text-[clamp(0.875rem,0.8rem+0.4vw,1.125rem)] font-medium text-gray-900 group-hover:text-blue-600 transition-colors line-clamp-1">
                         {product.name}
@@ -115,6 +115,31 @@ export default function ProductCard({ product, trackClick }) {
                     </div>
                 )}
 
+                {/* Delivery Badge */}
+                {product.delivery_type === 'express' && (
+                    <div className="mb-2">
+                        <div className="inline-flex overflow-hidden rounded flex-shrink-0 shadow-sm text-[10px] sm:text-xs">
+                            <span className="bg-gray-900 px-1.5 py-0.5 flex items-center justify-center">
+                                <span className="animate-rumble inline-block leading-none relative top-[-0.5px]">⚡</span>
+                            </span>
+                            <span className="bg-[#ff4e00] text-white px-2 py-0.5 font-bold uppercase tracking-wider inline-flex items-center">
+                                Express
+                            </span>
+                        </div>
+                    </div>
+                )}
+                {product.delivery_type === 'shipped_from_abroad' && (
+                    <div className="mb-2">
+                        <div className="inline-flex overflow-hidden rounded flex-shrink-0 shadow-sm text-[10px] sm:text-xs">
+                            <span className="bg-gray-900 px-1.5 py-0.5 flex items-center justify-center">
+                                <span className="animate-fly inline-block leading-none relative top-[-0.5px]">✈️</span>
+                            </span>
+                            <span className="bg-[#0052ff] text-white px-2 py-0.5 font-bold uppercase tracking-wider inline-flex items-center">
+                                Abroad
+                            </span>
+                        </div>
+                    </div>
+                )}
                 <div className="mt-1 sm:mt-2 flex items-center justify-between">
                     <div className="flex flex-col">
                         <span className="text-[clamp(1rem,0.9rem+0.5vw,1.25rem)] font-bold text-gray-900">

@@ -101,6 +101,7 @@ export default function ProductCarouselWidget({ config }) {
     const effectiveShowPrice = getDisplaySetting('showPrice', true);
     const effectiveShowAddToCart = getDisplaySetting('showAddToCart', true);
     const effectiveShowFeaturedBadge = getDisplaySetting('showFeaturedBadge', true);
+    const effectiveShowDeliveryBadge = getDisplaySetting('showDeliveryBadge', true);
     const effectiveShowViewDetails = getDisplaySetting('showViewDetails', true);
     const effectiveShowChat = getDisplaySetting('showChat', true);
     const effectiveShowVendor = getDisplaySetting('showVendor', false);
@@ -900,6 +901,30 @@ export default function ProductCarouselWidget({ config }) {
                                                     </div>
                                                 )}
 
+                                                {effectiveShowDeliveryBadge && product.delivery_type === 'express' && (
+                                                    <div className="mb-2">
+                                                        <div className="inline-flex overflow-hidden rounded flex-shrink-0 shadow-sm" style={{ fontSize: `max(10px, ${0.75 * scale}rem)` }}>
+                                                            <span className="bg-gray-900 px-1.5 py-0.5 flex items-center justify-center">
+                                                                <span className="animate-rumble inline-block leading-none relative top-[-0.5px]">⚡</span>
+                                                            </span>
+                                                            <span className="bg-[#ff4e00] text-white px-2 py-0.5 font-bold uppercase tracking-wider inline-flex items-center">
+                                                                Express
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                                {effectiveShowDeliveryBadge && product.delivery_type === 'shipped_from_abroad' && (
+                                                    <div className="mb-2">
+                                                        <div className="inline-flex overflow-hidden rounded flex-shrink-0 shadow-sm" style={{ fontSize: `max(10px, ${0.75 * scale}rem)` }}>
+                                                            <span className="bg-gray-900 px-1.5 py-0.5 flex items-center justify-center">
+                                                                <span className="animate-fly inline-block leading-none relative top-[-0.5px]">✈️</span>
+                                                            </span>
+                                                            <span className="bg-[#0052ff] text-white px-2 py-0.5 font-bold uppercase tracking-wider inline-flex items-center">
+                                                                Abroad
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                )}
                                                 <div className="mt-auto flex items-center justify-between gap-2" style={{ paddingTop: `${1 * scale}rem` }}>
                                                     <div className="flex flex-col">
                                                         {effectiveShowPrice && (

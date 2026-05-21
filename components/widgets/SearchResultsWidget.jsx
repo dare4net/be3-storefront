@@ -120,16 +120,17 @@ export default function SearchResultsWidget({ config = {} }) {
     };
 
   // Card appearance props (forwarded from SearchPageLayout or set directly)
-  const showPrice         = config.showPrice         !== false;
-  const showAddToCart     = config.showAddToCart     !== false;
+  const showPrice = config.showPrice !== false;
+  const showAddToCart = config.showAddToCart !== false;
   const showFeaturedBadge = config.showFeaturedBadge !== false;
-  const showViewDetails   = config.showViewDetails   !== false;
-  const showDescription   = config.showDescription   !== false;
-  const showTags          = config.showTags          === true;
-  const showAttributes    = config.showAttributes    === true;
-  const showSocialProof   = config.showSocialProof   !== false;
-  const showRating        = config.showRating        !== false;
-  const cardScale         = config.cardScale         ?? 0.9;
+  const showViewDetails = config.showViewDetails !== false;
+  const showDescription = config.showDescription !== false;
+  const showTags = config.showTags === true;
+  const showAttributes = config.showAttributes === true;
+  const showSocialProof = config.showSocialProof !== false;
+  const showRating = config.showRating !== false;
+  const showDeliveryBadge = config.showDeliveryBadge !== false;
+  const cardScale = config.cardScale ?? 0.9;
 
   // Enable stats for this widget
   useEffect(() => {
@@ -211,6 +212,7 @@ export default function SearchResultsWidget({ config = {} }) {
       description: item.description || meta.description || item.snippet,
       stats: item.stats || meta.stats || { impressions: 0, wishlist_count: 0 },
       rating_summary: item.rating_summary || meta.rating_summary || null,
+      delivery_type: item.delivery_type || meta.delivery_type || null,
     };
   };
 
@@ -223,7 +225,7 @@ export default function SearchResultsWidget({ config = {} }) {
         <div className="mb-8">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-6 border-b border-gray-100">
             <div>
-              <h2 
+              <h2
                 className="font-bold text-gray-900 mb-1"
                 style={{ fontSize: `clamp(1.1rem, 0.9rem + 0.8vw, 1.5rem)` }}
               >
@@ -321,6 +323,7 @@ export default function SearchResultsWidget({ config = {} }) {
                 showAttributes={showAttributes}
                 showSocialProof={showSocialProof}
                 showRating={showRating}
+                showDeliveryBadge={showDeliveryBadge}
                 cardStyle={{
                   backgroundColor: '#ffffff',
                   borderRadius: '0.5rem'

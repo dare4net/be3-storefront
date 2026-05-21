@@ -64,6 +64,7 @@ export function SearchProvider({ children, initialPerPage = 20, initialFilters =
     const collectionId = searchParams.get("collection_id");
     const collectionSlug = searchParams.get("collection_slug");
     const tag = searchParams.get("tag");
+    const deliveryType = searchParams.get("delivery_type");
 
     if (priceMin) f.price_min = priceMin;
     if (priceMax) f.price_max = priceMax;
@@ -73,6 +74,7 @@ export function SearchProvider({ children, initialPerPage = 20, initialFilters =
     if (collectionId) f.collection_id = collectionId;
     if (collectionSlug) f.collection_slug = collectionSlug;
     if (tag) f.tag = tag;
+    if (deliveryType) f.delivery_type = deliveryType;
 
     // Attribute filters: attribute.<code>=value
     for (const [k, v] of searchParams.entries()) {
@@ -368,7 +370,7 @@ export function SearchProvider({ children, initialPerPage = 20, initialFilters =
     // Update document head (side effect)
     if (typeof document !== 'undefined') {
       const brandedTitle = `${title}${tenant ? ` | ${tenant.name}` : ''}`;
-      
+
       // Don't update document title if it's already set by a more specific component or branded source
       if (document.title !== brandedTitle && !seo?.is_branded) {
         document.title = brandedTitle;
