@@ -161,47 +161,112 @@ export function AuthProvider({ children }) {
         }
     }, [tenant?.id]);
 
-    // Axios interceptor for 401 Token Expired
+    // Axios interceptor for 401 Token Expired — with concurrency queue
+    // Module-level state (outside component) to survive across concurrent requests
     useEffect(() => {
+        let isRefreshing = false;
+        let failedQueue = [];
+
+        const processQueue = (error, token = null) => {
+            failedQueue.forEach((prom) => {
+                if (error) {
+                    prom.reject(error);
+                } else {
+                    prom.resolve(token);
+                }
+            });
+            failedQueue = [];
+        };
+
         const interceptor = api.interceptors.response.use(
             (response) => response,
             async (error) => {
                 const originalRequest = error.config;
 
-                // If 401 and we have a refresh token and haven't retried yet
-                if (error.response?.status === 401 &&
+                // Only handle 401 TokenExpired errors, and only once per request
+                if (
+                    error.response?.status === 401 &&
                     error.response?.data?.error === 'TokenExpired' &&
-                    !originalRequest._retry) {
+                    !originalRequest._retry
+                ) {
+                    // If a refresh is already in flight, queue this request
+                    if (isRefreshing) {
+                        return new Promise((resolve, reject) => {
+                            failedQueue.push({ resolve, reject });
+                        })
+                            .then((token) => {
+                                originalRequest.headers['Authorization'] = `Bearer ${token}`;
+                                return api(originalRequest);
+                            })
+                            .catch((err) => Promise.reject(err));
+                    }
 
                     originalRequest._retry = true;
-                    const refreshToken = localStorage.getItem('auth_refresh_token');
+                    isRefreshing = true;
 
-                    if (refreshToken) {
-                        try {
-                            const res = await api.post('/auth/refresh', { refreshToken });
+                    const storedRefreshToken = localStorage.getItem('auth_refresh_token');
 
-                            if (res.data.success) {
-                                const { accessToken, refreshToken: newRefreshToken } = res.data;
-
-                                // Update state
-                                setToken(accessToken);
-                                localStorage.setItem('auth_token', accessToken);
-                                if (newRefreshToken) {
-                                    localStorage.setItem('auth_refresh_token', newRefreshToken);
-                                }
-
-                                // Update header
-                                api.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
-                                originalRequest.headers['Authorization'] = `Bearer ${accessToken}`;
-
-                                return api(originalRequest);
-                            }
-                        } catch (refreshError) {
-                            console.error('Token refresh failed:', refreshError);
-                            logout();
-                        }
-                    } else {
+                    if (!storedRefreshToken) {
+                        isRefreshing = false;
+                        processQueue(new Error('No refresh token'), null);
                         logout();
+                        return Promise.reject(error);
+                    }
+
+                    try {
+                        // Use a plain axios call to bypass interceptors and avoid loops
+                        const axios = (await import('axios')).default;
+
+                        // Robust Tenant ID fallback: Check API defaults -> LocalStorage User -> Subdomain Env Var -> Hardcoded Demo
+                        const getTenantId = () => {
+                            if (api.defaults.headers.common['X-Tenant-ID']) return api.defaults.headers.common['X-Tenant-ID'];
+                            try {
+                                const storedUser = localStorage.getItem('auth_user');
+                                if (storedUser) return JSON.parse(storedUser).tenant_id;
+                            } catch (e) { }
+                            return process.env.NEXT_PUBLIC_TENANT_ID;
+                        };
+                        const tenantId = getTenantId();
+
+                        const res = await axios.post(
+                            `${api.defaults.baseURL}/auth/refresh`,
+                            { refreshToken: storedRefreshToken },
+                            {
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    ...(tenantId ? { 'X-Tenant-ID': tenantId } : {}),
+                                },
+                                withCredentials: true,
+                            }
+                        );
+
+                        if (res.data.success) {
+                            const { accessToken, refreshToken: newRefreshToken } = res.data;
+
+                            // Persist updated tokens
+                            setToken(accessToken);
+                            localStorage.setItem('auth_token', accessToken);
+                            if (newRefreshToken) {
+                                localStorage.setItem('auth_refresh_token', newRefreshToken);
+                            }
+
+                            // Update default auth header for all future requests
+                            api.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
+                            originalRequest.headers['Authorization'] = `Bearer ${accessToken}`;
+
+                            // Unblock all queued requests
+                            processQueue(null, accessToken);
+                            return api(originalRequest);
+                        }
+
+                        throw new Error('Refresh response indicated failure');
+                    } catch (refreshError) {
+                        console.error('[AuthContext] Token refresh failed:', refreshError);
+                        processQueue(refreshError, null);
+                        logout();
+                        return Promise.reject(refreshError);
+                    } finally {
+                        isRefreshing = false;
                     }
                 }
 

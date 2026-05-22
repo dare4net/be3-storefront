@@ -8,20 +8,20 @@ import { useAuth } from "@/components/providers/AuthContext";
 
 const STEPS = [
     { key: "eligibility", label: "Eligibility" },
-    { key: "form",        label: "Application" },
-    { key: "training",    label: "Training" },
-    { key: "products",    label: "Test Products" },
-    { key: "setup",       label: "Store Setup" },
+    { key: "form", label: "Application" },
+    { key: "training", label: "Training" },
+    { key: "products", label: "Test Products" },
+    { key: "setup", label: "Store Setup" },
 ];
 
 const STATUS_TO_STEP = {
-    draft:               "form",
-    application_review:  "done_form",
-    training:            "training",
-    product_test:        "products",
-    setup:               "setup",
-    approved:            "approved",
-    rejected:            "rejected",
+    draft: "form",
+    application_review: "done_form",
+    training: "training",
+    product_test: "products",
+    setup: "setup",
+    approved: "approved",
+    rejected: "rejected",
 };
 
 // ── Training content (static) ─────────────────────────────────────────────────
@@ -57,18 +57,26 @@ function VendorStoreSummary({ user }) {
                 <CheckCircle className="w-8 h-8 text-green-500 ml-auto flex-shrink-0" />
             </div>
             <div className="grid grid-cols-2 gap-4">
-                <a href="/vendor/dashboard" className="bg-white border border-gray-100 rounded-xl p-5 hover:border-blue-200 hover:bg-blue-50/30 transition-all group">
+                <a
+                    href={process.env.NEXT_PUBLIC_ADMIN_DASHBOARD_URL || 'https://admin.be3.shop'}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="bg-white border border-gray-100 rounded-xl p-5 hover:border-blue-200 hover:bg-blue-50/30 transition-all group"
+                >
                     <TrendingUp className="w-6 h-6 text-blue-600 mb-3" />
                     <p className="font-black text-sm text-gray-900">Vendor Dashboard</p>
                     <p className="text-xs text-gray-400 mt-0.5 flex items-center gap-1 group-hover:text-blue-600">
                         Manage your store <ExternalLink className="w-3 h-3" />
                     </p>
                 </a>
-                <a href="/vendor/products" className="bg-white border border-gray-100 rounded-xl p-5 hover:border-purple-200 hover:bg-purple-50/30 transition-all group">
+                <a href={`/collections/${(
+                    (user?.business_name || `${user?.first_name || ''} ${user?.last_name || ''}`.trim() || 'vendor')
+                        .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+                )}-${user?.id?.split('-')[0]}-collection`} className="bg-white border border-gray-100 rounded-xl p-5 hover:border-purple-200 hover:bg-purple-50/30 transition-all group">
                     <Package className="w-6 h-6 text-purple-600 mb-3" />
-                    <p className="font-black text-sm text-gray-900">My Products</p>
+                    <p className="font-black text-sm text-gray-900">Storefront</p>
                     <p className="text-xs text-gray-400 mt-0.5 flex items-center gap-1 group-hover:text-purple-600">
-                        View & manage listings <ExternalLink className="w-3 h-3" />
+                        View your collection <ExternalLink className="w-3 h-3" />
                     </p>
                 </a>
             </div>
@@ -141,7 +149,7 @@ export default function ApplyPage() {
     };
 
     const handleTrainingStart = async () => {
-        try { await apiPost("/training/start"); setStep("training"); setSlide(0); } catch {}
+        try { await apiPost("/training/start"); setStep("training"); setSlide(0); } catch { }
     };
 
     const handleQuizSubmit = async () => {
@@ -254,13 +262,13 @@ export default function ApplyPage() {
             {/* ── Step 1: Eligibility ─────────────────────────────────────── */}
             {step === "eligibility" && (() => {
                 const emailOk = !!user?.email_verified;
-                const kycOk   = user?.kyc_status === 'approved';
-                const noApp   = !application;
+                const kycOk = user?.kyc_status === 'approved';
+                const noApp = !application;
                 const canStart = emailOk && kycOk && noApp;
                 const checks = [
-                    { label: "Email verified",             ok: emailOk, fix: "/account/verification",  fixLabel: "Verify now" },
-                    { label: "Identity (KYC) approved",    ok: kycOk,   fix: "/account/verification",  fixLabel: "Submit KYC" },
-                    { label: "No existing application",    ok: noApp,   fix: null,                     fixLabel: null },
+                    { label: "Email verified", ok: emailOk, fix: "/account/verification", fixLabel: "Verify now" },
+                    { label: "Identity (KYC) approved", ok: kycOk, fix: "/account/verification", fixLabel: "Submit KYC" },
+                    { label: "No existing application", ok: noApp, fix: null, fixLabel: null },
                 ];
                 return (
                     <div className={cardClass}>
