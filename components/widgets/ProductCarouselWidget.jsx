@@ -807,6 +807,26 @@ export default function ProductCarouselWidget({ config }) {
                                                         Featured
                                                     </div>
                                                 )}
+
+                                                {/* Delivery Badge Overlay */}
+                                                {effectiveShowDeliveryBadge && product.delivery_type === 'express' && (
+                                                    <div
+                                                        className="absolute bottom-2 left-2 rounded-full bg-white z-10 flex items-center justify-center p-1.5"
+                                                        style={{ padding: `${0.35 * scale}rem` }}
+                                                        title="Express Delivery"
+                                                    >
+                                                        <img src="/express.gif" alt="Express" className="object-contain shrink-0" style={{ width: `${1.5 * scale}rem`, height: `${1.5 * scale}rem` }} />
+                                                    </div>
+                                                )}
+                                                {effectiveShowDeliveryBadge && product.delivery_type === 'shipped_from_abroad' && (
+                                                    <div
+                                                        className="absolute bottom-2 left-2 rounded-full bg-white z-10 flex items-center justify-center p-1.5"
+                                                        style={{ padding: `${0.35 * scale}rem` }}
+                                                        title="Shipped from Abroad"
+                                                    >
+                                                        <img src="/abroad.gif" alt="Shipped from Abroad" className="object-contain shrink-0" style={{ width: `${1.5 * scale}rem`, height: `${1.5 * scale}rem` }} />
+                                                    </div>
+                                                )}
                                             </div>
                                             <div className="flex-1 flex flex-col" style={{ padding: `${1.1 * scale}rem` }}>
                                                 <h3
@@ -901,22 +921,7 @@ export default function ProductCarouselWidget({ config }) {
                                                     </div>
                                                 )}
 
-                                                {effectiveShowDeliveryBadge && product.delivery_type === 'express' && (
-                                                    <div className="mb-2">
-                                                        <div className="inline-flex items-center gap-0.5 rounded flex-shrink-0 bg-orange-50 text-orange-600 border border-orange-100 px-1 py-0.5" style={{ fontSize: `max(10px, ${0.75 * scale}rem)` }}>
-                                                            <img src="/express.gif" alt="Express" className="w-6 h-6 object-contain object-center shrink-0" />
-                                                            <span className="font-bold uppercase tracking-wider pr-1">Express</span>
-                                                        </div>
-                                                    </div>
-                                                )}
-                                                {effectiveShowDeliveryBadge && product.delivery_type === 'shipped_from_abroad' && (
-                                                    <div className="mb-2">
-                                                        <div className="inline-flex items-center gap-0.5 rounded flex-shrink-0 bg-blue-50 text-blue-600 border border-blue-100 px-1 py-0.5" style={{ fontSize: `max(10px, ${0.75 * scale}rem)` }}>
-                                                            <img src="/abroad.gif" alt="Abroad" className="w-6 h-6 object-contain object-center shrink-0" />
-                                                            <span className="font-bold uppercase tracking-wider pr-1">Abroad</span>
-                                                        </div>
-                                                    </div>
-                                                )}
+
                                                 <div className="mt-auto flex items-center justify-between gap-2" style={{ paddingTop: `${1 * scale}rem` }}>
                                                     <div className="flex flex-col">
                                                         {effectiveShowPrice && (

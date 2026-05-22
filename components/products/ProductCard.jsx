@@ -68,6 +68,18 @@ export default function ProductCard({ product, trackClick }) {
                     product={product}
                     className="absolute top-2 right-2 p-2 rounded-full bg-white/80 backdrop-blur-sm shadow-sm z-10 w-9 h-9"
                 />
+
+                {/* Delivery Badge Overlay */}
+                {product.delivery_type === 'express' && (
+                    <div className="absolute bottom-2 left-2 p-1.5 rounded-full bg-white z-10 w-9 h-9 flex items-center justify-center">
+                        <img src="/express.gif" alt="Express" className="w-full h-full object-contain shrink-0" title="Express Delivery" />
+                    </div>
+                )}
+                {product.delivery_type === 'shipped_from_abroad' && (
+                    <div className="absolute bottom-2 left-2 p-1.5 rounded-full bg-white z-10 w-9 h-9 flex items-center justify-center">
+                        <img src="/abroad.gif" alt="Shipped from Abroad" className="w-full h-full object-contain shrink-0" title="Shipped from Abroad" />
+                    </div>
+                )}
             </Link>
 
             {/* Content */}
@@ -115,23 +127,7 @@ export default function ProductCard({ product, trackClick }) {
                     </div>
                 )}
 
-                {/* Delivery Badge */}
-                {product.delivery_type === 'express' && (
-                    <div className="mb-2">
-                        <div className="inline-flex items-center gap-0.5 rounded flex-shrink-0 bg-orange-50 text-orange-600 border border-orange-100 px-1 py-0.5 text-[10px] sm:text-xs">
-                            <img src="/express.gif" alt="Express" className="w-6 h-6 object-contain object-center shrink-0" />
-                            <span className="font-bold uppercase tracking-wider pr-1">Express</span>
-                        </div>
-                    </div>
-                )}
-                {product.delivery_type === 'shipped_from_abroad' && (
-                    <div className="mb-2">
-                        <div className="inline-flex items-center gap-0.5 rounded flex-shrink-0 bg-blue-50 text-blue-600 border border-blue-100 px-1 py-0.5 text-[10px] sm:text-xs">
-                            <img src="/abroad.gif" alt="Abroad" className="w-6 h-6 object-contain object-center shrink-0" />
-                            <span className="font-bold uppercase tracking-wider pr-1">Abroad</span>
-                        </div>
-                    </div>
-                )}
+
                 <div className="mt-1 sm:mt-2 flex items-center justify-between">
                     <div className="flex flex-col">
                         <span className="text-[clamp(1rem,0.9rem+0.5vw,1.25rem)] font-bold text-gray-900">
