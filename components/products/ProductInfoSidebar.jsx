@@ -237,22 +237,14 @@ export default function ProductInfoSidebar({ product }) {
                         <div className="w-full">
                             <div className="flex items-center justify-start mb-3">
                                 {product?.delivery_type === 'express' ? (
-                                    <div className="inline-flex overflow-hidden rounded flex-shrink-0 shadow-sm text-[11px]">
-                                        <span className="bg-transparent px-1 flex items-center justify-center">
-                                            <img src="/express.gif" alt="Express" className="w-6 h-6 object-contain object-center" />
-                                        </span>
-                                        <span className="bg-[#ff4e00] text-white px-2 py-1 font-bold uppercase tracking-wider inline-flex items-center">
-                                            Express Delivery
-                                        </span>
+                                    <div className="inline-flex items-center gap-1 rounded flex-shrink-0 bg-orange-50 text-orange-600 border border-orange-100 px-1 py-1 text-[11px]">
+                                        <img src="/express.gif" alt="Express" className="w-6 h-6 object-contain object-center shrink-0" />
+                                        <span className="font-bold uppercase tracking-wider pr-2">Express Delivery</span>
                                     </div>
                                 ) : product?.delivery_type === 'shipped_from_abroad' ? (
-                                    <div className="inline-flex overflow-hidden rounded flex-shrink-0 shadow-sm text-[11px]">
-                                        <span className="bg-transparent px-1 flex items-center justify-center">
-                                            <img src="/abroad.gif" alt="Abroad" className="w-6 h-6 object-contain object-center" />
-                                        </span>
-                                        <span className="bg-[#0052ff] text-white px-2 py-1 font-bold uppercase tracking-wider inline-flex items-center">
-                                            International Delivery
-                                        </span>
+                                    <div className="inline-flex items-center gap-1 rounded flex-shrink-0 bg-blue-50 text-blue-600 border border-blue-100 px-1 py-1 text-[11px]">
+                                        <img src="/abroad.gif" alt="Abroad" className="w-6 h-6 object-contain object-center shrink-0" />
+                                        <span className="font-bold uppercase tracking-wider pr-2">International Delivery</span>
                                     </div>
                                 ) : (
                                     <div className="inline-flex overflow-hidden rounded flex-shrink-0 shadow-sm text-[11px]">

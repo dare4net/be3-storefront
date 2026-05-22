@@ -118,25 +118,17 @@ export default function ProductCard({ product, trackClick }) {
                 {/* Delivery Badge */}
                 {product.delivery_type === 'express' && (
                     <div className="mb-2">
-                        <div className="inline-flex overflow-hidden rounded flex-shrink-0 shadow-sm text-[10px] sm:text-xs">
-                            <span className="bg-transparent px-0.5 flex items-center justify-center">
-                                <img src="/express.gif" alt="Express" className="w-6 h-6 object-contain object-center" />
-                            </span>
-                            <span className="bg-[#ff4e00] text-white px-2 py-0.5 font-bold uppercase tracking-wider inline-flex items-center">
-                                Express
-                            </span>
+                        <div className="inline-flex items-center gap-0.5 rounded flex-shrink-0 bg-orange-50 text-orange-600 border border-orange-100 px-1 py-0.5 text-[10px] sm:text-xs">
+                            <img src="/express.gif" alt="Express" className="w-6 h-6 object-contain object-center shrink-0" />
+                            <span className="font-bold uppercase tracking-wider pr-1">Express</span>
                         </div>
                     </div>
                 )}
                 {product.delivery_type === 'shipped_from_abroad' && (
                     <div className="mb-2">
-                        <div className="inline-flex overflow-hidden rounded flex-shrink-0 shadow-sm text-[10px] sm:text-xs">
-                            <span className="bg-transparent px-0.5 flex items-center justify-center">
-                                <img src="/abroad.gif" alt="Abroad" className="w-6 h-6 object-contain object-center" />
-                            </span>
-                            <span className="bg-[#0052ff] text-white px-2 py-0.5 font-bold uppercase tracking-wider inline-flex items-center">
-                                Abroad
-                            </span>
+                        <div className="inline-flex items-center gap-0.5 rounded flex-shrink-0 bg-blue-50 text-blue-600 border border-blue-100 px-1 py-0.5 text-[10px] sm:text-xs">
+                            <img src="/abroad.gif" alt="Abroad" className="w-6 h-6 object-contain object-center shrink-0" />
+                            <span className="font-bold uppercase tracking-wider pr-1">Abroad</span>
                         </div>
                     </div>
                 )}
