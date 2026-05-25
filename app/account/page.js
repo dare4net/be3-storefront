@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
+import ConnectWhatsApp from "@/components/account/ConnectWhatsApp";
 
 /* ─────────── Verification Banner ─────────── */
 function VerificationBanner({ user }) {
@@ -148,15 +149,15 @@ function StatCard({ icon: Icon, iconColor, iconBg, label, value, subtitle, linkT
 
 /* ─────────── Status Badge ─────────── */
 const STATUS_CONFIG = {
-    paid:               { label: "Paid",        bg: "bg-green-100",  text: "text-green-700"  },
-    delivered:          { label: "Delivered",    bg: "bg-green-100",  text: "text-green-700"  },
-    completed:          { label: "Completed",   bg: "bg-green-100",  text: "text-green-700"  },
-    shipped:            { label: "Shipped",     bg: "bg-blue-100",   text: "text-blue-700"   },
-    processing:         { label: "Processing",  bg: "bg-amber-100",  text: "text-amber-700"  },
-    pending:            { label: "Pending",     bg: "bg-yellow-100", text: "text-yellow-700" },
-    pending_whatsapp:   { label: "WhatsApp",    bg: "bg-emerald-100",text: "text-emerald-700"},
-    cancelled:          { label: "Cancelled",   bg: "bg-red-100",    text: "text-red-700"    },
-    refunded:           { label: "Refunded",    bg: "bg-gray-100",   text: "text-gray-600"   },
+    paid: { label: "Paid", bg: "bg-green-100", text: "text-green-700" },
+    delivered: { label: "Delivered", bg: "bg-green-100", text: "text-green-700" },
+    completed: { label: "Completed", bg: "bg-green-100", text: "text-green-700" },
+    shipped: { label: "Shipped", bg: "bg-blue-100", text: "text-blue-700" },
+    processing: { label: "Processing", bg: "bg-amber-100", text: "text-amber-700" },
+    pending: { label: "Pending", bg: "bg-yellow-100", text: "text-yellow-700" },
+    pending_whatsapp: { label: "WhatsApp", bg: "bg-emerald-100", text: "text-emerald-700" },
+    cancelled: { label: "Cancelled", bg: "bg-red-100", text: "text-red-700" },
+    refunded: { label: "Refunded", bg: "bg-gray-100", text: "text-gray-600" },
 };
 
 function StatusBadge({ status }) {
@@ -484,15 +485,15 @@ export default function AccountDashboard() {
             {/* Mobile-only quick nav — shown right after stats */}
             <div className="md:hidden grid grid-cols-3 gap-3">
                 {[
-                    { label: "My Orders",       href: "/account/orders",       icon: Package,     color: "text-violet-600", bg: "bg-violet-50" },
-                    { label: "Wishlist",        href: "/wishlist",             icon: Heart,       color: "text-pink-600",   bg: "bg-pink-50"   },
-                    { label: "Messages",        href: "/messages",             icon: MessageCircle,color: "text-green-600", bg: "bg-green-50"   },
-                    { label: "Account Details", href: "/account/profile",      icon: Settings,    color: "text-slate-600",  bg: "bg-slate-50"  },
-                    { label: "Addresses",       href: "/account/addresses",    icon: MapPin,      color: "text-rose-600",   bg: "bg-rose-50"   },
-                    { label: "Payment Methods", href: "/account/payments",     icon: CreditCard,  color: "text-amber-600",  bg: "bg-amber-50"  },
-                    { label: "Verification",    href: "/account/verification", icon: ShieldCheck, color: "text-teal-600",   bg: "bg-teal-50"   },
-                    { label: "Store Credits",   href: "/account/credits",      icon: Wallet,      color: "text-emerald-600",bg: "bg-emerald-50"},
-                    { label: "Shop",            href: "/account/apply",        icon: Store,       color: "text-orange-600", bg: "bg-orange-50" },
+                    { label: "My Orders", href: "/account/orders", icon: Package, color: "text-violet-600", bg: "bg-violet-50" },
+                    { label: "Wishlist", href: "/wishlist", icon: Heart, color: "text-pink-600", bg: "bg-pink-50" },
+                    { label: "Messages", href: "/messages", icon: MessageCircle, color: "text-green-600", bg: "bg-green-50" },
+                    { label: "Account Details", href: "/account/profile", icon: Settings, color: "text-slate-600", bg: "bg-slate-50" },
+                    { label: "Addresses", href: "/account/addresses", icon: MapPin, color: "text-rose-600", bg: "bg-rose-50" },
+                    { label: "Payment Methods", href: "/account/payments", icon: CreditCard, color: "text-amber-600", bg: "bg-amber-50" },
+                    { label: "Verification", href: "/account/verification", icon: ShieldCheck, color: "text-teal-600", bg: "bg-teal-50" },
+                    { label: "Store Credits", href: "/account/credits", icon: Wallet, color: "text-emerald-600", bg: "bg-emerald-50" },
+                    { label: "Shop", href: "/account/apply", icon: Store, color: "text-orange-600", bg: "bg-orange-50" },
                 ].map((item) => (
                     <Link
                         key={item.label}
@@ -516,6 +517,7 @@ export default function AccountDashboard() {
                 {/* Right column — spans 2 cols */}
                 <div className="lg:col-span-2 space-y-4">
                     <VendorCTA user={user} />
+                    <ConnectWhatsApp token={token} tenant={tenant} />
                     <AccountSecurityPanel user={user} />
                     <AnnouncementsPanel />
                     <NeedHelpPanel />
