@@ -7,11 +7,16 @@ export function middleware(request) {
 
     const requestHeaders = new Headers(request.headers);
 
-    // If it's a subdomain on main domain (e.g. tenant.domain.com)
-    if (parts.length >= 3 && !['www', 'api', 'localhost'].includes(parts[0])) {
-        requestHeaders.set('x-subdomain', parts[0]);
-    } else if (parts.length === 2 && !['localhost', '127.0.0.1'].includes(hostname) && hostname !== 'be3.shop') {
-        // Custom domain (e.g. mybrand.com)
+    const platformDomain = process.env.NEXT_PUBLIC_PLATFORM_DOMAIN || 'be3.shop';
+
+    // If hostname ends with platform domain (e.g. tenant.be3.shop)
+    if (hostname.endsWith(`.${platformDomain}`)) {
+        const subdomain = hostname.replace(`.${platformDomain}`, '');
+        if (subdomain && !['www', 'api', 'admin', 'superadmin'].includes(subdomain)) {
+            requestHeaders.set('x-subdomain', subdomain);
+        }
+    } else if (!['localhost', '127.0.0.1'].includes(hostname) && hostname !== platformDomain && !hostname.endsWith('.vercel.app')) {
+        // Any custom domain or custom subdomain (e.g. mybrand.com or drey.mydomain.com)
         requestHeaders.set('x-domain', hostname);
     }
 
