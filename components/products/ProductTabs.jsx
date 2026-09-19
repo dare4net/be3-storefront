@@ -26,13 +26,18 @@ export default function ProductTabs({ description, attributes, resolvedAttribute
                 {tabs.map(tab => (
                     <button
                         key={tab.id}
+                        type="button"
                         onClick={() => setActiveTab(tab.id)}
                         className={cn(
                             "px-8 py-5 text-sm font-semibold transition-colors whitespace-nowrap border-b-2",
                             activeTab === tab.id
-                                ? "border-blue-600 text-blue-600"
+                                ? "border-primary"
                                 : "border-transparent text-gray-500 hover:text-gray-900"
                         )}
+                        style={activeTab === tab.id ? {
+                            color: 'var(--primary)',
+                            borderColor: 'var(--primary)'
+                        } : {}}
                     >
                         {tab.label}
                     </button>
@@ -78,7 +83,15 @@ export default function ProductTabs({ description, attributes, resolvedAttribute
                         </div>
                         <h3 className="text-lg font-medium text-gray-900 mb-2">No Reviews Yet</h3>
                         <p className="text-gray-500 mb-6">Be the first to review this product!</p>
-                        <button className="px-6 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors">
+                        <button
+                            type="button"
+                            className="px-6 py-2 text-white font-semibold transition-all hover:brightness-95"
+                            style={{
+                                backgroundColor: 'var(--btn-primary-bg, var(--primary, #2563eb))',
+                                color: 'var(--btn-primary-text, #ffffff)',
+                                borderRadius: 'var(--btn-radius, 0.5rem)'
+                            }}
+                        >
                             Write a Review
                         </button>
                     </div>

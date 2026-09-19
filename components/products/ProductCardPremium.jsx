@@ -292,17 +292,22 @@ export default function ProductCardPremium({
                         <div className="flex items-center gap-2">
                             {showAddToCart !== false && (
                                 <button
-                                    className={cn(
-                                        "rounded-full transition flex items-center gap-2 shadow-sm",
-                                        addingToCart === product.id ? "bg-green-500 text-white" : "bg-blue-50 text-blue-600 hover:bg-blue-100"
-                                    )}
+                                    className="rounded-full transition flex items-center justify-center gap-1.5 shadow-sm transform hover:scale-105 active:scale-95"
                                     title="Add to Cart"
                                     onClick={handleAddToCart}
                                     disabled={addingToCart === product.id}
-                                    style={{ padding: `${0.625 * scale}rem` }}
+                                    style={{
+                                        padding: `${0.625 * scale}rem`,
+                                        backgroundColor: addingToCart === product.id
+                                            ? '#10b981'
+                                            : 'var(--accent-soft, rgba(37,99,235,0.1))',
+                                        color: addingToCart === product.id
+                                            ? '#ffffff'
+                                            : 'var(--primary, #2563eb)'
+                                    }}
                                 >
                                     {addingToCart === product.id ? (
-                                        <Check className="animate-pulse" style={{ width: `${1.25 * scale}rem`, height: `${1.25 * scale}rem` }} />
+                                        <Check className="animate-in zoom-in" style={{ width: `${1.25 * scale}rem`, height: `${1.25 * scale}rem` }} />
                                     ) : (
                                         <ShoppingCart style={{ width: `${1.25 * scale}rem`, height: `${1.25 * scale}rem` }} />
                                     )}

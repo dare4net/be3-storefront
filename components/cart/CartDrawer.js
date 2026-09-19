@@ -207,7 +207,12 @@ export default function CartDrawer() {
                                                     <button
                                                         onClick={() => handlePlatformCheckout(group)}
                                                         disabled={!!loadingGroup}
-                                                        className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-sm font-bold bg-gray-900 hover:bg-gray-800 disabled:opacity-60 text-white transition"
+                                                        style={{
+                                                            backgroundColor: 'var(--btn-primary-bg, var(--primary, #111827))',
+                                                            color: 'var(--btn-primary-text, var(--primary-foreground, #ffffff))',
+                                                            borderRadius: 'var(--btn-radius, 0.75rem)'
+                                                        }}
+                                                        className="flex items-center justify-center gap-1.5 py-2.5 text-sm font-bold hover:brightness-95 disabled:opacity-60 transition"
                                                     >
                                                         <CreditCard className="w-4 h-4" />
                                                         Pay Online
@@ -217,7 +222,12 @@ export default function CartDrawer() {
                                                 /* Standard vendor — single button */
                                                 <button
                                                     onClick={() => handlePlatformCheckout(group)}
-                                                    className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold bg-gray-900 hover:bg-gray-800 text-white transition"
+                                                    style={{
+                                                        backgroundColor: 'var(--btn-primary-bg, var(--primary, #111827))',
+                                                        color: 'var(--btn-primary-text, var(--primary-foreground, #ffffff))',
+                                                        borderRadius: 'var(--btn-radius, 0.75rem)'
+                                                    }}
+                                                    className="w-full flex items-center justify-center gap-2 py-2.5 text-sm font-bold hover:brightness-95 transition"
                                                 >
                                                     <CreditCard className="w-4 h-4" />
                                                     Checkout

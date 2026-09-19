@@ -26,7 +26,8 @@ export default function WishlistPage() {
                         </div>
                         <Link
                             href="/search"
-                            className="text-blue-600 hover:text-blue-700 font-medium flex items-center gap-2"
+                            style={{ color: 'var(--primary, #2563eb)' }}
+                            className="font-semibold flex items-center gap-2 hover:opacity-80 transition"
                         >
                             <ShoppingBag className="w-5 h-5" />
                             Continue Shopping
@@ -44,7 +45,12 @@ export default function WishlistPage() {
                             </p>
                             <Link
                                 href="/search"
-                                className="inline-flex items-center justify-center px-8 py-3 bg-blue-600 text-white font-bold rounded-full hover:bg-blue-700 transition-all shadow-md hover:shadow-lg active:scale-95"
+                                style={{
+                                    backgroundColor: 'var(--btn-primary-bg, var(--primary, #2563eb))',
+                                    color: 'var(--btn-primary-text, var(--primary-foreground, #ffffff))',
+                                    borderRadius: 'var(--btn-radius, 9999px)'
+                                }}
+                                className="inline-flex items-center justify-center px-8 py-3 font-bold transition-all shadow-md hover:brightness-95 active:scale-95"
                             >
                                 Browse Products
                             </Link>

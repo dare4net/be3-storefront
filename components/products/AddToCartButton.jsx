@@ -47,7 +47,12 @@ export default function AddToCartButton({ product }) {
             <button
                 onClick={handleAddToCart}
                 disabled={adding}
-                className="flex-1 h-12 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg flex items-center justify-center gap-2 transition-all shadow hover:shadow-lg disabled:opacity-75 disabled:cursor-not-allowed"
+                style={{
+                    backgroundColor: 'var(--btn-primary-bg, var(--primary, #2563eb))',
+                    color: 'var(--btn-primary-text, var(--primary-foreground, #ffffff))',
+                    borderRadius: 'var(--btn-radius, 0.5rem)'
+                }}
+                className="flex-1 h-12 font-bold flex items-center justify-center gap-2 transition-all shadow hover:brightness-95 active:scale-[0.98] disabled:opacity-75 disabled:cursor-not-allowed"
             >
                 {adding ? (
                     <>

@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useMemo, useRef } from 'react';
 import Link from 'next/link';
-import { ShoppingCart, Check, Eye, Heart, MessageCircle, X, Star } from 'lucide-react';
+import { ShoppingCart, ShoppingBag, Plus, Check, Eye, Heart, MessageCircle, X, Star } from 'lucide-react';
 import { useChatContext } from '@/components/providers/ChatContext';
 import { useCart } from '../providers/CartContext';
 import { useWishlist } from '../providers/WishlistContext';
@@ -938,14 +938,49 @@ export default function ProductGridWidget({ config }) {
                                                         <Eye style={{ width: `${1.25 * scale}rem`, height: `${1.25 * scale}rem` }} />
                                                     </Link>
                                                 )}
-                                                {effectiveShowAddToCart && (
+                                                {effectiveShowAddToCart && config.cartButtonVariant !== 'full_width' && (
                                                     <button
                                                         onClick={(e) => handleAddToCart(e, product)}
                                                         disabled={addingToCart === product.id}
-                                                        className="rounded-full transition-all duration-200 transform hover:scale-105 active:scale-95 shadow-md flex items-center gap-2"
+                                                        className="transition-all duration-200 transform hover:scale-105 active:scale-95 shadow-md flex items-center justify-center gap-1.5"
                                                         style={{
-                                                            backgroundColor: addingToCart === product.id ? '#10b981' : (colors?.accent && colors.accent !== '#3b82f6' ? colors.accent : 'var(--btn-primary-bg, var(--primary))'),
-                                                            color: 'var(--btn-primary-text, var(--primary-foreground, #ffffff))',
+                                                            ...(() => {
+                                                                let borderRadius = 'var(--btn-radius, 9999px)';
+                                                                if (config.cartButtonShape === 'pill') borderRadius = '9999px';
+                                                                else if (config.cartButtonShape === 'rounded') borderRadius = '8px';
+                                                                else if (config.cartButtonShape === 'sharp') borderRadius = '0px';
+
+                                                                if (addingToCart === product.id) {
+                                                                    return { backgroundColor: '#10b981', color: '#ffffff', borderRadius, border: '1px solid transparent' };
+                                                                }
+                                                                const variant = config.cartButtonVariant || 'solid';
+                                                                const hasCustomColors = config.cartButtonCustomColors;
+                                                                const customBg = config.cartButtonBg;
+                                                                const customText = config.cartButtonTextCol;
+
+                                                                if (variant === 'soft') {
+                                                                    return {
+                                                                        backgroundColor: hasCustomColors && customBg ? customBg : 'var(--accent-soft, rgba(37,99,235,0.1))',
+                                                                        color: hasCustomColors && customText ? customText : 'var(--primary, #2563eb)',
+                                                                        borderRadius,
+                                                                        border: '1px solid transparent'
+                                                                    };
+                                                                }
+                                                                if (variant === 'outline') {
+                                                                    return {
+                                                                        backgroundColor: 'transparent',
+                                                                        color: hasCustomColors && customText ? customText : 'var(--primary, #2563eb)',
+                                                                        borderRadius,
+                                                                        border: `1.5px solid ${hasCustomColors && customBg ? customBg : 'var(--primary, #2563eb)'}`
+                                                                    };
+                                                                }
+                                                                return {
+                                                                    backgroundColor: hasCustomColors && customBg ? customBg : (colors?.accent && colors.accent !== '#3b82f6' ? colors.accent : 'var(--btn-primary-bg, var(--primary))'),
+                                                                    color: hasCustomColors && customText ? customText : 'var(--btn-primary-text, var(--primary-foreground, #ffffff))',
+                                                                    borderRadius,
+                                                                    border: '1px solid transparent'
+                                                                };
+                                                            })(),
                                                             padding: deviceType === 'mobile'
                                                                 ? `${0.5 * scale}rem ${0.8 * scale}rem`
                                                                 : `${0.625 * scale}rem ${1 * scale}rem`
@@ -953,17 +988,76 @@ export default function ProductGridWidget({ config }) {
                                                         aria-label="Add to Cart"
                                                     >
                                                         {addingToCart === product.id ? (
-                                                            <Check className="animate-in zoom-in spin-in-50 duration-300" style={{ width: `${1.25 * scale}rem`, height: `${1.25 * scale}rem` }} />
+                                                            <Check className="animate-in zoom-in spin-in-50 duration-300 shrink-0" style={{ width: `${1.25 * scale}rem`, height: `${1.25 * scale}rem` }} />
                                                         ) : (
                                                             <>
-                                                                <ShoppingCart style={{ width: `${1.25 * scale}rem`, height: `${1.25 * scale}rem` }} />
-                                                                <span className="font-medium hidden md:inline" style={{ fontSize: `${0.875 * scale}rem` }}>Add</span>
+                                                                {(config.cartButtonIcon || 'cart') === 'bag' ? (
+                                                                    <ShoppingBag style={{ width: `${1.25 * scale}rem`, height: `${1.25 * scale}rem` }} className="shrink-0" />
+                                                                ) : (config.cartButtonIcon || 'cart') === 'plus' ? (
+                                                                    <Plus style={{ width: `${1.25 * scale}rem`, height: `${1.25 * scale}rem` }} className="shrink-0" />
+                                                                ) : (config.cartButtonIcon || 'cart') === 'none' ? null : (
+                                                                    <ShoppingCart style={{ width: `${1.25 * scale}rem`, height: `${1.25 * scale}rem` }} className="shrink-0" />
+                                                                )}
+                                                                {(config.cartButtonText !== undefined ? config.cartButtonText : 'Add') && (
+                                                                    <span className="font-medium hidden md:inline" style={{ fontSize: `${0.875 * scale}rem` }}>
+                                                                        {config.cartButtonText !== undefined ? config.cartButtonText : 'Add'}
+                                                                    </span>
+                                                                )}
                                                             </>
                                                         )}
                                                     </button>
                                                 )}
                                             </div>
                                         </div>
+
+                                        {/* Full-width Cart Button variant */}
+                                        {effectiveShowAddToCart && config.cartButtonVariant === 'full_width' && (
+                                            <button
+                                                onClick={(e) => handleAddToCart(e, product)}
+                                                disabled={addingToCart === product.id}
+                                                className="w-full mt-3 py-2.5 px-4 font-semibold text-xs sm:text-sm transition-all duration-200 transform active:scale-95 shadow-sm flex items-center justify-center gap-2 hover:opacity-95"
+                                                style={{
+                                                    ...(() => {
+                                                        let borderRadius = 'var(--btn-radius, 8px)';
+                                                        if (config.cartButtonShape === 'pill') borderRadius = '9999px';
+                                                        else if (config.cartButtonShape === 'rounded') borderRadius = '8px';
+                                                        else if (config.cartButtonShape === 'sharp') borderRadius = '0px';
+
+                                                        if (addingToCart === product.id) {
+                                                            return { backgroundColor: '#10b981', color: '#ffffff', borderRadius, border: '1px solid transparent' };
+                                                        }
+                                                        const hasCustomColors = config.cartButtonCustomColors;
+                                                        const customBg = config.cartButtonBg;
+                                                        const customText = config.cartButtonTextCol;
+
+                                                        return {
+                                                            backgroundColor: hasCustomColors && customBg ? customBg : (colors?.accent && colors.accent !== '#3b82f6' ? colors.accent : 'var(--btn-primary-bg, var(--primary))'),
+                                                            color: hasCustomColors && customText ? customText : 'var(--btn-primary-text, var(--primary-foreground, #ffffff))',
+                                                            borderRadius,
+                                                            border: '1px solid transparent'
+                                                        };
+                                                    })()
+                                                }}
+                                                aria-label="Add to Cart"
+                                            >
+                                                {addingToCart === product.id ? (
+                                                    <Check className="animate-in zoom-in spin-in-50 duration-300 shrink-0" style={{ width: `${1.1 * scale}rem`, height: `${1.1 * scale}rem` }} />
+                                                ) : (
+                                                    <>
+                                                        {(config.cartButtonIcon || 'cart') === 'bag' ? (
+                                                            <ShoppingBag style={{ width: `${1.1 * scale}rem`, height: `${1.1 * scale}rem` }} className="shrink-0" />
+                                                        ) : (config.cartButtonIcon || 'cart') === 'plus' ? (
+                                                            <Plus style={{ width: `${1.1 * scale}rem`, height: `${1.1 * scale}rem` }} className="shrink-0" />
+                                                        ) : (config.cartButtonIcon || 'cart') === 'none' ? null : (
+                                                            <ShoppingCart style={{ width: `${1.1 * scale}rem`, height: `${1.1 * scale}rem` }} className="shrink-0" />
+                                                        )}
+                                                        <span className="font-medium" style={{ fontSize: `${0.875 * scale}rem` }}>
+                                                            {config.cartButtonText !== undefined ? config.cartButtonText : 'Add to Cart'}
+                                                        </span>
+                                                    </>
+                                                )}
+                                            </button>
+                                        )}
                                     </div>
 
                                 </div>
