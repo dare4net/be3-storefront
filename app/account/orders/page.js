@@ -11,6 +11,7 @@ import {
     Search, CalendarDays, ArrowRight, CreditCard
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useCurrency } from "@/hooks/useCurrency";
 
 
 // Order status — operational/fulfillment lifecycle
@@ -57,9 +58,9 @@ function PaymentStatusPill({ status }) {
 }
 
 function OrderCard({ order, openChat, onMakePayment }) {
+    const { formatPrice } = useCurrency();
     const orderCfg = ORDER_STATUS_CONFIG[order.status] || { accent: "border-l-gray-300" };
     const date = new Date(order.created_at).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
-    const amount = parseFloat(order.total).toLocaleString('en-NG', { minimumFractionDigits: 2 });
     const canPay = ['unpaid', 'failed'].includes(order.payment_status);
     const isWhatsApp = order.checkout_type === 'whatsapp';
 
@@ -97,7 +98,7 @@ function OrderCard({ order, openChat, onMakePayment }) {
                             <CalendarDays className="w-3 h-3" />
                             {date}
                         </span>
-                        <span className="font-semibold text-gray-700">₦{amount}</span>
+                        <span className="font-semibold text-gray-700">{formatPrice(order.total)}</span>
                         {order.item_count > 0 && <span>{order.item_count} item{order.item_count !== 1 ? 's' : ''}</span>}
                     </div>
                 </div>

@@ -3,9 +3,11 @@
 import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import { CheckCircle2, Layers } from "lucide-react";
+import { useCurrency } from "@/hooks/useCurrency";
 
 export default function VariantSelector({ currentHandle, variants = [], parentProduct = null, currentProduct = null }) {
     const router = useRouter();
+    const { formatPrice } = useCurrency();
 
     // Build base model option
     // If we're on a variant page, parent is the base model.
@@ -87,7 +89,7 @@ export default function VariantSelector({ currentHandle, variants = [], parentPr
                                     className="text-sm font-black"
                                     style={isActive ? { color: 'var(--primary)' } : { color: '#374151' }}
                                 >
-                                    ${optPrice.toFixed(2)}
+                                    {formatPrice(optPrice)}
                                 </span>
                                 {!opt._isBase && delta !== 0 && (
                                     <span className={cn(

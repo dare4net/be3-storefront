@@ -17,6 +17,7 @@ import ChatButton from "@/components/chat/ChatButton";
 import { mapToNextMetadata } from "@/lib/seoMapper";
 import { ChevronRight } from 'lucide-react';
 import ProductLocation from "@/components/product/ProductLocation";
+import { formatPrice } from "@/lib/currency";
 
 async function getProduct(handle, tenant) {
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3000';
@@ -134,7 +135,7 @@ export default async function ProductPage({ params }) {
         "offers": {
             "@type": "Offer",
             "url": productUrl,
-            "priceCurrency": tenant?.settings?.currency || "USD",
+            "priceCurrency": tenant?.currency || tenant?.settings?.currency || "USD",
             "price": parseFloat(price).toFixed(2),
             "priceValidUntil": new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
             "availability": isInStock
@@ -258,14 +259,18 @@ export default async function ProductPage({ params }) {
                     {/* Price */}
                     <div className="px-6 py-5">
                         <div className="flex items-end gap-3">
-                            <span className="text-3xl font-bold" style={{ color: 'var(--foreground, #111827)' }}>${parseFloat(price).toFixed(2)}</span>
+                            <span className="text-3xl font-bold" style={{ color: 'var(--foreground, #111827)' }}>
+                                {formatPrice(price, tenant?.currency, tenant?.currency_symbol)}
+                            </span>
                             {compare_at_price && (
-                                <span className="text-base text-gray-400 line-through pb-0.5">${parseFloat(compare_at_price).toFixed(2)}</span>
+                                <span className="text-base text-gray-400 line-through pb-0.5">
+                                    {formatPrice(compare_at_price, tenant?.currency, tenant?.currency_symbol)}
+                                </span>
                             )}
                         </div>
                         {discount > 0 && (
                             <p className="text-sm text-green-600 font-medium mt-1">
-                                Save {discount}% · You save ${(compare_at_price - price).toFixed(2)}
+                                Save {discount}% · You save {formatPrice(compare_at_price - price, tenant?.currency, tenant?.currency_symbol)}
                             </p>
                         )}
                     </div>

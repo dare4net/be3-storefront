@@ -6,9 +6,11 @@ import { useState, useEffect } from 'react';
 import api from '@/lib/axios';
 import { useTenant } from '@/components/providers/TenantContext';
 import { useAuth } from '@/components/providers/AuthContext';
+import { useCurrency } from '@/hooks/useCurrency';
 
 export default function ProductInfoSidebar({ product }) {
     const tenant = useTenant();
+    const { formatPrice } = useCurrency();
     const activeVendorId = product?.created_by || product?.vendorId || product?.vendor_id;
     const [topology, setTopology] = useState({ countries: [], states: [], landmarks: [] });
     const [destinationIds, setDestinationIds] = useState({ country_id: "", state_id: "", landmark_id: "" });
@@ -410,7 +412,7 @@ export default function ProductInfoSidebar({ product }) {
                                             <div>
                                                 <p className="text-[10px] text-gray-500 uppercase tracking-wider font-bold">Estimated Fee</p>
                                                 <p className="font-bold text-gray-900 mt-0.5">
-                                                    {shippingData.breakdowns[activeVendorId].fee === 0 ? <span className="text-green-600">Free</span> : `₦${parseFloat(shippingData.breakdowns[activeVendorId].fee).toLocaleString("en-NG", { minimumFractionDigits: 2 })}`}
+                                                    {shippingData.breakdowns[activeVendorId].fee === 0 ? <span className="text-green-600">Free</span> : formatPrice(shippingData.breakdowns[activeVendorId].fee)}
                                                 </p>
                                                 <p className="text-[10px] text-gray-600 font-medium mt-1 inline-flex items-center gap-1">
                                                     <Clock className="w-3 h-3 text-blue-600" />
@@ -598,7 +600,7 @@ export default function ProductInfoSidebar({ product }) {
                                                 {coupon.code}
                                             </span>
                                             <span className="text-[10px] font-bold text-orange-600 bg-orange-100 px-1.5 py-0.5 rounded uppercase tracking-wider leading-none">
-                                                {coupon.type === 'percentage' ? `${coupon.value}% OFF` : coupon.type === 'fixed' ? `$${parseFloat(coupon.value).toFixed(2)} OFF` : 'Free Shipping'}
+                                                {coupon.type === 'percentage' ? `${coupon.value}% OFF` : coupon.type === 'fixed' ? `${formatPrice(coupon.value)} OFF` : 'Free Shipping'}
                                             </span>
                                         </div>
                                         <p className="text-[11px] text-gray-600 mt-1.5 font-medium leading-snug line-clamp-1">{coupon.description}</p>

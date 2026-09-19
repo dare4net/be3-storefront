@@ -6,6 +6,7 @@ import { Search, X, TrendingUp, Package, FolderOpen, FileText } from "lucide-rea
 import api from "@/lib/axios";
 import { useTenant } from "@/components/providers/TenantContext";
 import { useAnalytics } from "@/lib/hooks/useAnalytics";
+import { useCurrency } from "@/hooks/useCurrency";
 
 function getContentIcon(type) {
   switch (type) {
@@ -19,6 +20,7 @@ function getContentIcon(type) {
 export default function SearchBarWidget({ config = {} }) {
   const tenant = useTenant();
   const router = useRouter();
+  const { formatPrice } = useCurrency();
 
   const placeholder = config.placeholder || "Search products...";
   const showAutocomplete = config.autocomplete !== false;
@@ -281,7 +283,7 @@ export default function SearchBarWidget({ config = {} }) {
                           </span>
                           {isProduct && s.price !== undefined && (
                             <span className="text-sm font-bold text-blue-600 flex-shrink-0">
-                              ${parseFloat(s.price).toFixed(2)}
+                              {formatPrice(s.price)}
                             </span>
                           )}
                         </div>

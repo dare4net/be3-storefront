@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import api from "@/lib/axios";
 import { useTenant } from "@/components/providers/TenantContext";
 import { useAnalytics } from "@/lib/hooks/useAnalytics";
+import { useCurrency } from "@/hooks/useCurrency";
 
 function getContentIcon(type) {
     switch (type) {
@@ -22,6 +23,7 @@ export function SearchBar({ className }) {
     const searchParams = useSearchParams();
     const tenant = useTenant();
     const { trackImpression, trackClick } = useAnalytics();
+    const { formatPrice } = useCurrency();
 
     const [query, setQuery] = useState(searchParams.get("q") || "");
     const [suggestions, setSuggestions] = useState([]);
@@ -274,7 +276,7 @@ export function SearchBar({ className }) {
                                                     "text-sm font-black whitespace-nowrap",
                                                     isSelected ? "text-white" : "text-blue-600"
                                                 )}>
-                                                    ${parseFloat(s.price).toFixed(2)}
+                                                    {formatPrice(s.price)}
                                                 </span>
                                             )}
                                         </div>

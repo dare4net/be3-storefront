@@ -15,6 +15,7 @@ import {
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
 import ConnectWhatsApp from "@/components/account/ConnectWhatsApp";
+import { useCurrency } from "@/hooks/useCurrency";
 
 /* ─────────── Verification Banner ─────────── */
 function VerificationBanner({ user }) {
@@ -171,6 +172,7 @@ function StatusBadge({ status }) {
 
 /* ─────────── Recent Orders Panel ─────────── */
 function RecentOrdersPanel({ orders, loading }) {
+    const { formatPrice } = useCurrency();
     return (
         <div className="rounded-xl bg-white border border-gray-100">
             <div className="flex items-center justify-between px-5 pt-5 pb-3">
@@ -222,7 +224,7 @@ function RecentOrdersPanel({ orders, loading }) {
 
                                 {/* Amount */}
                                 <span className="text-sm font-bold text-gray-900 tabular-nums">
-                                    ${parseFloat(order.total).toFixed(2)}
+                                    {formatPrice(order.total)}
                                 </span>
 
                                 <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-gray-500 transition-colors flex-shrink-0" />
