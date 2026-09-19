@@ -1,191 +1,75 @@
-"use client";
+﻿// Server Component — exports generateMetadata + injects JSON-LD for Google
+import { getTenantAndTheme } from "@/lib/context";
+import CollectionPageClient from "@/components/CollectionPageClient";
 
-import { useEffect, useState, use, useMemo } from "react";
-import Link from 'next/link';
-import { ChevronRight, Package } from 'lucide-react';
-import { useTenant } from "@/components/providers/TenantContext";
-import { SearchProvider } from "@/components/providers/SearchContext";
-import SearchPageLayout from "@/components/widgets/SearchPageLayout";
-
-import api from "@/lib/axios";
-import EntityAnalytics from "@/components/analytics/EntityAnalytics";
-import { LegacyPageProvider } from "@/components/providers/LegacyPageContext";
-import WidgetRenderer from "@/components/widgets/WidgetRenderer";
-import CollectionHeader from "@/components/collections/CollectionHeader";
-
-// Server-side metadata for collection pages
-export async function generateMetadata({ params }) {
-    const { slug } = await params;
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3000';
-
-    const { headers } = await import('next/headers');
-    const headersList = await headers();
-    const tenantId = headersList.get('x-tenant-id');
-
-    if (!tenantId) return {};
-
+async function fetchCollectionMeta(slug, tenantId) {
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:3000";
     try {
         const res = await fetch(`${apiUrl}/products/storefront/collections/${slug}`, {
-            headers: { 'x-tenant-id': tenantId },
-            cache: 'no-store'
+            headers: { "x-tenant-id": tenantId },
+            cache: "no-store",
         });
-        if (res.ok) {
-            const data = await res.json();
-            if (data.success && data.collection) {
-                const col = data.collection;
-                const title = col.seo_title || col.name;
-                const description = col.seo_description || col.description || `Browse the ${col.name} collection.`;
-                return {
-                    title,
-                    description,
-                    openGraph: { title, description, type: 'website' },
-                    alternates: { canonical: `/collections/${slug}` },
-                };
-            }
-        }
-    } catch (_) {}
-
-    return {};
+        if (!res.ok) return null;
+        const data = await res.json();
+        return data.success ? data.collection : null;
+    } catch (_) {
+        return null;
+    }
 }
 
-export default function CollectionPage({ params }) {
-    const resolvedParams = use(params);
-    const { slug } = resolvedParams;
-    const tenant = useTenant();
+export async function generateMetadata({ params }) {
+    const { slug } = await params;
+    const { tenant } = await getTenantAndTheme();
+    if (!tenant) return {};
 
-    const [collection, setCollection] = useState(null);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
-    const [widgets, setWidgets] = useState([]);
-    const [widgetsLoading, setWidgetsLoading] = useState(true);
+    const collection = await fetchCollectionMeta(slug, tenant.id);
+    if (!collection) return {};
 
-    const initialFilters = useMemo(() => {
-        return { collection_slug: slug };
-    }, [slug]);
+    const title = collection.seo_title || collection.name;
+    const description = collection.seo_description || collection.description || `Browse the ${collection.name} collection.`;
 
-    useEffect(() => {
-        if (!tenant?.id) return;
+    return {
+        title,
+        description,
+        openGraph: { title, description, type: "website" },
+        alternates: { canonical: `/collections/${slug}` },
+    };
+}
 
-        const fetchCollection = async () => {
-            try {
-                const res = await api.get(`/products/storefront/collections/${slug}`, {
-                    headers: { 'x-tenant-id': tenant.id }
-                });
-                if (res.data?.success) {
-                    setCollection(res.data.collection);
-                } else {
-                    setError("Collection not found");
-                }
-            } catch (e) {
-                console.error("Failed to fetch collection", e);
-                setError("Failed to load collection");
-            } finally {
-                setLoading(false);
-            }
-        };
+export default async function CollectionPage({ params }) {
+    const { slug } = await params;
+    const { tenant } = await getTenantAndTheme();
 
-        const fetchWidgets = async () => {
-            try {
-                // Try specific slug first, then fallback to template
-                const res = await api.get(`/page-builder/widgets?page=${slug}`, {
-                    headers: { 'x-tenant-id': tenant.id }
-                });
-                
-                let foundWidgets = res.data?.widgets || [];
-                if (foundWidgets.length === 0) {
-                    const templateRes = await api.get(`/page-builder/widgets?page=collection_detail`, {
-                        headers: { 'x-tenant-id': tenant.id }
-                    });
-                    foundWidgets = templateRes.data?.widgets || [];
-                }
-                
-                setWidgets(foundWidgets);
-            } catch (e) {
-                console.error("Failed to fetch widgets", e);
-            } finally {
-                setWidgetsLoading(false);
-            }
-        };
+    const collection = tenant ? await fetchCollectionMeta(slug, tenant.id) : null;
 
-        fetchCollection();
-        fetchWidgets();
-    }, [slug, tenant?.id]);
-
-    if (loading || widgetsLoading) {
-        return (
-            <div className="min-h-screen flex items-center justify-center bg-gray-50">
-                <div className="flex flex-col items-center gap-4">
-                    <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" />
-                    <p className="text-gray-500 font-medium">Loading collection...</p>
-                </div>
-            </div>
-        );
-    }
-
-    if (error || !collection) {
-        return (
-            <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 px-4 text-center">
-                <div className="w-20 h-20 bg-amber-50 rounded-full flex items-center justify-center mb-6">
-                    <Package className="w-10 h-10 text-amber-400" />
-                </div>
-                <h1 className="text-2xl font-bold text-gray-900 mb-2">{error || "Collection Not Found"}</h1>
-                <p className="text-gray-600 mb-8 max-w-md">We couldn't find the collection you're looking for. It might have been moved or is currently unavailable.</p>
-                <Link href="/products" className="px-6 py-3 bg-indigo-600 text-white rounded-xl font-semibold hover:bg-indigo-700 transition-all shadow-lg">
-                    Browse All Products
-                </Link>
-            </div>
-        );
-    }
+    const collectionJsonLd = collection ? [
+        {
+            "@context": "https://schema.org",
+            "@type": "CollectionPage",
+            "name": collection.name,
+            "description": collection.description || `Browse the ${collection.name} collection`,
+            "url": `/collections/${collection.slug}`,
+        },
+        {
+            "@context": "https://schema.org",
+            "@type": "BreadcrumbList",
+            "itemListElement": [
+                { "@type": "ListItem", "position": 1, "name": "Home", "item": "/" },
+                { "@type": "ListItem", "position": 2, "name": "Collections", "item": "/collections" },
+                { "@type": "ListItem", "position": 3, "name": collection.name, "item": `/collections/${collection.slug}` },
+            ]
+        }
+    ] : null;
 
     return (
-        <SearchProvider key={slug} initialFilters={initialFilters}>
-            <LegacyPageProvider data={collection} type="collection">
-                <div className="min-h-screen bg-white">
-
-                    {/* CollectionPage + BreadcrumbList JSON-LD */}
-                    <script
-                        type="application/ld+json"
-                        dangerouslySetInnerHTML={{
-                            __html: JSON.stringify([
-                                {
-                                    "@context": "https://schema.org",
-                                    "@type": "CollectionPage",
-                                    "name": collection.name,
-                                    "description": collection.description || `Browse the ${collection.name} collection`,
-                                    "url": `/collections/${collection.slug}`,
-                                    "image": collection.image_url || undefined,
-                                },
-                                {
-                                    "@context": "https://schema.org",
-                                    "@type": "BreadcrumbList",
-                                    "itemListElement": [
-                                        { "@type": "ListItem", "position": 1, "name": "Home", "item": "/" },
-                                        { "@type": "ListItem", "position": 2, "name": "Collections", "item": "/collections" },
-                                        { "@type": "ListItem", "position": 3, "name": collection.name, "item": `/collections/${collection.slug}` },
-                                    ]
-                                }
-                            ])
-                        }}
-                    />
-
-                    <EntityAnalytics type="collection" entity={collection} />
-
-                    {/* Show a curated collection hero header for manual (non-vendor) collections */}
-                    {collection.collection_type !== 'vendor' && (
-                        <CollectionHeader collection={collection} />
-                    )}
-
-                    {widgets.length > 0 ? (
-                        widgets.filter(w => !w.parent_id).map(widget => (
-                            <WidgetRenderer key={widget.id} widget={widget} widgets={widgets} />
-                        ))
-                    ) : (
-                        <div className="container mx-auto px-4 py-20 text-center">
-                            <p className="text-gray-500">No widgets registered for this page.</p>
-                        </div>
-                    )}
-                </div>
-            </LegacyPageProvider>
-        </SearchProvider>
+        <>
+            {collectionJsonLd && (
+                <script
+                    type="application/ld+json"
+                    dangerouslySetInnerHTML={{ __html: JSON.stringify(collectionJsonLd) }}
+                />
+            )}
+            <CollectionPageClient slug={slug} />
+        </>
     );
 }
