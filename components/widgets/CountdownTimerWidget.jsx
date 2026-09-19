@@ -93,7 +93,7 @@ export default function CountdownTimerWidget({ config }) {
     };
 
     const colorSchemes = {
-        primary: 'bg-blue-600 text-white',
+        primary: 'bg-theme-primary bg-blue-600 text-white',
         danger: 'bg-red-600 text-white',
         success: 'bg-green-600 text-white',
         custom: 'bg-gradient-to-r from-purple-600 to-pink-600 text-white'

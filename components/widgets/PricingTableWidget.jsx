@@ -19,14 +19,14 @@ export default function PricingTableWidget({ config }) {
         tooltipsEnabled = true,
         theme = {
             background: { type: 'solid', color: '#f9fafb' },
-            cardBackground: '#ffffff',
-            cardBorder: '#e5e7eb',
-            primaryAccent: '#3b82f6',
-            textColor: '#111827',
+            cardBackground: 'var(--card-bg, #ffffff)',
+            cardBorder: 'var(--border, #e5e7eb)',
+            primaryAccent: 'var(--primary, #3b82f6)',
+            textColor: 'var(--foreground, #111827)',
             featureIncluded: '#10b981',
             featureExcluded: '#9ca3af',
             cardShadow: 'xl',
-            borderRadius: '16px'
+            borderRadius: 'var(--card-radius, 16px)'
         }
     } = config;
 
@@ -158,14 +158,14 @@ function PricingCard({ plan, billingPeriod, price, cardStyle, tooltipsEnabled, i
                 borderStyle: 'solid',
                 borderColor: theme?.cardBorder || '#e5e7eb',
                 borderRadius: theme?.borderRadius || '16px',
-                ...(plan.featured ? { ringColor: theme?.primaryAccent || '#3b82f6' } : {})
+                ...(plan.featured ? { ringColor: theme?.primaryAccent || 'var(--primary, #3b82f6)' } : {})
             }}
         >
             {/* Featured Badge */}
             {plan.featured && (
                 <div
                     className="absolute top-0 left-0 right-0 py-2 text-center text-white text-sm font-semibold"
-                    style={{ backgroundColor: theme?.primaryAccent || '#3b82f6' }}
+                    style={{ backgroundColor: theme?.primaryAccent || 'var(--primary, #3b82f6)' }}
                 >
                     ⭐ Most Popular
                 </div>
@@ -178,7 +178,7 @@ function PricingCard({ plan, billingPeriod, price, cardStyle, tooltipsEnabled, i
                 {/* Price */}
                 <div className="mb-6">
                     <div className="flex items-baseline gap-2">
-                        <span className="text-5xl font-bold" style={{ color: plan.accentColor || '#3b82f6' }}>
+                        <span className="text-5xl font-bold" style={{ color: plan.accentColor || theme?.primaryAccent || 'var(--primary, #3b82f6)' }}>
                             {plan.currency === 'USD' && '$'}
                             {plan.currency === 'EUR' && '€'}
                             {plan.currency === 'GBP' && '£'}
@@ -237,10 +237,10 @@ function PricingCard({ plan, billingPeriod, price, cardStyle, tooltipsEnabled, i
                 {/* CTA Button */}
                 <Link
                     href={plan.ctaLink || '#'}
-                    className="block w-full text-center px-6 py-4 rounded-xl font-bold transition-all hover:scale-105 shadow-lg"
+                    className={`block w-full text-center px-6 py-4 rounded-xl font-bold transition-all hover:scale-105 shadow-lg ${plan.featured ? 'btn-theme-primary' : ''}`}
                     style={{
-                        backgroundColor: plan.featured ? (theme?.primaryAccent || '#3b82f6') : '#f3f4f6',
-                        color: plan.featured ? '#ffffff' : (theme?.textColor || '#374151')
+                        backgroundColor: plan.featured ? (theme?.primaryAccent || 'var(--btn-primary-bg, var(--primary))') : 'var(--btn-secondary-bg, #f3f4f6)',
+                        color: plan.featured ? 'var(--btn-primary-text, #ffffff)' : 'var(--btn-secondary-text, var(--foreground, #374151))'
                     }}
                 >
                     {plan.ctaText || 'Get Started'}

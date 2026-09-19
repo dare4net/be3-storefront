@@ -20,8 +20,10 @@ function normalizeFilters(filters) {
   return out;
 }
 
-function buildQueryString({ q, page, perPage, sort, filters }, exclude = []) {
+function buildQueryString(paramsObj, exclude = []) {
   const params = new URLSearchParams();
+  const { q, page, perPage, sort, filters, ...extra } = paramsObj;
+
   if (q && !exclude.includes("q")) params.set("q", q);
   if (page && page !== 1 && !exclude.includes("page")) params.set("page", String(page));
   if (perPage && !exclude.includes("per_page")) params.set("per_page", String(perPage));
@@ -31,6 +33,12 @@ function buildQueryString({ q, page, perPage, sort, filters }, exclude = []) {
     if (val === undefined || val === null || val === "" || exclude.includes(key)) return;
     params.set(key, String(val));
   });
+
+  Object.entries(extra || {}).forEach(([key, val]) => {
+    if (val === undefined || val === null || val === "" || exclude.includes(key)) return;
+    params.set(key, String(val));
+  });
+
   return params.toString();
 }
 
@@ -56,6 +64,7 @@ export function SearchProvider({ children, initialPerPage = 20, initialFilters =
     const collectionId = searchParams.get("collection_id");
     const collectionSlug = searchParams.get("collection_slug");
     const tag = searchParams.get("tag");
+    const deliveryType = searchParams.get("delivery_type");
 
     if (priceMin) f.price_min = priceMin;
     if (priceMax) f.price_max = priceMax;
@@ -65,6 +74,7 @@ export function SearchProvider({ children, initialPerPage = 20, initialFilters =
     if (collectionId) f.collection_id = collectionId;
     if (collectionSlug) f.collection_slug = collectionSlug;
     if (tag) f.tag = tag;
+    if (deliveryType) f.delivery_type = deliveryType;
 
     // Attribute filters: attribute.<code>=value
     for (const [k, v] of searchParams.entries()) {
@@ -82,6 +92,12 @@ export function SearchProvider({ children, initialPerPage = 20, initialFilters =
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [isSearchActive, setIsSearchActive] = useState(false);
+  const [includeStats, setIncludeStats] = useState(false);
+
+  // --- Image Search State ---
+  const [imageSource, setImageSource] = useState(null); // URL or base64
+  const [imageMode, setImageMode] = useState(false);    // true when searching by image
+  const [activeVector, setActiveVector] = useState(null); // Cached embedding from backend
 
   const lastRequestKeyRef = useRef("");
 
@@ -134,11 +150,28 @@ export function SearchProvider({ children, initialPerPage = 20, initialFilters =
 
   const runSearch = useCallback(
     async (overrides = {}) => {
+      const statsPref = overrides.includeStats !== undefined ? overrides.includeStats : includeStats;
       if (!tenant?.id) return;
+
       const oq = overrides.q ?? q;
       const cleanFilters = normalizeFilters(overrides.filters ?? filters);
+      const currentPage = overrides.page ?? page;
+      const effectiveImageSource = overrides.imageSource ?? imageSource;
+      const effectiveImageMode = overrides.imageMode ?? imageMode;
+      // OPTIMIZATION: Use the cached vector if we have one and the source hasn't changed
+      const effectiveImage = (effectiveImageMode && !overrides.imageSource) ? (activeVector || effectiveImageSource) : effectiveImageSource;
 
-      const requestParams = { q: oq, page, perPage, sort, filters: cleanFilters };
+      const requestParams = {
+        q: oq,
+        page: currentPage,
+        perPage,
+        sort,
+        filters: cleanFilters,
+        include_stats: statsPref ? "true" : "false",
+        mode: effectiveImageMode ? "image" : (overrides.mode ?? "keyword"),
+        image: effectiveImage,
+      };
+
       const requestKey = JSON.stringify(requestParams);
 
       // Deduplicate: If we already have this data or a request for it is in flight
@@ -149,8 +182,19 @@ export function SearchProvider({ children, initialPerPage = 20, initialFilters =
       setError(null);
 
       try {
-        const qs = buildQueryString(requestParams);
-        const res = await api.get(`/search${qs ? `?${qs}` : ""}`, { headers: { "X-Tenant-ID": tenant.id } });
+        let res;
+        if (effectiveImageMode && effectiveImageSource) {
+          // Use POST for image search (handles large base64)
+          res = await api.post("/search", requestParams, {
+            headers: { "X-Tenant-ID": tenant.id, "Content-Type": "application/json" },
+          });
+        } else {
+          // Use GET for standard text search
+          const qs = buildQueryString(requestParams);
+          res = await api.get(`/search${qs ? `?${qs}` : ""}`, {
+            headers: { "X-Tenant-ID": tenant.id },
+          });
+        }
 
         // If another request started while this one was pending, ignore this result
         if (lastRequestKeyRef.current !== requestKey) return;
@@ -158,18 +202,23 @@ export function SearchProvider({ children, initialPerPage = 20, initialFilters =
         if (res.data?.success) {
           setResults(res.data.results || []);
           setFacets(res.data.facets || null);
-          setPagination(res.data.pagination || { page, perPage, total: 0, totalPages: 0 });
+          setPagination(res.data.pagination || { page: currentPage, perPage, total: 0, totalPages: 0 });
           setCategory(res.data.category || null);
 
+          // STORE VECTOR FOR ROUND-TRIP OPTIMIZATION
+          if (res.data.query_vector) {
+            setActiveVector(res.data.query_vector);
+          }
+
           // Only update SEO if not currently locked by a branded page
-          setSeo(prev => {
+          setSeo((prev) => {
             if (prev?.is_branded) return prev;
             return res.data.seo || null;
           });
         } else {
           setResults([]);
           setFacets(null);
-          setPagination({ page, perPage, total: 0, totalPages: 0 });
+          setPagination({ page: currentPage, perPage, total: 0, totalPages: 0 });
           setSeo(null);
         }
       } catch (e) {
@@ -177,13 +226,45 @@ export function SearchProvider({ children, initialPerPage = 20, initialFilters =
         setError(e?.response?.data?.message || e.message || "Search failed");
         setResults([]);
         setFacets(null);
-        setPagination({ page, perPage, total: 0, totalPages: 0 });
+        setPagination({ page: currentPage, perPage, total: 0, totalPages: 0 });
         setSeo(null);
       } finally {
         if (lastRequestKeyRef.current === requestKey) setLoading(false);
       }
     },
-    [tenant?.id, q, page, perPage, sort, filters]
+    [tenant?.id, q, page, perPage, sort, filters, includeStats, imageMode, imageSource]
+  );
+
+  /**
+   * Run a visual/image-based search.
+   * Pass null to clear image mode and revert to text search.
+   */
+  const runImageSearch = useCallback(
+    async (source) => {
+      if (!source) {
+        // Clear image mode
+        setImageSource(null);
+        setImageMode(false);
+        setPage(1);
+        // runSearch will be triggered by useEffect due to imageMode change
+        return;
+      }
+
+      if (!tenant?.id) return;
+      setImageSource(source);
+      setImageMode(true);
+      setActiveVector(null); // Reset cached vector for new image
+      setPage(1);
+
+      // Explicitly trigger to ensure immediate feedback even before useEffect
+      runSearch({
+        imageSource: source,
+        imageMode: true,
+        page: 1,
+        force: true,
+      });
+    },
+    [tenant?.id, perPage, runSearch]
   );
 
   // Sync URL + schema + results when on /search. Use q from URL so search works after
@@ -249,7 +330,7 @@ export function SearchProvider({ children, initialPerPage = 20, initialFilters =
     const cleanFilters = normalizeFilters(filters);
     loadSchema(cleanFilters.category_id || null).catch(() => { });
     runSearch();
-  }, [tenant?.id, pathname, q, page, perPage, sort, filters, runSearch, loadSchema]);
+  }, [tenant?.id, pathname, q, page, perPage, sort, filters, runSearch, loadSchema, includeStats]);
 
   // 4. Dynamic SEO Generation
   useEffect(() => {
@@ -279,17 +360,20 @@ export function SearchProvider({ children, initialPerPage = 20, initialFilters =
     // If this is a branded/locked SEO object from backend, don't override
     if (seo?.is_branded) return;
 
-    // If no clause is active and we have a static SEO object from backend, don't override
-    if (!activeClause && seo && !seo.is_dynamic) return;
+    // If no dynamic clause is active, we should NOT hijack the title!
+    // The base page component (via DynamicMetaTags) already set the correct, branded title.
+    if (!activeClause) return;
 
     const title = generateTitle(category, activeAttribute, activeClause);
     const description = generateDescription(category, activeAttribute, activeClause);
 
     // Update document head (side effect)
     if (typeof document !== 'undefined') {
+      const brandedTitle = `${title}${tenant ? ` | ${tenant.name}` : ''}`;
+
       // Don't update document title if it's already set by a more specific component or branded source
-      if (document.title !== title && !seo?.is_branded) {
-        document.title = title;
+      if (document.title !== brandedTitle && !seo?.is_branded) {
+        document.title = brandedTitle;
       }
       const metaDesc = document.querySelector('meta[name="description"]');
       if (metaDesc && metaDesc.getAttribute('content') !== description && !seo?.is_branded) {
@@ -343,9 +427,15 @@ export function SearchProvider({ children, initialPerPage = 20, initialFilters =
       setIsSearchActive,
       loading,
       error,
+      includeStats,
+      setIncludeStats,
       refresh: runSearch,
+      // Image search
+      imageMode,
+      imageSource,
+      runImageSearch,
     }),
-    [q, sort, page, perPage, filters, setFilters, setFilter, clearFilters, schema, results, facets, pagination, category, seo, setSeo, isSearchActive, setIsSearchActive, loading, error, runSearch]
+    [q, sort, page, perPage, filters, setFilters, setFilter, clearFilters, schema, results, facets, pagination, category, seo, setSeo, isSearchActive, setIsSearchActive, loading, error, includeStats, runSearch, imageMode, imageSource, runImageSearch]
   );
 
   return <SearchContext.Provider value={value}>{children}</SearchContext.Provider>;

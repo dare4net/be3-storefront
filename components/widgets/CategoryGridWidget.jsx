@@ -4,10 +4,18 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import Link from 'next/link';
 import { Folder } from 'lucide-react';
 import { proxyApi as api } from '@/lib/axios';
-import { useRandomizationData } from '@/lib/hooks/useRandomizationData';
-import { applyCategoryRandomization } from '@/lib/utils/widgetRandomizer';
+import { useRandomizationContext } from '@/lib/contexts/RandomizationContext';
+import { usePageContext } from '@/lib/hooks/usePageContext';
+import { useAnalytics } from '@/lib/hooks/useAnalytics';
 
-function CategoryCard({ category, config = {} }) {
+// Helper to format CSS values (append px if numeric)
+const formatCSSValue = (val) => {
+    if (!val || val === '0') return '0';
+    if (/^\d+(\.\d+)?$/.test(val.toString())) return `${val}px`;
+    return val;
+};
+
+function CategoryCard({ category, config = {}, trackClick, widgetId, index }) {
     const { isBento = false } = config;
     const [imageError, setImageError] = useState(false);
     const [imageLoaded, setImageLoaded] = useState(false);
@@ -43,10 +51,11 @@ function CategoryCard({ category, config = {} }) {
     const fontSize = deviceType === 'mobile' ? titleFontSizeMobile : deviceType === 'tablet' ? titleFontSizeTablet : titleFontSizeDesktop;
 
     const textStyle = {
-        fontSize: `${fontSize}px`,
+        fontSize: `clamp(0.9rem, 0.75rem + 1vw, ${formatCSSValue(titleFontSizeDesktop)})`,
         fontWeight: titleFontWeight,
         color: titleColor,
-        textAlign: titleAlignment === 'center' ? 'center' : titleAlignment === 'right' ? 'right' : 'left'
+        textAlign: titleAlignment === 'center' ? 'center' : titleAlignment === 'right' ? 'right' : 'left',
+        lineHeight: '1.2'
     };
 
     // Helper to convert gradient direction to CSS
@@ -84,8 +93,23 @@ function CategoryCard({ category, config = {} }) {
 
     return (
         <Link
-            href={`/categories/${category.slug || category.id}`}
+            href={`/categories/${category.slug || category.id}?ref_type=widget&ref_id=${widgetId}`}
             className="group block h-full w-full"
+            onClick={() => {
+                if (trackClick) {
+                    trackClick({
+                        entity_type: 'category',
+                        entity_id: category.id,
+                        placement_id: widgetId,
+                        placement_type: 'widget',
+                        position: index + 1,
+                        metadata: {
+                            category_name: category.name,
+                            category_slug: category.slug
+                        }
+                    });
+                }
+            }}
         >
             <div className={`relative ${isBento ? 'h-full w-full' : 'aspect-square'} rounded-2xl overflow-hidden bg-gradient-to-br from-pink-500 to-orange-500 hover:scale-[1.02] transition-transform flex items-center justify-center border-2 border-white shadow-lg`}>
                 {/* Always show High-Contrast Folder (Yellow) as base layer/fallback */}
@@ -149,55 +173,181 @@ export default function CategoryGridWidget({ config }) {
     } = config;
 
     const isBento = layoutMode === 'bento';
+    const { trackImpression, trackClick } = useAnalytics();
+    const { masterPlan, registerWidget, getStableWidgetId } = useRandomizationContext();
+
+    // Page context for context-aware mode
+    const pageContext = usePageContext();
+    const isContextActive = config.contextAware === true && !!pageContext;
+    
+    const widgetId = useMemo(() => {
+        return config.id || (getStableWidgetId ? getStableWidgetId(config) : 'untitled_grid');
+    }, [config.id, config.title, getStableWidgetId]);
+
+    // If category context active, show children of the context category
+    const effectiveParentCategoryId = (isContextActive && pageContext.contextType === 'category')
+        ? pageContext.contextValue
+        : parentCategoryId;
+    const effectiveSourceTypeForContext = (isContextActive && pageContext.contextType === 'category')
+        ? 'subcategories'
+        : sourceType;
 
     const [categories, setCategories] = useState([]);
 
-    // Fetch randomization data if randomization is enabled
-    const { data: randomizationData, loading: randomizationLoading } = useRandomizationData();
+    // 1. Initial State Resolution (Instant Text)
+    const resolvedFromPlan = masterPlan?.[widgetId];
+    
+    const [loading, setLoading] = useState(!resolvedFromPlan && config.randomize?.enabled);
 
-    // Apply randomization to config
-    const randomizedConfig = useMemo(() => {
-        if (!config.randomize?.enabled || randomizationLoading || !randomizationData) {
-            return config;
-        }
-        return applyCategoryRandomization(config, randomizationData);
-    }, [config, randomizationData, randomizationLoading]);
-
-    // Use randomized config values
-    const effectiveSourceType = randomizedConfig.sourceType || sourceType;
-    const effectiveParentCategoryId = randomizedConfig.parentCategoryId || parentCategoryId;
-    const effectiveSortOrder = randomizedConfig.sortOrder || sortOrder;
-    const effectiveMaxCategories = randomizedConfig.maxCategories || maxCategories;
-    const effectiveRandomCount = randomizedConfig.randomCount || randomCount;
-    const effectiveManualCategoryIds = randomizedConfig.manualCategoryIds || manualCategoryIds;
+    const effectiveSourceType = resolvedFromPlan?.resolvedType || effectiveSourceTypeForContext;
+    const effectiveSettings = {
+        ...config,
+        sourceType: effectiveSourceType,
+        parentCategoryId: effectiveParentCategoryId,
+        manualCategoryIds,
+        randomCount,
+        maxCategories,
+        sortOrder,
+        title
+    };
 
     useEffect(() => {
+        if (config.randomize?.enabled) {
+            console.log(`[CategoryGridWidget] Registering ${widgetId} for randomization`);
+            registerWidget(widgetId, {
+                allowedTypes: ['category'],
+                sourceType: effectiveSourceTypeForContext,
+                randomCount: maxCategories || randomCount || 6,
+                count: maxCategories || randomCount || 6,
+                parentCategoryId: effectiveParentCategoryId,
+                manualCategoryIds: manualCategoryIds
+            }, {
+                ...config,
+                _pageContext: isContextActive ? pageContext : undefined
+            });
+        }
+    }, [widgetId, config.randomize?.enabled, registerWidget, isContextActive]);
+
+    // 2. Computed Categories (Render-Phase Resolution)
+    // This eliminates the flicker by calculating data immediately if the plan exists
+    const displayCategories = useMemo(() => {
+        let list = [];
+        if (!config.randomize?.enabled) {
+            list = categories;
+        } else if (resolvedFromPlan) {
+            list = resolvedFromPlan.multiple
+                ? resolvedFromPlan.selections.map(s => s.selection).filter(Boolean)
+                : (resolvedFromPlan.selection ? [resolvedFromPlan.selection] : []);
+
+            // Apply sort order to randomized results
+            const resolvedSort = resolvedFromPlan.resolvedSort || sortOrder;
+            if (resolvedSort === 'alphabetical') {
+                list = [...list].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+            } else if (resolvedSort === 'random') {
+                list = [...list].sort(() => Math.random() - 0.5);
+            }
+        }
+
+        // Deduplicate and sanitize
+        const seen = new Set();
+        return list.filter(cat => {
+            if (!cat || (!cat.id && !cat.slug)) return false;
+            const key = cat.id || cat.slug;
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+        });
+    }, [categories, resolvedFromPlan, config.randomize?.enabled, sortOrder]);
+
+    // Main data fetching effect (Now only for NON-randomized or initial loading)
+    useEffect(() => {
+        if (config.randomize?.enabled) {
+            if (!resolvedFromPlan) {
+                setLoading(true);
+            } else {
+                setLoading(false);
+                // Track impressions when plan is ready
+                displayCategories.forEach((cat, index) => {
+                    trackImpression({
+                        entity_type: 'category',
+                        entity_id: cat.id,
+                        placement_id: widgetId,
+                        placement_type: 'widget',
+                        position: index + 1,
+                        metadata: {
+                            widget_title: title,
+                            category_name: cat.name,
+                            category_slug: cat.slug,
+                            source_type: effectiveSourceType
+                        }
+                    });
+                });
+            }
+            return;
+        }
+
+        // Vendor context: fetch from vendor-category ledger endpoint
+        if (isContextActive && pageContext.contextType === 'vendor') {
+            fetchVendorCategories(pageContext.contextValue);
+            return;
+        }
+
+        // Standard non-randomized path
         fetchCategories();
-    }, [effectiveSourceType, effectiveParentCategoryId, effectiveSortOrder, effectiveMaxCategories, effectiveRandomCount, JSON.stringify(effectiveManualCategoryIds)]);
+    }, [resolvedFromPlan, config.randomize?.enabled, widgetId, isContextActive, displayCategories.length]);
+
+    // Vendor context: fetch categories from vendor_category_ledger endpoint
+    const fetchVendorCategories = async (vendorName) => {
+        try {
+            setLoading(true);
+            const res = await api.get('/api/products/storefront/vendor-categories', {
+                params: { vendor: vendorName }
+            });
+            if (res.data.success) {
+                const cats = (res.data.categories || []).map(c => ({
+                    id: c.category_id,
+                    name: c.category_name,
+                    slug: c.category_slug,
+                    image_url: c.category_image,
+                    product_count: c.product_count
+                }));
+                setCategories(cats.slice(0, maxCategories || undefined));
+            }
+        } catch (err) {
+            console.error('[CategoryGridWidget] Failed to fetch vendor categories', err);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const fetchCategories = async () => {
         try {
+            setLoading(true);
             const res = await api.get('/api/categories');
             let filtered = res.data.categories || [];
 
             // Apply filtering based on source type
-            switch (effectiveSourceType) {
+            switch (effectiveSettings.sourceType) {
                 case 'all':
-                    // Use all categories
+                    // All categories that have at least one product (direct or via children)
+                    filtered = filtered.filter(cat => (cat.product_count || 0) > 0);
                     break;
                 case 'top-level':
                     filtered = filtered.filter(cat => !cat.parent_id);
                     break;
                 case 'subcategories':
-                    if (effectiveParentCategoryId) {
-                        filtered = filtered.filter(cat => cat.parent_id === effectiveParentCategoryId);
+                    if (effectiveSettings.parentCategoryId) {
+                        filtered = filtered.filter(cat => String(cat.parent_id) === String(effectiveSettings.parentCategoryId));
                     }
                     break;
                 case 'all-subcategories':
                     filtered = filtered.filter(cat => cat.parent_id);
                     break;
                 case 'manual':
-                    filtered = filtered.filter(cat => effectiveManualCategoryIds.includes(cat.id));
+                    if (effectiveSettings.manualCategoryIds?.length > 0) {
+                        const manualIds = effectiveSettings.manualCategoryIds.map(String);
+                        filtered = filtered.filter(cat => manualIds.includes(String(cat.id)));
+                    }
                     break;
                 case 'random':
                     filtered = filtered.sort(() => 0.5 - Math.random());
@@ -205,41 +355,61 @@ export default function CategoryGridWidget({ config }) {
             }
 
             // Apply sorting
-            if (effectiveSortOrder === 'alphabetical') {
+            if (sortOrder === 'alphabetical') {
                 filtered.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-            } else if (effectiveSortOrder === 'random') {
+            } else if (sortOrder === 'random') {
                 filtered.sort(() => 0.5 - Math.random());
             }
 
             // Apply max limit
-            if (effectiveMaxCategories) {
-                filtered = filtered.slice(0, effectiveMaxCategories);
+            if (maxCategories) {
+                filtered = filtered.slice(0, maxCategories);
             }
 
             setCategories(filtered);
+
+            // Track impressions
+            filtered.forEach((cat, index) => {
+                trackImpression({
+                    entity_type: 'category',
+                    entity_id: cat.id,
+                    placement_id: widgetId,
+                    placement_type: 'widget',
+                    position: index + 1,
+                    metadata: {
+                        widget_title: title,
+                        category_name: cat.name,
+                        category_slug: cat.slug,
+                        source_type: sourceType
+                    }
+                });
+            });
         } catch (error) {
-            console.error('Failed to fetch categories', error);
+            console.error('[CategoryGridWidget] Failed to fetch categories', error);
+        } finally {
+            setLoading(false);
         }
     };
 
-    // Helper to format CSS values (append px if numeric)
-    const formatCSSValue = (val) => {
-        if (!val || val === '0') return '0';
-        if (/^\d+(\.\d+)?$/.test(val.toString())) return `${val}px`;
-        return val;
-    };
 
     const styles = {
         title: {
             color: titleColor,
-            fontSize: formatCSSValue(titleFontSize),
+            fontSize: `clamp(1rem, 0.75rem + 1vw, ${formatCSSValue(titleFontSize)})`,
             fontWeight: titleFontWeight,
+            fontFamily: 'inherit',
             textAlign: titleAlign,
             backgroundColor: titleBackgroundColor,
             padding: formatCSSValue(titlePadding),
             marginBottom: formatCSSValue(titleBottomMargin)
         }
     };
+
+    const isLoading = loading || (config.randomize?.enabled && !resolvedFromPlan);
+
+    if (!isLoading && displayCategories.length === 0) {
+        return null;
+    }
 
     return (
         <section
@@ -300,11 +470,43 @@ export default function CategoryGridWidget({ config }) {
                                 grid-auto-flow: dense;
                             }
                             
-                            /* Mobile Pattern (Strict 2-Column Masonry) 
-                                Items never span full width (span 2) to maintain distinct 2 columns */
-                            .bento-item-0 { grid-column: span 1; grid-row: span 2; } /* Tall, not Wide */
-                            .bento-item-3 { grid-column: span 1; grid-row: span 2; } /* Tall */
-                            .bento-item-6 { grid-column: span 1; grid-row: span 2; } /* Another Tall for variety */
+                            /* ----------------------------------------------------
+                               BENTO GRID GAP KILLER (Bulletproof Masonry Math)
+                               ---------------------------------------------------- */
+                            /* Mobile Gap Killer Patches (Vertical Masonry) */
+                            /* If the cutoff is a tower, collapse it to a square and span horizontally */
+                            .bento-grid:has(> div:nth-child(1):last-child) > div:nth-child(1),
+                            .bento-grid:has(> div:nth-child(4):last-child) > div:nth-child(4),
+                            .bento-grid:has(> div:nth-child(7):last-child) > div:nth-child(7),
+                            .bento-grid:has(> div:nth-child(10):last-child) > div:nth-child(10) {
+                                grid-row: span 1 !important;
+                                grid-column: 1 / -1 !important;
+                            }
+
+                            /* If the cutoff is a single square next to a tower, it must stretch vertically */
+                            .bento-grid:has(> div:nth-child(2):last-child) > div:nth-child(2),
+                            .bento-grid:has(> div:nth-child(5):last-child) > div:nth-child(5),
+                            .bento-grid:has(> div:nth-child(8):last-child) > div:nth-child(8),
+                            .bento-grid:has(> div:nth-child(11):last-child) > div:nth-child(11) {
+                                grid-row: span 2 !important;
+                            }
+                            
+                            /* Mobile Pattern (Alternating Vertical Towers) */
+                            .bento-item-0 { grid-column: span 1; grid-row: span 2; }
+                            .bento-item-1 { grid-column: span 1; grid-row: span 1; }
+                            .bento-item-2 { grid-column: span 1; grid-row: span 1; }
+                            
+                            .bento-item-3 { grid-column: 2; grid-row: span 2; } /* Shift tower to the right */
+                            .bento-item-4 { grid-column: span 1; grid-row: span 1; }
+                            .bento-item-5 { grid-column: span 1; grid-row: span 1; }
+                            
+                            .bento-item-6 { grid-column: span 1; grid-row: span 2; }
+                            .bento-item-7 { grid-column: span 1; grid-row: span 1; }
+                            .bento-item-8 { grid-column: span 1; grid-row: span 1; }
+                            
+                            .bento-item-9 { grid-column: 2; grid-row: span 2; } /* Shift tower to the right */
+                            .bento-item-10 { grid-column: span 1; grid-row: span 1; }
+                            .bento-item-11 { grid-column: span 1; grid-row: span 1; }
                             
                             @media (min-width: 768px) {
                                 .bento-grid {
@@ -312,13 +514,32 @@ export default function CategoryGridWidget({ config }) {
                                     grid-auto-rows: minmax(220px, auto);
                                 }
                                 /* Tablet Pattern (3 cols) */
-                                .bento-item-0 { grid-column: span 2; grid-row: span 2; } /* Restore Big Hero */
+                                .bento-item-0 { grid-column: span 2; grid-row: span 2; }
                                 .bento-item-1 { grid-column: span 1; grid-row: span 1; }
-                                .bento-item-2 { grid-column: span 1; grid-row: span 2; } 
-                                .bento-item-3 { grid-column: span 2; grid-row: span 1; } /* Restore Wide */
+                                .bento-item-2 { grid-column: span 1; grid-row: span 1; }
+                                .bento-item-3 { grid-column: span 2; grid-row: span 1; }
                                 .bento-item-4 { grid-column: span 1; grid-row: span 1; }
                                 .bento-item-5 { grid-column: span 1; grid-row: span 1; }
-                                .bento-item-6 { grid-column: span 1; grid-row: span 1; } /* Reset mobile overrides */
+                                .bento-item-6 { grid-column: span 2; grid-row: span 1; }
+                                .bento-item-7 { grid-column: span 1; grid-row: span 1; }
+                                .bento-item-8 { grid-column: span 1; grid-row: span 1; }
+                                .bento-item-9 { grid-column: span 1; grid-row: span 1; }
+                                .bento-item-10 { grid-column: span 2; grid-row: span 1; }
+                                .bento-item-11 { grid-column: span 1; grid-row: span 1; }
+
+                                /* Tablet Gap Killer Patches (Exact Count Spans) */
+                                .bento-grid:has(> div:nth-child(1):last-child) > div:nth-child(1) { grid-column: span 3 !important; }
+                                .bento-grid:has(> div:nth-child(2):last-child) > div:nth-child(2) { grid-row: span 2 !important; }
+                                /* 3 is perfect */
+                                .bento-grid:has(> div:nth-child(4):last-child) > div:nth-child(4) { grid-column: span 3 !important; }
+                                /* 5 is perfect */
+                                .bento-grid:has(> div:nth-child(6):last-child) > div:nth-child(6) { grid-column: span 3 !important; }
+                                /* 7 is perfect */
+                                .bento-grid:has(> div:nth-child(8):last-child) > div:nth-child(8) { grid-column: span 3 !important; }
+                                .bento-grid:has(> div:nth-child(9):last-child) > div:nth-child(9) { grid-column: span 2 !important; }
+                                /* 10 is perfect */
+                                .bento-grid:has(> div:nth-child(11):last-child) > div:nth-child(11) { grid-column: span 3 !important; }
+                                /* 12 is perfect */
                             }
 
                             @media (min-width: 1024px) {
@@ -330,11 +551,31 @@ export default function CategoryGridWidget({ config }) {
                                 .bento-item-0 { grid-column: span 2; grid-row: span 2; }
                                 .bento-item-1 { grid-column: span 1; grid-row: span 1; }
                                 .bento-item-2 { grid-column: span 1; grid-row: span 1; }
-                                .bento-item-3 { grid-column: span 1; grid-row: span 2; }
+                                .bento-item-3 { grid-column: span 2; grid-row: span 1; }
                                 .bento-item-4 { grid-column: span 1; grid-row: span 1; }
-                                .bento-item-5 { grid-column: span 2; grid-row: span 1; }
-                                .bento-item-6 { grid-column: span 1; grid-row: span 1; }
-                                .bento-item-7 { grid-column: span 1; grid-row: span 1; }
+                                .bento-item-5 { grid-column: span 1; grid-row: span 1; }
+                                .bento-item-6 { grid-column: span 2; grid-row: span 2; }
+                                .bento-item-7 { grid-column: span 2; grid-row: span 1; }
+                                .bento-item-8 { grid-column: span 2; grid-row: span 1; }
+                                .bento-item-9 { grid-column: span 2; grid-row: span 1; }
+                                .bento-item-10 { grid-column: span 1; grid-row: span 1; }
+                                .bento-item-11 { grid-column: span 3; grid-row: span 1; }
+
+                                /* Desktop Gap Killer Patches (Exact Count Spans) */
+                                .bento-grid:has(> div:nth-child(1):last-child) > div:nth-child(1) { grid-column: span 4 !important; }
+                                .bento-grid:has(> div:nth-child(2):last-child) > div:nth-child(2) { grid-column: span 2 !important; grid-row: span 2 !important; }
+                                .bento-grid:has(> div:nth-child(3):last-child) > div:nth-child(2) { grid-row: span 2 !important; }
+                                .bento-grid:has(> div:nth-child(3):last-child) > div:nth-child(3) { grid-row: span 2 !important; }
+                                /* 4 is perfect */
+                                .bento-grid:has(> div:nth-child(5):last-child) > div:nth-child(5) { grid-column: span 4 !important; }
+                                .bento-grid:has(> div:nth-child(6):last-child) > div:nth-child(6) { grid-column: span 3 !important; }
+                                .bento-grid:has(> div:nth-child(7):last-child) > div:nth-child(5) { grid-row: span 2 !important; }
+                                .bento-grid:has(> div:nth-child(7):last-child) > div:nth-child(6) { grid-row: span 2 !important; }
+                                /* 8 is perfect */
+                                .bento-grid:has(> div:nth-child(9):last-child) > div:nth-child(9) { grid-column: span 4 !important; }
+                                /* 10 is perfect */
+                                .bento-grid:has(> div:nth-child(11):last-child) > div:nth-child(11) { grid-column: span 4 !important; }
+                                /* 12 is perfect */
                             }
                             `
                         }} />
@@ -367,22 +608,37 @@ export default function CategoryGridWidget({ config }) {
                         }} />
                     )}
 
-                    <div className={isBento ? 'bento-grid' : `category-grid-widget-${columns?.mobile || 2}-${columns?.tablet || 3}-${columns?.desktop || 4}`}>
-                        {categories.map((category, index) => (
-                            <AnimatedItem
-                                key={category.id}
-                                delayIndex={index % 6} // Slightly larger stagger loop for categories
-                                enabled={enableEntryAnimation}
-                                className={isBento ? `bento-item-${index % 8}` : ''}
-                                style={isBento ? { minHeight: '200px' } : {}}
-                            >
-                                <CategoryCard
-                                    category={category}
-                                    config={{ ...config, isBento }}
-                                />
-                            </AnimatedItem>
-                        ))}
-                    </div>
+                    {displayCategories.length === 0 && (loading || (config.randomize?.enabled && !resolvedFromPlan)) ? (
+                        <div className={isBento ? 'bento-grid' : `category-grid-widget-${columns?.mobile || 2}-${columns?.tablet || 3}-${columns?.desktop || 4}`}>
+                            {Array.from({ length: isBento ? 12 : (columns?.desktop || 4) }).map((_, index) => (
+                                <div
+                                    key={index}
+                                    className={`bg-gray-200 animate-pulse rounded-2xl ${isBento ? `bento-item-${index % 12}` : 'aspect-square'}`}
+                                    style={isBento ? { minHeight: '200px' } : {}}
+                                ></div>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className={isBento ? 'bento-grid' : `category-grid-widget-${columns?.mobile || 2}-${columns?.tablet || 3}-${columns?.desktop || 4}`}>
+                            {displayCategories.map((category, index) => (
+                                <AnimatedItem
+                                    key={`${category.id || category.slug}-${index}`}
+                                    delayIndex={index % 6} // Slightly larger stagger loop for categories
+                                    enabled={enableEntryAnimation}
+                                    className={isBento ? `bento-item-${index % 12}` : ''}
+                                    style={isBento ? { minHeight: '200px' } : {}}
+                                >
+                                    <CategoryCard
+                                        category={category}
+                                        config={{ ...config, isBento }}
+                                        trackClick={trackClick}
+                                        widgetId={widgetId}
+                                        index={index}
+                                    />
+                                </AnimatedItem>
+                            ))}
+                        </div>
+                    )}
                 </>
             </div>
         </section>

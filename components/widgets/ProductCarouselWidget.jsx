@@ -3,11 +3,16 @@
 
 import { useState, useEffect, useMemo, useRef } from 'react';
 import Link from 'next/link';
-import { ChevronLeft, ChevronRight, Heart, Check, ShoppingCart, Eye } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Heart, Check, ShoppingCart, Eye, MessageCircle, X, Star } from 'lucide-react';
+import { useChatContext } from '@/components/providers/ChatContext';
 import { proxyApi as api } from '@/lib/axios';
 import { useRandomizationContext } from '@/lib/contexts/RandomizationContext';
+import { usePageContext } from '@/lib/hooks/usePageContext';
 import { useWishlist } from '../providers/WishlistContext';
 import { useCart } from '../providers/CartContext';
+import { useAnalytics } from '@/lib/hooks/useAnalytics';
+import { useCurrency } from '@/hooks/useCurrency';
+import { getStaticCache, saveStaticCache } from '@/lib/staticWidgetCache';
 
 export default function ProductCarouselWidget({ config }) {
     const {
@@ -19,15 +24,6 @@ export default function ProductCarouselWidget({ config }) {
         attributeClause = null, // e.g. "processor:high_end" (attribute_code:clause_name)
         sourceType = 'all',
         showFeaturedOnly = false,
-        // Default all display toggles to TRUE to match Admin UI "ON" state for undefined keys
-        showPrice: _showPrice = true,
-        showAddToCart: _showAddToCart = true,
-        showFeaturedBadge: _showFeaturedBadge = true,
-        showViewDetails: _showViewDetails = true,
-        showTags: _showTags = true,
-        showDescription: _showDescription = true,
-        showAttributes: _showAttributes = true,
-        showSocialProof: _showSocialProof = true,
         // New Styling & Spacing
         showTitle = true,
         fullWidthTitle = true,
@@ -44,6 +40,13 @@ export default function ProductCarouselWidget({ config }) {
         columns = { desktop: 5, tablet: 3, mobile: 2 },
         cardStyle, // Keep existing cardStyle prop
         gridGap = '12px',
+        colors = {
+            text: '#111827',
+            price: '#111827',
+            accent: '#3b82f6',
+            badgeBackground: '#fbbf24',
+            badgeText: '#ffffff'
+        },
 
         // New Dynamic Features
         autogenerateTitle = false,
@@ -62,174 +65,383 @@ export default function ProductCarouselWidget({ config }) {
         return !!val;
     };
 
-    const showPrice = resolveBool(config.showPrice, true);
-    const showAddToCart = resolveBool(config.showAddToCart, true);
-    const showFeaturedBadge = resolveBool(config.showFeaturedBadge, true);
-    const showViewDetails = resolveBool(config.showViewDetails, true);
-    const showTags = resolveBool(config.showTags, true);
-    const showDescription = resolveBool(config.showDescription, true);
-    const showAttributes = resolveBool(config.showAttributes, true);
-    const showSocialProof = resolveBool(config.showSocialProof, true);
+    const [deviceType, setDeviceType] = useState('desktop');
 
-    const [products, setProducts] = useState([]);
-    const [metadata, setMetadata] = useState({});
-    const [loading, setLoading] = useState(true);
+    // Viewport Detection for Responsive Display
+    useEffect(() => {
+        const handleResize = () => {
+            const width = window.innerWidth;
+            if (width < 768) setDeviceType('mobile');
+            else if (width < 1024) setDeviceType('tablet');
+            else setDeviceType('desktop');
+        };
+
+        handleResize();
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
+
+    // Resolve responsive display elements
+    const getDisplaySetting = (key, defaultValue = true) => {
+        const override = config.responsiveDisplay?.[deviceType]?.[key];
+        if (override !== undefined) return override;
+
+        const baseVal = config[key];
+        if (baseVal === 'false') return false;
+        if (baseVal === 'true') return true;
+        if (baseVal === undefined || baseVal === null) return defaultValue;
+
+        // If it's a number (or string that looks like one), return it as a number
+        if (typeof baseVal === 'number' || (typeof baseVal === 'string' && /^\d+$/.test(baseVal))) {
+            return parseInt(baseVal);
+        }
+
+        return !!baseVal;
+    };
+
+    const effectiveShowPrice = getDisplaySetting('showPrice', true);
+    const effectiveShowAddToCart = getDisplaySetting('showAddToCart', true);
+    const effectiveShowFeaturedBadge = getDisplaySetting('showFeaturedBadge', true);
+    const effectiveShowDeliveryBadge = getDisplaySetting('showDeliveryBadge', true);
+    const effectiveShowViewDetails = getDisplaySetting('showViewDetails', true);
+    const effectiveShowChat = getDisplaySetting('showChat', true);
+    const effectiveShowVendor = getDisplaySetting('showVendor', false);
+    const effectiveShowTags = getDisplaySetting('showTags', true);
+    const effectiveShowDescription = getDisplaySetting('showDescription', true);
+    const effectiveShowAttributes = getDisplaySetting('showAttributes', true);
+    const effectiveShowSocialProof = getDisplaySetting('showSocialProof', true);
+    const effectiveShowRating = getDisplaySetting('showRating', true);
+    const attributesCount = getDisplaySetting('attributesCount', 2);
+    const tagsCount = getDisplaySetting('tagsCount', 3);
+
     const [itemsToShow, setItemsToShow] = useState(4);
-    const [currentIndex, setCurrentIndex] = useState(0);
-    const [touchStart, setTouchStart] = useState(null);
-    const [touchEnd, setTouchEnd] = useState(null);
-    const minSwipeDistance = 50;
+    const scrollContainerRef = useRef(null);
 
     const { toggleWishlist, isInWishlist } = useWishlist();
+    const { formatPrice } = useCurrency();
+    const { openChat } = useChatContext();
     const [addingToCart, setAddingToCart] = useState(null);
     const { addToCart } = useCart();
-
-    // Generate a stable ID if config.id is missing
-    const generatedId = useRef(`widget_${Math.random().toString(36).substr(2, 9)}`);
-    // Old widgetId removed to prevent duplicate declaration
+    const { trackImpression, trackClick } = useAnalytics();
+    const [activeAddToCart, setActiveAddToCart] = useState(null);
 
     // Use Randomization Context
-    const { masterPlan, registerWidget, isResolving, getStableWidgetId } = useRandomizationContext();
+    const {
+        masterPlan,
+        registerWidget,
+        isResolving,
+        getStableWidgetId,
+        registerProductFetch,
+        batchProducts
+    } = useRandomizationContext();
 
-    // Generate stable ID for caching synchronization if not explicitly provided
-    // We use the context helper to ensure frontend/backend ID alignment
+    // Page context for context-aware mode
+    const pageContext = usePageContext();
+    const isContextActive = config.contextAware === true && !!pageContext;
+
     const widgetId = useMemo(() => {
-        if (config.id) return config.id;
-        // Fallback: Use context helper if available, or temporary local relabel
-        return getStableWidgetId ? getStableWidgetId(config) : (config.id || `temp_${Math.random()}`);
-    }, [config.id, getStableWidgetId, config]);
+        return config.id || (getStableWidgetId ? getStableWidgetId(config) : 'untitled_prod_carousel');
+    }, [config.id, config.title, getStableWidgetId]);
 
-    // Register with Master Plan on mount if randomization is enabled
+    // Context-scoped cache key so each vendor/category gets its own slot
+    const staticCacheKey = (isContextActive && pageContext?.contextValue)
+        ? `${widgetId}__ctx__${pageContext.contextValue.toLowerCase().replace(/[^a-z0-9]/g, '_')}`
+        : widgetId;
+
+    // Check cache synchronously to avoid skeleton blink on navigation
+    const cachedBatch = batchProducts?.[widgetId];
+    const hasCache = cachedBatch && !cachedBatch.loading && cachedBatch.results;
+
+    const sanitizeProducts = (list) => {
+        if (!Array.isArray(list)) return [];
+        const seen = new Set();
+        return list.filter(p => {
+            if (!p || (!p.id && !p.slug)) return false;
+            const key = p.id || p.slug;
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+        });
+    };
+
+    // 1. Synchronous Hydration from LocalStorage (Instant Text)
+    const getInitialData = () => {
+        if (typeof window === 'undefined') return { products: [], metadata: {}, loading: true };
+
+        try {
+            const pageHandle = window.location.pathname.split('/').pop() || 'home';
+            const key = `widget_random_plan_${pageHandle}`;
+            const stored = localStorage.getItem(key);
+
+            if (stored) {
+                const { data: cachedPlans, products: cachedBatches } = JSON.parse(stored);
+                const cachedProducts = cachedBatches?.[widgetId];
+                const cachedPlan = cachedPlans?.[widgetId];
+
+                if (cachedProducts?.results) {
+                    // Build metadata from the cached plan's meta (includes title)
+                    const meta = {};
+                    if (cachedPlan) {
+                        const selections = cachedPlan.multiple ? cachedPlan.selections : [cachedPlan];
+                        const primary = selections?.[0];
+                        if (primary?.meta) Object.assign(meta, primary.meta);
+                    }
+                    if (cachedProducts.pagination) meta.pagination = cachedProducts.pagination;
+
+                    return {
+                        products: sanitizeProducts(cachedProducts.results),
+                        metadata: meta,
+                        loading: false
+                    };
+                }
+            }
+        } catch (e) {
+            console.warn("[ProductCarouselWidget] Sync hydration failed", e);
+        }
+
+        // Fallback: check per-user static cache for non-randomized (Case B) widgets
+        if (!config.randomize?.enabled) {
+            const staticCached = getStaticCache(staticCacheKey);
+            if (staticCached) {
+                return {
+                    products: sanitizeProducts(staticCached.products),
+                    metadata: {},
+                    loading: false,
+                    isStaticStale: staticCached.isStale
+                };
+            }
+        }
+
+        return { products: [], metadata: {}, loading: true };
+    };
+
+    const initialData = getInitialData();
+    // For context-aware randomized widgets, never treat cached products as the final state.
+    // The cache belongs to the last randomized pick — the new plan will pick a different
+    // source, so products must always be re-fetched when the plan resolves.
+    const [hasInitialCache] = useState(
+        config.randomize?.enabled && config.contextAware ? false : initialData.products.length > 0
+    );
+    const isStaticStale = useRef(initialData.isStaticStale || false);
+
+    const [products, setProducts] = useState(initialData.products);
+    const [metadata, setMetadata] = useState(initialData.metadata);
+    const [loading, setLoading] = useState(initialData.loading);
+
+    const [isMounted, setIsMounted] = useState(false);
+    useEffect(() => {
+        setIsMounted(true);
+    }, []);
+
     useEffect(() => {
         if (config.randomize?.enabled) {
             console.log(`[ProductCarouselWidget] Registering widget ${widgetId} for randomization`);
             const intent = {
-                allowedTypes: config.randomize.allowedTypes || ['category', 'clause', 'collection'],
+                allowedTypes: config.randomize.allowedSourceTypes || ['category', 'clause', 'collection'],
+                sourceType: sourceType === 'category' ? 'subcategories' : sourceType,
+                parentCategoryId: categoryId,
+                collectionId: collectionId,
+                manualCategoryIds: config.manualCategoryIds || []
             };
-            registerWidget(widgetId, intent, config);
-        }
-    }, [widgetId, config.randomize?.enabled, registerWidget, config]);
-
-    const resolvedFromPlan = masterPlan[widgetId];
-
-    // DEBUG LOG
-    useEffect(() => {
-        if (config.randomize?.enabled) {
-            console.log(`[ProductCarouselWidget] Widget ${widgetId} Plan Status:`, {
-                inPlan: !!resolvedFromPlan,
-                isResolving,
-                planData: resolvedFromPlan
+            registerWidget(widgetId, intent, {
+                ...config,
+                _pageContext: isContextActive ? pageContext : undefined
             });
         }
-    }, [masterPlan, isResolving, widgetId, resolvedFromPlan]);
+    }, [widgetId, config.randomize?.enabled, registerWidget, isContextActive]);
 
+    const resolvedFromPlan = masterPlan[widgetId];
     const isReady = !config.randomize?.enabled || resolvedFromPlan;
 
     // Use randomized values from plan if available
     const effectiveSourceType = resolvedFromPlan?.resolvedType || sourceType;
-    const planMeta = resolvedFromPlan?.meta || {};
+    const effectiveAutogenerateTitle = resolvedFromPlan ? true : autogenerateTitle;
 
-    // Determine effective search parameters
-    const effectiveLimit = limit;
-    const effectiveSort = resolvedFromPlan?.resolvedSort || config.sort || 'relevance';
+    // Batch Product Consumption
+    const batchData = batchProducts[widgetId];
 
     useEffect(() => {
-        if (isReady) {
+        // If we locked to cache, NEVER update UI with new batch data
+        if (hasInitialCache) return;
+
+        if (batchData && !batchData.loading) {
+            if (batchData.results) {
+                setProducts(sanitizeProducts(batchData.results));
+                setLoading(false);
+            }
+            if (batchData.pagination) {
+                setMetadata(prev => ({ ...prev, pagination: batchData.pagination }));
+            }
+        }
+    }, [batchData, hasInitialCache]);
+
+    // If no cache, extract title from plan when it arrives (first-time load only)
+    useEffect(() => {
+        if (!hasInitialCache && resolvedFromPlan) {
+            const selections = resolvedFromPlan.multiple ? resolvedFromPlan.selections : [resolvedFromPlan];
+            const primary = selections[0];
+            if (primary?.meta) {
+                setMetadata(prev => ({ ...prev, ...primary.meta }));
+            }
+            setLoading(false);
+        }
+    }, [resolvedFromPlan, hasInitialCache]);
+
+    useEffect(() => {
+        // Prevent foreground network fetches if we are locked to local cache
+        if (isReady && !hasInitialCache) {
             fetchProducts();
         }
-    }, [isReady, resolvedFromPlan, effectiveLimit, effectiveSort]);
+    }, [isReady, resolvedFromPlan, limit, config.sort, widgetId, hasInitialCache]);
+
+    // Background stale revalidation for static widget cache (Case B)
+    // Silently fetches fresh products to warm cache — UI updates on next page visit, not now
+    useEffect(() => {
+        if (!config.randomize?.enabled && hasInitialCache && isStaticStale.current) {
+            const revalidate = async () => {
+                try {
+                    const params = { limit, sort: config.sort || 'relevance' };
+                    if (sourceType === 'category' && categoryId) params.category_id = categoryId;
+                    else if (sourceType === 'collection') {
+                        if (collectionId) params.collection_id = collectionId;
+                        if (collectionSlug) params.collection_slug = collectionSlug;
+                    }
+                    // Include context params so revalidation fetches vendor/category-correct products
+                    if (isContextActive) {
+                        if (pageContext.contextType === 'vendor') params.vendor_name = pageContext.contextValue;
+                        else if (pageContext.contextType === 'category') params.category_id = pageContext.contextValue;
+                    }
+                    const res = await api.get('/api/products', { params });
+                    const fresh = sanitizeProducts(res.data.data || []);
+                    if (fresh.length > 0) {
+                        saveStaticCache(staticCacheKey, fresh);
+                        console.log(`[ProductCarouselWidget] Static cache refreshed in background for ${staticCacheKey}`);
+                    }
+                } catch (err) {
+                    console.warn('[ProductCarouselWidget] Background static cache revalidation failed', err);
+                }
+            };
+            revalidate();
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []); // Only run once on mount
 
     const fetchProducts = async () => {
         try {
             setLoading(true);
 
-            // 1. Master Plan Resolution
+            // If randomized but no plan yet, wait (prevents flicker)
+            if (config.randomize?.enabled && !resolvedFromPlan) {
+                return;
+            }
+
+            // Case A: Randomized according to Master Plan
             if (resolvedFromPlan) {
-                let params = { limit: effectiveLimit, sort: effectiveSort };
-                let newMetadata = { ...resolvedFromPlan.meta };
+                const selections = resolvedFromPlan.multiple ? resolvedFromPlan.selections : [resolvedFromPlan];
+                const primary = selections[0];
+                const filters = {};
 
-                // Case A: Meta has pre-calculated filter (Backend provided everything)
-                if (resolvedFromPlan.meta?.filter) {
-                    const filterParams = new URLSearchParams(resolvedFromPlan.meta.filter);
-                    filterParams.forEach((value, key) => params[key] = value);
-
-                    // Use backend-provided metadata directly
-                    newMetadata = { ...resolvedFromPlan.meta };
-                }
-                // Case B: Manual construction from Selection (Backend returned meta: null)
-                else if (resolvedFromPlan.selection) {
-                    const { resolvedType, selection } = resolvedFromPlan;
-
-                    if (resolvedType === 'category') {
-                        params.category_id = selection.id;
-                        newMetadata.category = selection;
+                if (primary.meta?.filter) {
+                    const params = new URLSearchParams(primary.meta.filter);
+                    for (const [key, val] of params.entries()) {
+                        filters[key] = val;
                     }
-                    else if (resolvedType === 'collection') {
-                        params.collection_id = selection.id;
-                        newMetadata.collection = selection;
-                    }
+                } else if (primary.selection) {
+                    const { resolvedType, selection } = primary;
+                    if (resolvedType === 'category') filters.category_id = selection.id;
+                    else if (resolvedType === 'collection') filters.collection_id = selection.id;
                     else if (resolvedType === 'clause') {
-                        // Selection has attribute and clause
                         const attrCode = selection.attribute?.code;
-                        const clauseValue = selection.clause?.value; // Array of values
-                        const clauseName = selection.clause?.name;
-
+                        const clauseValue = selection.clause?.value;
                         if (attrCode && clauseValue) {
-                            params[`filter[${attrCode}]`] = Array.isArray(clauseValue) ? clauseValue.join(',') : clauseValue;
-
-                            // Set metadata for title generation
-                            newMetadata.attribute = selection.attribute;
-                            newMetadata.clause = selection.clause;
-
-                            // If backend provided a picked category in meta, use it
-                            if (resolvedFromPlan.meta?.pickedCategory) {
-                                newMetadata.category = resolvedFromPlan.meta.pickedCategory;
-                            }
-
-                            // Construct pretty_url for "See All" link
-                            if (clauseName) {
-                                newMetadata.pretty_url = `/search?filter[${attrCode}]=${clauseName}`;
+                            filters[`attribute.${attrCode}`] = Array.isArray(clauseValue) ? clauseValue.join(',') : clauseValue;
+                            if (primary.meta?.pickedCategory) {
+                                filters.category_id = primary.meta.pickedCategory.id;
                             }
                         }
                     }
                 }
 
-                // If we successfully determined a query filter
-                if (Object.keys(params).length > 2) { // more than just limit/sort
-                    // Check if this is a clause-based filter (contains attribute.code:clause format)
-                    const hasClauseFilter = Object.keys(params).some(key => key.startsWith('attribute.'));
+                // Add resolved overrides
+                filters.sort = primary.resolvedSort || config.sort || 'relevance';
+                filters.limit = primary.resolvedLimit || config.limit || 8;
+                filters.showFeaturedOnly = primary.resolvedFeatured ?? config.showFeaturedOnly ?? false;
 
-                    // Use /search endpoint for clause filters, /api/products for others
-                    const endpoint = hasClauseFilter ? '/api/search' : '/api/products';
-
-                    const res = await api.get(endpoint, { params });
-                    setProducts(res.data.data || res.data.results || []);
-                    setMetadata(newMetadata);
-                    return;
+                // Build context filters for batch-products injection.
+                // Vendor filter is always additive. Category filter must NOT override the
+                // resolved plan's category_id — the plan already picked a scoped category.
+                const contextFilters = {};
+                const planHasCategoryId = !!(filters.category_id);
+                if (isContextActive) {
+                    if (pageContext.contextType === 'vendor')
+                        contextFilters['attribute.vendor'] = pageContext.contextValue;
+                    else if (pageContext.contextType === 'category' && !planHasCategoryId)
+                        contextFilters['category_id'] = pageContext.contextValue;
                 }
+
+                console.log(`[ProductCarouselWidget] Registering batch fetch for ${widgetId}`);
+                registerProductFetch(widgetId, {
+                    widgetId,
+                    filters,
+                    perPage: filters.limit,
+                    ...(Object.keys(contextFilters).length > 0 ? { _contextFilters: contextFilters } : {})
+                });
+
+                setMetadata(prev => ({ ...prev, ...(primary.meta || {}) }));
+                return;
             }
 
-            // 2. Fallback to standard manual config
-            const params = { limit: effectiveLimit, sort: effectiveSort };
+            // Case B: Standard manual config
+            const params = { limit, sort: config.sort || 'relevance' };
             if (sourceType === 'category' && categoryId) params.category_id = categoryId;
             else if (sourceType === 'collection') {
                 if (collectionId) params.collection_id = collectionId;
                 if (collectionSlug) params.collection_slug = collectionSlug;
             }
 
+            // Inject context filters for Case B
+            if (isContextActive) {
+                if (pageContext.contextType === 'vendor') params.vendor_name = pageContext.contextValue;
+                else if (pageContext.contextType === 'category') params.category_id = pageContext.contextValue;
+            }
+
             const res = await api.get('/api/products', { params });
-            setProducts(res.data.data || []);
+            const fetched = sanitizeProducts(res.data.data || []);
+            setProducts(fetched);
             setMetadata(res.data);
+            // Persist to per-user static cache for instant load on next visit
+            if (fetched.length > 0) saveStaticCache(staticCacheKey, fetched);
         } catch (error) {
             console.error('[ProductCarouselWidget] Failed to fetch products', error);
         } finally {
-            setLoading(false);
+            if (!resolvedFromPlan) setLoading(false);
         }
     };
 
+    // Track impressions when products are loaded
+    useEffect(() => {
+        if (!loading && products.length > 0) {
+            products.forEach((product, index) => {
+                trackImpression({
+                    entity_type: 'product',
+                    entity_id: product.id,
+                    placement_id: widgetId,
+                    placement_type: config.placement_type || 'widget',
+                    position: index + 1,
+                    metadata: {
+                        widget_title: displayTitle || title,
+                        source_type: effectiveSourceType,
+                        category_id: categoryId,
+                        collection_id: collectionId,
+                        product_name: product.name
+                    }
+                });
+            });
+        }
+    }, [loading, products, widgetId, trackImpression]);
+
 
     // Use randomized values from plan if available
-    const effectiveAutogenerateTitle = resolvedFromPlan ? true : autogenerateTitle;
     const effectiveShowFeaturedOnly = showFeaturedOnly;
 
     // Calculate visible items based on screen size and config
@@ -259,28 +471,20 @@ export default function ProductCarouselWidget({ config }) {
         return () => window.removeEventListener('resize', handleResize);
     }, [columns, sneakPeek, products.length]);
 
-    const prevSlide = () => {
-        const newIndex = currentIndex - itemsToShow;
-        setCurrentIndex(newIndex < 0 ? 0 : newIndex);
-    };
-
-    const nextSlide = () => {
-        const newIndex = currentIndex + itemsToShow;
-        if (newIndex < products.length) {
-            setCurrentIndex(newIndex);
+    const scroll = (direction) => {
+        if (scrollContainerRef.current) {
+            const container = scrollContainerRef.current;
+            const scrollAmount = container.clientWidth * 0.8;
+            container.scrollBy({
+                left: direction === 'left' ? -scrollAmount : scrollAmount,
+                behavior: 'smooth'
+            });
         }
     };
 
-    const scroll = (direction) => {
-        if (direction === 'left') prevSlide();
-        else nextSlide();
-    };
-
-    // Calculate scale factor based on column count (EXACTLY like ProductGridWidget)
+    // Calculate scale factor based on column count (Density Scaling)
     const getScaleFactor = () => {
-        // Use desktop columns as the reference for "design density" - same as ProductGrid
         const cols = columns.desktop || 4;
-
         if (cols >= 7) return 0.75; // Dense
         if (cols >= 5) return 0.85; // Compact
         return 1.0; // Standard
@@ -312,28 +516,6 @@ export default function ProductCarouselWidget({ config }) {
         toggleWishlist(product);
     };
 
-    // Touch Handlers
-    const onTouchStart = (e) => {
-        setTouchEnd(null);
-        setTouchStart(e.targetTouches[0].clientX);
-    };
-
-    const onTouchMove = (e) => setTouchEnd(e.targetTouches[0].clientX);
-
-    const onTouchEnd = () => {
-        if (!touchStart || !touchEnd) return;
-        const distance = touchStart - touchEnd;
-        const isLeftSwipe = distance > minSwipeDistance;
-        const isRightSwipe = distance < -minSwipeDistance;
-        if (isLeftSwipe) scroll('right');
-        if (isRightSwipe) scroll('left');
-    };
-
-    // Reset index if itemsToShow changes to prevent empty space
-    useEffect(() => {
-        const maxIndex = Math.max(0, products.length - Math.floor(itemsToShow));
-        if (currentIndex > maxIndex) setCurrentIndex(maxIndex);
-    }, [itemsToShow, products.length]);
 
     // Auto-generate title based on metadata
     const getDisplayTitle = () => {
@@ -370,9 +552,7 @@ export default function ProductCarouselWidget({ config }) {
         }
 
         // If autogenerate is on but we couldn't resolve a base yet,
-        // and it's still loading or metadata is empty, we return nothing
-        // to avoid "flickering" to the manual title
-        if (!base && (loading || Object.keys(metadata).length === 0)) {
+        if (!base && loading) {
             return '';
         }
 
@@ -414,77 +594,22 @@ export default function ProductCarouselWidget({ config }) {
         },
         title: {
             color: titleColor,
-            fontSize: formatCSSValue(titleFontSize),
+            fontSize: `clamp(1rem, 0.75rem + 1vw, ${formatCSSValue(titleFontSize)})`,
             fontWeight: titleFontWeight,
+            fontFamily: 'inherit',
             textAlign: titleAlign
         }
     };
 
-    // Show skeleton loader if fetching randomization data or products
-    if (loading || (config.randomize?.enabled && isResolving)) {
-        const skeletonCount = limit || 8;
-        return (
-            <section
-                className="transition-colors duration-300"
-                style={{
-                    backgroundColor: sectionBackground?.color || '#f9fafb',
-                    paddingTop: formatCSSValue(sectionPaddingTop),
-                    paddingBottom: formatCSSValue(sectionPaddingBottom)
-                }}
-            >
-                {showTitle && config.fullWidthTitle && (
-                    <div className="container mx-auto px-4 flex items-center justify-between mb-4" style={styles.titleContainer}>
-                        <div className="h-8 bg-gray-200 rounded w-48 animate-pulse"></div>
-                        {showSeeAll && (
-                            <div className="h-6 bg-gray-200 rounded w-20 animate-pulse"></div>
-                        )}
-                    </div>
-                )}
-                <div className="container mx-auto px-2 md:px-4">
-                    {showTitle && !config.fullWidthTitle && (
-                        <div className="flex items-center justify-between mb-4" style={styles.titleContainer}>
-                            <div className="h-8 bg-gray-200 rounded w-48 animate-pulse"></div>
-                            {showSeeAll && (
-                                <div className="h-6 bg-gray-200 rounded w-20 animate-pulse"></div>
-                            )}
-                        </div>
-                    )}
-                    <div className="flex gap-4 overflow-hidden">
-                        {Array.from({ length: skeletonCount }).map((_, idx) => (
-                            <div
-                                key={idx}
-                                className="flex-shrink-0 bg-white rounded-lg overflow-hidden"
-                                style={{
-                                    width: `calc(${100 / itemsToShow}% - ${(parseFloat(gridGap) * (itemsToShow - 1)) / itemsToShow}px)`,
-                                    boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'
-                                }}
-                            >
-                                <div className="aspect-square bg-gray-200 animate-pulse"></div>
-                                <div className="p-4 space-y-3">
-                                    <div className="h-4 bg-gray-200 rounded w-3/4 animate-pulse"></div>
-                                    {showDescription && (
-                                        <div className="space-y-2">
-                                            <div className="h-3 bg-gray-200 rounded w-full animate-pulse"></div>
-                                            <div className="h-3 bg-gray-200 rounded w-5/6 animate-pulse"></div>
-                                        </div>
-                                    )}
-                                    {showPrice && (
-                                        <div className="h-5 bg-gray-200 rounded w-20 animate-pulse"></div>
-                                    )}
-                                    {showAddToCart && (
-                                        <div className="h-10 bg-gray-200 rounded animate-pulse"></div>
-                                    )}
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            </section>
-        );
-    }
+    // Use mounted state to avoid hydration mismatch
+    const displayProducts = isMounted ? products : [];
+    const displayLoading = isMounted ? loading : true;
 
-    // Don't render anything if no products found
-    if (!products || products.length === 0) {
+    // Show per-card skeleton if loading and no products in cache
+    const showSkeletons = displayProducts.length === 0 && (displayLoading || (config.randomize?.enabled && isResolving));
+
+    // Don't render anything if no products found and not loading
+    if (!showSkeletons && displayProducts.length === 0) {
         return null;
     }
 
@@ -511,7 +636,7 @@ export default function ProductCarouselWidget({ config }) {
                             className="font-semibold transition-colors whitespace-nowrap ml-4 hover:opacity-70"
                             style={{
                                 color: styles.title.color,
-                                fontSize: `calc(${styles.title.fontSize} * 0.75)`,
+                                fontSize: `clamp(0.875rem, 0.75rem + 0.4vw, 1rem)`,
                                 fontWeight: styles.title.fontWeight
                             }}
                         >
@@ -536,7 +661,7 @@ export default function ProductCarouselWidget({ config }) {
                                 className="font-semibold transition-colors whitespace-nowrap ml-4 hover:opacity-70"
                                 style={{
                                     color: styles.title.color,
-                                    fontSize: `calc(${styles.title.fontSize} * 0.75)`,
+                                    fontSize: `clamp(0.875rem, 0.75rem + 0.4vw, 1rem)`,
                                     fontWeight: styles.title.fontWeight
                                 }}
                             >
@@ -548,20 +673,18 @@ export default function ProductCarouselWidget({ config }) {
 
                 <div className="relative">
                     {/* Navigation Buttons */}
-                    {products.length > itemsToShow && (
+                    {displayProducts.length > itemsToShow && (
                         <>
                             <button
                                 onClick={() => scroll('left')}
-                                className="absolute left-1 md:left-0 top-1/2 -translate-y-1/2 -translate-x-1 md:-translate-x-4 z-10 bg-white p-2 md:p-3 rounded-full shadow-lg hover:bg-gray-100 disabled:opacity-50 disabled:hidden block"
-                                disabled={currentIndex === 0}
+                                className="absolute left-1 md:left-0 top-1/2 -translate-y-1/2 -translate-x-1 md:-translate-x-4 z-10 bg-white p-2 md:p-3 rounded-full shadow-lg hover:bg-gray-100 block"
                             >
                                 <ChevronLeft className="w-5 h-5 md:w-6 md:h-6" />
                             </button>
 
                             <button
                                 onClick={() => scroll('right')}
-                                className="absolute right-1 md:right-0 top-1/2 -translate-y-1/2 translate-x-1 md:translate-x-4 z-10 bg-white p-2 md:p-3 rounded-full shadow-lg hover:bg-gray-100 disabled:opacity-50 disabled:hidden block"
-                                disabled={currentIndex >= products.length - itemsToShow}
+                                className="absolute right-1 md:right-0 top-1/2 -translate-y-1/2 translate-x-1 md:translate-x-4 z-10 bg-white p-2 md:p-3 rounded-full shadow-lg hover:bg-gray-100 block"
                             >
                                 <ChevronRight className="w-5 h-5 md:w-6 md:h-6" />
                             </button>
@@ -570,177 +693,319 @@ export default function ProductCarouselWidget({ config }) {
 
                     {/* Products - Add padding to container to prevent shadow clipping */}
                     <div
-                        className="overflow-hidden p-1"
-                        onTouchStart={onTouchStart}
-                        onTouchMove={onTouchMove}
-                        onTouchEnd={onTouchEnd}
+                        ref={scrollContainerRef}
+                        className="overflow-x-auto scroll-smooth scrollbar-hide py-4 px-1"
+                        style={{
+                            scrollSnapType: 'x mandatory'
+                        }}
                     >
                         <div
-                            className="flex transition-transform duration-300 ease-out"
+                            className="flex"
                             style={{
-                                transform: `translateX(-${currentIndex * (100 / itemsToShow)}%)`,
                                 gap: formatCSSValue(gridGap)
                             }}
                         >
-                            {products.map((product) => (
-                                <Link
-                                    key={product.id}
-                                    href={`/products/${product.slug || product.id}`}
-                                    className="flex-shrink-0 group"
-                                    style={{
-                                        width: `calc(${100 / itemsToShow}% - ${(parseFloat(gridGap) * (itemsToShow - 1)) / itemsToShow}px)`
-                                    }}
-                                >
+                            {showSkeletons ? (
+                                Array.from({ length: limit || 8 }).map((_, idx) => (
                                     <div
-                                        className="bg-white overflow-hidden transition h-full flex flex-col"
+                                        key={`skeleton-${idx}`}
+                                        className="flex-shrink-0 bg-white rounded-lg overflow-hidden"
                                         style={{
-                                            backgroundColor: cardStyle?.backgroundColor || '#ffffff',
-                                            borderColor: cardStyle?.borderColor || 'transparent',
-                                            borderWidth: cardStyle?.borderColor ? '1px' : '0',
-                                            borderRadius: cardStyle?.borderRadius || '0.5rem',
-                                            boxShadow: cardStyle?.shadow === 'none' ? 'none' :
-                                                cardStyle?.shadow === 'sm' ? '0 1px 2px 0 rgb(0 0 0 / 0.05)' :
-                                                    cardStyle?.shadow === 'md' ? '0 4px 6px -1px rgb(0 0 0 / 0.1)' :
-                                                        cardStyle?.shadow === 'lg' ? '0 10px 15px -3px rgb(0 0 0 / 0.1)' :
-                                                            cardStyle?.shadow === 'xl' ? '0 20px 25px -5px rgb(0 0 0 / 0.1)' : '0 4px 6px -1px rgb(0 0 0 / 0.1)'
+                                            width: `calc(${100 / itemsToShow}% - ${(parseFloat(gridGap) * (itemsToShow - 1)) / itemsToShow}px)`,
+                                            boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'
                                         }}
                                     >
-                                        <div className="aspect-square bg-gray-100 relative overflow-hidden">
-                                            {product.image_url ? (
-                                                <img
-                                                    src={product.image_url}
-                                                    alt={product.name}
-                                                    className="w-full h-full object-cover group-hover:scale-110 transition duration-500"
-                                                    loading="lazy"
-                                                />
-                                            ) : (
-                                                <div className="w-full h-full flex items-center justify-center text-gray-400">
-                                                    No Image
-                                                </div>
-                                            )}
-
-                                            {/* Wishlist Button */}
-                                            <button
-                                                onClick={(e) => handleWishlistToggle(e, product)}
-                                                className="absolute top-2 left-2 p-1.5 rounded-full bg-white/80 hover:bg-white text-gray-600 hover:text-red-500 transition-all shadow-sm z-10"
-                                                style={{ padding: `${0.35 * scale}rem` }}
-                                            >
-                                                <Heart
-                                                    className={`transition-colors ${isInWishlist(product.id) ? 'fill-red-500 text-red-500' : ''}`}
-                                                    style={{ width: `${1.2 * scale}rem`, height: `${1.2 * scale}rem` }}
-                                                />
-                                            </button>
-
-                                            {showFeaturedBadge !== false && product.is_featured && (
-                                                <div
-                                                    className="absolute top-3 right-3 font-bold rounded-full shadow-sm z-10"
-                                                    style={{
-                                                        backgroundColor: '#fbbf24',
-                                                        color: '#ffffff',
-                                                        fontSize: `${0.75 * scale}rem`,
-                                                        padding: `${0.25 * scale}rem ${0.75 * scale}rem`
-                                                    }}
-                                                >
-                                                    Featured
-                                                </div>
-                                            )}
+                                        <div className="aspect-square be3-logo-skeleton">
+                                            <div className="be3-logo-text">BE3</div>
                                         </div>
-                                        <div className="flex-1 flex flex-col" style={{ padding: `${1.1 * scale}rem` }}>
-                                            <h3
-                                                className={`font-semibold mb-2 transition-colors group-hover:text-blue-600 ${scale < 0.8 ? 'line-clamp-1' : 'line-clamp-2'}`}
-                                                style={{ fontSize: `${1.125 * scale}rem`, lineHeight: `${1.5 * scale}rem` }}
-                                            >
-                                                {product.name}
-                                            </h3>
-
-                                            {/* Description */}
-                                            {showDescription && product.description && (
-                                                <p className={`text-gray-500 ${scale < 0.8 ? 'line-clamp-1' : 'line-clamp-2'} mb-2`} style={{ fontSize: `${0.875 * scale}rem` }}>
-                                                    {product.description}
-                                                </p>
-                                            )}
-
-                                            {/* Attributes */}
-                                            {showAttributes && product.attributes && Object.keys(product.attributes).length > 0 && (
-                                                <div className="flex flex-wrap gap-1 mb-2">
-                                                    {Object.entries(product.attributes).slice(0, 2).map(([key, value], i) => (
-                                                        <span key={i} className="px-2 py-0.5 bg-gray-50 border border-gray-100 text-gray-600 rounded" style={{ fontSize: `${0.75 * scale}rem` }}>
-                                                            <span className="font-medium">{key}:</span> {value}
-                                                        </span>
-                                                    ))}
+                                        <div className="p-4 space-y-3">
+                                            <div className="h-4 bg-gray-200 rounded w-3/4 animate-pulse"></div>
+                                            {effectiveShowDescription && (
+                                                <div className="space-y-2">
+                                                    <div className="h-3 bg-gray-200 rounded w-full animate-pulse"></div>
+                                                    <div className="h-3 bg-gray-200 rounded w-5/6 animate-pulse"></div>
                                                 </div>
                                             )}
-
-                                            {/* Tags */}
-                                            {showTags && product.tags && Array.isArray(product.tags) && product.tags.length > 0 && (
-                                                <div className="flex flex-wrap gap-1 mb-2">
-                                                    {product.tags.slice(0, 2).map((tag, i) => (
-                                                        <span key={i} className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full" style={{ fontSize: `${0.75 * scale}rem` }}>
-                                                            {tag}
-                                                        </span>
-                                                    ))}
-                                                </div>
-                                            )}
-
-                                            {/* Social Proof */}
-                                            {showSocialProof && (
-                                                <div className="flex items-center gap-3 text-gray-400 mb-2" style={{ fontSize: `${0.75 * scale}rem` }}>
-                                                    <span className="flex items-center gap-1">
-                                                        <Eye style={{ width: `${0.8 * scale}rem`, height: `${0.8 * scale}rem` }} />
-                                                        {Math.floor(Math.random() * 500) + 50}
-                                                    </span>
-                                                    <span className="flex items-center gap-1">
-                                                        ❤️ {Math.floor(Math.random() * 50) + 5}
-                                                    </span>
-                                                </div>
-                                            )}
-
-                                            <div className="mt-auto flex items-center justify-between gap-2" style={{ paddingTop: `${1 * scale}rem` }}>
-                                                {showPrice !== false && (
-                                                    <p className="font-bold text-blue-600" style={{ fontSize: `${1.25 * scale}rem` }}>
-                                                        ${product.price}
-                                                    </p>
+                                            {effectiveShowPrice && <div className="h-5 bg-gray-200 rounded w-20 animate-pulse"></div>}
+                                            {effectiveShowAddToCart && <div className="h-10 bg-gray-200 rounded animate-pulse"></div>}
+                                        </div>
+                                    </div>
+                                ))
+                            ) : (
+                                displayProducts.map((product, index) => (
+                                    <div
+                                        key={`${product.id || product.slug}-${index}`}
+                                        className="carousel-item flex-shrink-0 group cursor-pointer"
+                                        style={{
+                                            width: `calc(${100 / itemsToShow}% - ${(parseFloat(gridGap) * (itemsToShow - 1)) / itemsToShow}px)`,
+                                            scrollSnapAlign: 'start'
+                                        }}
+                                        onClick={() => {
+                                            window.location.href = `/products/${product.slug || product.id}?ref_type=widget&ref_id=${widgetId}`;
+                                            trackClick({
+                                                entity_type: 'product',
+                                                entity_id: product.id,
+                                                placement_id: widgetId,
+                                                placement_type: config.placement_type || 'widget',
+                                                position: index + 1,
+                                                metadata: {
+                                                    widget_title: displayTitle || title,
+                                                    product_name: product.name,
+                                                    product_slug: product.slug
+                                                }
+                                            });
+                                        }}
+                                    >
+                                        <div
+                                            className="bg-white overflow-hidden transition h-full flex flex-col relative"
+                                            style={{
+                                                backgroundColor: cardStyle?.backgroundColor || '#ffffff',
+                                                borderColor: cardStyle?.borderColor || 'transparent',
+                                                borderWidth: cardStyle?.borderColor ? '1px' : '0',
+                                                borderRadius: cardStyle?.borderRadius || '0.5rem',
+                                                boxShadow: cardStyle?.shadow === 'none' ? 'none' :
+                                                    cardStyle?.shadow === 'sm' ? '0 1px 2px 0 rgb(0 0 0 / 0.05)' :
+                                                        cardStyle?.shadow === 'md' ? '0 4px 6px -1px rgb(0 0 0 / 0.1)' :
+                                                            cardStyle?.shadow === 'lg' ? '0 10px 15px -3px rgb(0 0 0 / 0.1)' :
+                                                                cardStyle?.shadow === 'xl' ? '0 20px 25px -5px rgb(0 0 0 / 0.1)' : '0 4px 6px -1px rgb(0 0 0 / 0.1)'
+                                            }}
+                                        >
+                                            <div className="aspect-square bg-gray-100 relative overflow-hidden">
+                                                {(product.image_url || product.thumbnail_url || product.image) ? (
+                                                    <img
+                                                        src={product.image_url || product.thumbnail_url || product.image}
+                                                        alt={product.name}
+                                                        className="w-full h-full object-cover group-hover:scale-110 transition duration-500"
+                                                        loading="lazy"
+                                                    />
+                                                ) : (
+                                                    <div className="w-full h-full flex items-center justify-center text-gray-400">
+                                                        No Image
+                                                    </div>
                                                 )}
 
-                                                <div className="flex items-center gap-2">
-                                                    {showViewDetails && (
-                                                        <button
-                                                            className="bg-gray-100 text-gray-600 rounded-full hover:bg-gray-200 transition"
-                                                            title="View Details"
-                                                            onClick={(e) => {
-                                                                e.preventDefault();
-                                                                window.location.href = `/products/${product.slug || product.id}`;
-                                                            }}
-                                                            style={{ padding: `${0.625 * scale}rem` }}
-                                                        >
-                                                            <Eye style={{ width: `${1.25 * scale}rem`, height: `${1.25 * scale}rem` }} />
-                                                        </button>
+                                                {/* Wishlist Button */}
+                                                <button
+                                                    onClick={(e) => handleWishlistToggle(e, product)}
+                                                    className="absolute top-2 left-2 p-1.5 rounded-full bg-white/80 hover:bg-white text-gray-600 hover:text-red-500 transition-all shadow-sm z-10"
+                                                    style={{ padding: `${0.35 * scale}rem` }}
+                                                >
+                                                    <Heart
+                                                        className={`transition-colors ${isInWishlist(product.id) ? 'fill-red-500 text-red-500' : ''}`}
+                                                        style={{ width: `${1.2 * scale}rem`, height: `${1.2 * scale}rem` }}
+                                                    />
+                                                </button>
+
+                                                {effectiveShowFeaturedBadge && product.is_featured && (
+                                                    <div
+                                                        className="absolute top-3 right-3 font-bold rounded-full shadow-sm z-10"
+                                                        style={{
+                                                            backgroundColor: colors.badgeBackground || '#fbbf24',
+                                                            color: colors.badgeText || '#ffffff',
+                                                            fontSize: `${0.75 * scale}rem`,
+                                                            padding: `${0.25 * scale}rem ${0.75 * scale}rem`
+                                                        }}
+                                                    >
+                                                        Featured
+                                                    </div>
+                                                )}
+
+                                                {/* Delivery Badge Overlay */}
+                                                {effectiveShowDeliveryBadge && product.delivery_type === 'express' && (
+                                                    <div
+                                                        className="absolute bottom-2 left-2 rounded-full bg-white z-10 flex items-center justify-center p-1.5"
+                                                        style={{ padding: `${0.35 * scale}rem` }}
+                                                        title="Express Delivery"
+                                                    >
+                                                        <img src="/express.gif" alt="Express" className="object-contain shrink-0" style={{ width: `${1.5 * scale}rem`, height: `${1.5 * scale}rem` }} />
+                                                    </div>
+                                                )}
+                                                {effectiveShowDeliveryBadge && product.delivery_type === 'shipped_from_abroad' && (
+                                                    <div
+                                                        className="absolute bottom-2 left-2 rounded-full bg-white z-10 flex items-center justify-center p-1.5"
+                                                        style={{ padding: `${0.35 * scale}rem` }}
+                                                        title="Shipped from Abroad"
+                                                    >
+                                                        <img src="/abroad.gif" alt="Shipped from Abroad" className="object-contain shrink-0" style={{ width: `${1.5 * scale}rem`, height: `${1.5 * scale}rem` }} />
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <div className="flex-1 flex flex-col" style={{ padding: `${1.1 * scale}rem` }}>
+                                                <h3
+                                                    className={`font-semibold mb-2 transition-colors group-hover:text-blue-600 ${scale < 0.8 ? 'line-clamp-1' : 'line-clamp-2'}`}
+                                                    style={{
+                                                        fontSize: `clamp(${0.875 * scale}rem, ${0.75 * scale}rem + ${0.5 * scale}vw, ${1.125 * scale}rem)`,
+                                                        lineHeight: `clamp(${1.1 * scale}rem, ${1 * scale}rem + ${0.5 * scale}vw, ${1.5 * scale}rem)`
+                                                    }}
+                                                >
+                                                    {product.name}
+                                                </h3>
+
+                                                <div className="space-y-2" style={{ marginTop: `${0.4 * scale}rem` }}>
+                                                    {effectiveShowDescription && product.description && (
+                                                        <p className={`text-gray-500 ${scale < 0.8 ? 'line-clamp-1' : 'line-clamp-2'}`} style={{ fontSize: `clamp(${0.75 * scale}rem, ${0.7 * scale}rem + ${0.2 * scale}vw, ${0.875 * scale}rem)` }}>
+                                                            {product.description}
+                                                        </p>
                                                     )}
-                                                    {showAddToCart !== false && (
-                                                        <button
-                                                            className="bg-blue-50 text-blue-600 rounded-full hover:bg-blue-100 transition flex items-center gap-2"
-                                                            title="Add to Cart"
-                                                            onClick={(e) => handleAddToCart(e, product)}
-                                                            disabled={addingToCart === product.id}
-                                                            style={{ padding: `${0.625 * scale}rem` }}
-                                                        >
-                                                            {addingToCart === product.id ? (
-                                                                <Check className="animate-pulse" style={{ width: `${1.25 * scale}rem`, height: `${1.25 * scale}rem` }} />
-                                                            ) : (
-                                                                <ShoppingCart style={{ width: `${1.25 * scale}rem`, height: `${1.25 * scale}rem` }} />
+                                                    {(effectiveShowVendor || effectiveShowAttributes) && product.attributes && (
+                                                        <div className="flex flex-wrap gap-1 mt-1">
+                                                            {effectiveShowVendor && product.attributes.vendor && (
+                                                                <span className="inline-block px-2 py-0.5 bg-blue-50 border border-blue-100 text-blue-700 rounded font-semibold leading-relaxed" style={{ fontSize: `clamp(${0.65 * scale}rem, ${0.6 * scale}rem + ${0.1 * scale}vw, ${0.75 * scale}rem)` }}>
+                                                                    {product.vendor_verified ? (() => {
+                                                                        const parts = product.attributes.vendor.split(' ');
+                                                                        const lastWord = parts.pop();
+                                                                        return (
+                                                                            <>
+                                                                                {parts.length > 0 && parts.join(' ') + ' '}
+                                                                                <span className="inline-flex items-center gap-1 whitespace-nowrap align-middle ml-1 sm:ml-0">
+                                                                                    {lastWord}
+                                                                                    <img
+                                                                                        src="/verified.svg"
+                                                                                        alt="Verified Business"
+                                                                                        title="Verified Business"
+                                                                                        className="object-contain shrink-0 relative top-[-1px]"
+                                                                                        style={{ width: `${0.85 * scale}rem`, height: `${0.85 * scale}rem` }}
+                                                                                    />
+                                                                                </span>
+                                                                            </>
+                                                                        );
+                                                                    })() : (
+                                                                        product.attributes.vendor
+                                                                    )}
+                                                                </span>
                                                             )}
-                                                        </button>
+                                                            {effectiveShowAttributes && Object.entries(product.attributes)
+                                                                .filter(([key]) => key !== 'vendor')
+                                                                .slice(0, attributesCount)
+                                                                .map(([key, value], i) => (
+                                                                    <span key={i} className="px-2 py-0.5 bg-gray-50 border border-gray-100 text-gray-600 rounded" style={{ fontSize: `clamp(${0.65 * scale}rem, ${0.6 * scale}rem + ${0.1 * scale}vw, ${0.75 * scale}rem)` }}>
+                                                                        {value}
+                                                                    </span>
+                                                                ))
+                                                            }
+                                                        </div>
                                                     )}
+                                                </div>
+
+                                                {effectiveShowTags && product.tags && Array.isArray(product.tags) && product.tags.length > 0 && (
+                                                    <div className="flex flex-wrap gap-1 mt-2">
+                                                        {product.tags
+                                                            .filter(tag => !product.attributes?.vendor || tag.toLowerCase() !== product.attributes.vendor.toLowerCase())
+                                                            .slice(0, tagsCount)
+                                                            .map((tag, i) => (
+                                                                <span key={i} className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full" style={{ fontSize: `clamp(${0.65 * scale}rem, ${0.6 * scale}rem + ${0.1 * scale}vw, ${0.75 * scale}rem)` }}>
+                                                                    {tag}
+                                                                </span>
+                                                            ))
+                                                        }
+                                                    </div>
+                                                )}
+
+                                                {effectiveShowSocialProof && (
+                                                    <div className="flex items-center gap-3 text-gray-500 font-medium mt-2" style={{ fontSize: `${0.75 * scale}rem` }}>
+                                                        <span className="flex items-center gap-1.5">
+                                                            <Eye className="w-3 h-3 text-gray-500" style={{ width: `${0.85 * scale}rem`, height: `${0.85 * scale}rem` }} />
+                                                            {product.stats?.impressions || 0}
+                                                        </span>
+                                                        <span className="flex items-center gap-1.5">
+                                                            <Heart className="w-3 h-3 text-gray-500" style={{ width: `${0.85 * scale}rem`, height: `${0.85 * scale}rem` }} />
+                                                            {product.stats?.wishlist_count || 0}
+                                                        </span>
+                                                    </div>
+                                                )}
+
+                                                {/* Rating */}
+                                                {effectiveShowRating && product.rating_summary && parseFloat(product.rating_summary.average_rating) > 0 && (
+                                                    <div className="flex items-center gap-1.5 mt-1" style={{ fontSize: `${0.75 * scale}rem` }}>
+                                                        <Star className="fill-yellow-400 text-yellow-400" style={{ width: `${0.8 * scale}rem`, height: `${0.8 * scale}rem` }} />
+                                                        <span className="font-semibold text-gray-700">{parseFloat(product.rating_summary.average_rating).toFixed(1)}</span>
+                                                        <span className="text-gray-500 font-medium">({parseInt(product.rating_summary.total_reviews || 0)} review{parseInt(product.rating_summary.total_reviews || 0) !== 1 ? 's' : ''})</span>
+                                                    </div>
+                                                )}
+
+
+                                                <div className="mt-auto flex items-center justify-between gap-2" style={{ paddingTop: `${1 * scale}rem` }}>
+                                                    <div className="flex flex-col">
+                                                        {effectiveShowPrice && (
+                                                            <span className="font-bold" style={{
+                                                                color: colors.price || 'var(--primary)',
+                                                                // Use scale for density, clamp for viewport (sync with name scaling)
+                                                                fontSize: `clamp(${0.95 * scale}rem, ${0.85 * scale}rem + ${0.5 * scale}vw, ${1.25 * scale}rem)`
+                                                            }}>
+                                                                {formatPrice(product.price)}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        {effectiveShowChat && (
+                                                            <button
+                                                                className="hidden md:block rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
+                                                                title="Chat with Seller"
+                                                                onClick={(e) => {
+                                                                    e.preventDefault();
+                                                                    e.stopPropagation();
+                                                                    openChat('product', product.id, product.name);
+                                                                }}
+                                                                style={{ padding: `${0.625 * scale}rem` }}
+                                                            >
+                                                                <MessageCircle style={{ width: `${1.25 * scale}rem`, height: `${1.25 * scale}rem` }} />
+                                                            </button>
+                                                        )}
+                                                        {effectiveShowAddToCart && (
+                                                            <button
+                                                                onClick={(e) => handleAddToCart(e, product)}
+                                                                disabled={addingToCart === product.id}
+                                                                className="rounded-full transition-all duration-200 flex items-center justify-center shadow-sm"
+                                                                style={{
+                                                                    backgroundColor: addingToCart === product.id ? '#10b981' : (colors?.accent && colors.accent !== '#3b82f6' ? colors.accent : 'var(--accent-soft, rgba(37, 99, 235, 0.1))'),
+                                                                    color: addingToCart === product.id ? '#ffffff' : (colors?.accent && colors.accent !== '#3b82f6' ? '#ffffff' : 'var(--primary)'),
+                                                                    width: deviceType === 'mobile' ? `${2.1 * scale}rem` : `${2.5 * scale}rem`,
+                                                                    height: deviceType === 'mobile' ? `${2.1 * scale}rem` : `${2.5 * scale}rem`,
+                                                                    padding: deviceType === 'mobile' ? `${0.5 * scale}rem` : `${0.625 * scale}rem`
+                                                                }}
+                                                                aria-label="Add to Cart"
+                                                            >
+                                                                {addingToCart === product.id ? (
+                                                                    <Check className="animate-in zoom-in" style={{ width: `${1.25 * scale}rem`, height: `${1.25 * scale}rem` }} />
+                                                                ) : (
+                                                                    <ShoppingCart style={{ width: `${1.25 * scale}rem`, height: `${1.25 * scale}rem` }} />
+                                                                )}
+                                                            </button>
+                                                        )}
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
                                     </div>
-                                </Link>
-                            ))}
+                                ))
+                            )}
                         </div>
                     </div>
                 </div>
             </div>
-        </section>
+
+            <style jsx>{`
+                .carousel-item {
+                    width: calc(100% / ${columns.mobile || 2} - ${(parseFloat(gridGap) * ((columns.mobile || 2) - 1)) / (columns.mobile || 2)}px);
+                }
+                @media (min-width: 640px) {
+                    .carousel-item {
+                        width: calc(100% / ${columns.tablet || 3} - ${(parseFloat(gridGap) * ((columns.tablet || 3) - 1)) / (columns.tablet || 3)}px);
+                    }
+                }
+                @media (min-width: 1024px) {
+                    .carousel-item {
+                        width: calc(100% / ${columns.desktop || 5} - ${(parseFloat(gridGap) * ((columns.desktop || 5) - 1)) / (columns.desktop || 5)}px);
+                    }
+                }
+                ${sneakPeek && displayProducts.length > (columns.desktop || 5) ? `
+                @media (min-width: 1024px) {
+                    .carousel-item {
+                        width: calc(100% / ${(columns.desktop || 5) + 0.5} - ${(parseFloat(gridGap) * ((columns.desktop || 5) + 0.5 - 1)) / ((columns.desktop || 5) + 0.5)}px);
+                    }
+                }
+                ` : ''}
+            `}</style>
+        </section >
     );
 }

@@ -1,25 +1,24 @@
 "use client";
 
-import { createContext, useContext, useState, useEffect, useCallback } from "react";
+import { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
 import api from "@/lib/axios";
 import { useTenant } from "@/components/providers/TenantContext";
-
+import { useAuth } from "@/components/providers/AuthContext";
+import { useAnalytics } from "@/lib/hooks/useAnalytics";
+import { toast } from "react-hot-toast";
 
 
 const CartContext = createContext({});
 
 export function CartProvider({ children }) {
     const tenant = useTenant();
+    const { trackClick } = useAnalytics();
+    const { user } = useAuth();
     const [cart, setCart] = useState(null);
     const [items, setItems] = useState([]);
+    const [vendorGroups, setVendorGroups] = useState([]);
     const [isOpen, setIsOpen] = useState(false);
     const [loading, setLoading] = useState(true);
-
-    useEffect(() => {
-        if (tenant?.id) {
-            fetchCart();
-        }
-    }, [tenant?.id]);
 
     const fetchCart = useCallback(async () => {
         try {
@@ -40,6 +39,7 @@ export function CartProvider({ children }) {
             if (res.data.success) {
                 setCart(res.data.cart);
                 setItems(res.data.items || []);
+                setVendorGroups(res.data.vendorGroups || []);
             }
         } catch (err) {
             console.error("Failed to fetch cart", err);
@@ -48,6 +48,38 @@ export function CartProvider({ children }) {
             setLoading(false);
         }
     }, [tenant?.id]);
+
+    useEffect(() => {
+        if (tenant?.id) {
+            fetchCart();
+        }
+    }, [tenant?.id, fetchCart]);
+
+    // On logout: generate a new session, clear cart state
+    // On login: re-fetch cart for the authenticated user
+    const prevUserRef = useRef(user);
+    useEffect(() => {
+        if (!tenant?.id) return;
+
+        const wasLoggedIn = !!prevUserRef.current;
+        const isLoggedIn = !!user;
+
+        if (wasLoggedIn && !isLoggedIn) {
+            // Logout: new anonymous session
+            const storageKey = `cart_session_${tenant.id}`;
+            const newSession = `sess_${Math.random().toString(36).substring(2, 15)}`;
+            localStorage.setItem(storageKey, newSession);
+            setCart(null);
+            setItems([]);
+            setVendorGroups([]);
+            fetchCart();
+        } else if (!wasLoggedIn && isLoggedIn) {
+            // Login: re-fetch to get authenticated user's cart
+            fetchCart();
+        }
+
+        prevUserRef.current = user;
+    }, [user, tenant?.id]);
 
     const addToCart = async (product, quantity = 1, variantId = null) => {
         console.log("Adding to cart:", product, quantity);
@@ -64,8 +96,40 @@ export function CartProvider({ children }) {
             });
 
             if (res.data.success) {
+                // Track Analytics
+                trackClick({
+                    entity_type: 'product',
+                    entity_id: product.id,
+                    event_type: 'add_to_cart',
+                    metadata: {
+                        name: product.name,
+                        price: product.price,
+                        quantity,
+                        variant_id: variantId
+                    }
+                });
+
                 await fetchCart();
-                setIsOpen(true); // Open drawer on add
+                
+                if (window.innerWidth < 1024) {
+                    toast(
+                        (t) => (
+                            <div className="flex items-center justify-between w-full">
+                                <div className="flex-1 text-sm font-medium">🛒 Added to cart</div>
+                                <button 
+                                    onClick={() => { setIsOpen(true); toast.dismiss(t.id); }}
+                                    className="text-white bg-black hover:bg-gray-800 px-3 py-1.5 rounded-full text-xs font-bold uppercase ml-3"
+                                >
+                                    View
+                                </button>
+                            </div>
+                        ), 
+                        { id: 'mobile-cart-toast', duration: 4000, style: { minWidth: '300px' } }
+                    );
+                } else {
+                    setIsOpen(true);
+                }
+                
                 return true;
             }
         } catch (err) {
@@ -77,21 +141,48 @@ export function CartProvider({ children }) {
     };
 
     const removeFromCart = async (itemId) => {
+        const prevItems = items;
+
+        const item = items.find(i => i.id === itemId);
+
+        // Optimistic: remove from items immediately
+        setItems(items.filter(i => i.id !== itemId));
+
         try {
+            if (item) {
+                trackClick({
+                    entity_type: 'product',
+                    entity_id: item.product_id,
+                    event_type: 'remove_from_cart',
+                    metadata: { name: item.product_name, quantity: item.quantity }
+                });
+            }
             await api.delete(`/cart/items/${itemId}`);
+            // Sync vendorGroups after confirmed delete
             await fetchCart();
         } catch (err) {
+            setItems(prevItems); // rollback
             console.error("Failed to remove from cart", err);
+            toast.error("Couldn't remove item — please try again");
         }
     };
 
     const updateQuantity = async (itemId, quantity) => {
-        if (quantity < 1) return;
+        if (quantity < 1) return removeFromCart(itemId);
+
+        const prevItems = items;
+
+        // Optimistic: update quantity in items immediately
+        setItems(items.map(i => i.id === itemId ? { ...i, quantity } : i));
+
         try {
             await api.patch(`/cart/items/${itemId}`, { quantity });
+            // Sync vendorGroups after confirmed update
             await fetchCart();
         } catch (err) {
+            setItems(prevItems); // rollback
             console.error("Failed to update quantity", err);
+            toast.error("Couldn't update quantity — please try again");
         }
     };
 
@@ -102,6 +193,7 @@ export function CartProvider({ children }) {
         <CartContext.Provider value={{
             cart,
             items,
+            vendorGroups,
             loading,
             isOpen,
             setIsOpen,

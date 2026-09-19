@@ -2,12 +2,16 @@
 
 import { useEffect, useState, use, useMemo } from "react";
 import Link from 'next/link';
-import { ChevronRight, Package, ExternalLink, SlidersHorizontal } from 'lucide-react';
+import { ChevronRight, Package } from 'lucide-react';
 import { useTenant } from "@/components/providers/TenantContext";
 import { SearchProvider } from "@/components/providers/SearchContext";
 import SearchPageLayout from "@/components/widgets/SearchPageLayout";
-import DynamicMetaTags from "@/components/DynamicMetaTags";
+
 import api from "@/lib/axios";
+import EntityAnalytics from "@/components/analytics/EntityAnalytics";
+import { LegacyPageProvider } from "@/components/providers/LegacyPageContext";
+import WidgetRenderer from "@/components/widgets/WidgetRenderer";
+import CollectionHeader from "@/components/collections/CollectionHeader";
 
 export default function CollectionPage({ params }) {
     const resolvedParams = use(params);
@@ -17,6 +21,8 @@ export default function CollectionPage({ params }) {
     const [collection, setCollection] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [widgets, setWidgets] = useState([]);
+    const [widgetsLoading, setWidgetsLoading] = useState(true);
 
     const initialFilters = useMemo(() => {
         return { collection_slug: slug };
@@ -43,10 +49,34 @@ export default function CollectionPage({ params }) {
             }
         };
 
+        const fetchWidgets = async () => {
+            try {
+                // Try specific slug first, then fallback to template
+                const res = await api.get(`/page-builder/widgets?page=${slug}`, {
+                    headers: { 'x-tenant-id': tenant.id }
+                });
+                
+                let foundWidgets = res.data?.widgets || [];
+                if (foundWidgets.length === 0) {
+                    const templateRes = await api.get(`/page-builder/widgets?page=collection_detail`, {
+                        headers: { 'x-tenant-id': tenant.id }
+                    });
+                    foundWidgets = templateRes.data?.widgets || [];
+                }
+                
+                setWidgets(foundWidgets);
+            } catch (e) {
+                console.error("Failed to fetch widgets", e);
+            } finally {
+                setWidgetsLoading(false);
+            }
+        };
+
         fetchCollection();
+        fetchWidgets();
     }, [slug, tenant?.id]);
 
-    if (loading) {
+    if (loading || widgetsLoading) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-gray-50">
                 <div className="flex flex-col items-center gap-4">
@@ -74,78 +104,27 @@ export default function CollectionPage({ params }) {
 
     return (
         <SearchProvider key={slug} initialFilters={initialFilters}>
-            <div className="min-h-screen bg-white">
-                <DynamicMetaTags
-                    meta={{
-                        ...(collection.seo || {}),
-                        title: collection.seo?.title || collection.name
-                    }}
-                    tenant={tenant}
-                />
+            <LegacyPageProvider data={collection} type="collection">
+                <div className="min-h-screen bg-white">
 
-                {/* Hero Section */}
-                <div className="relative bg-gradient-to-br from-indigo-900 via-purple-900 to-black text-white overflow-hidden py-16 lg:py-24">
-                    {collection.image_url && (
-                        <div className="absolute inset-0">
-                            <img
-                                src={collection.image_url}
-                                alt={collection.name}
-                                className="w-full h-full object-cover opacity-30"
-                            />
-                            <div className="absolute inset-0 bg-gradient-to-t from-gray-900 via-transparent to-transparent" />
+                    <EntityAnalytics type="collection" entity={collection} />
+
+                    {/* Show a curated collection hero header for manual (non-vendor) collections */}
+                    {collection.collection_type !== 'vendor' && (
+                        <CollectionHeader collection={collection} />
+                    )}
+
+                    {widgets.length > 0 ? (
+                        widgets.filter(w => !w.parent_id).map(widget => (
+                            <WidgetRenderer key={widget.id} widget={widget} widgets={widgets} />
+                        ))
+                    ) : (
+                        <div className="container mx-auto px-4 py-20 text-center">
+                            <p className="text-gray-500">No widgets registered for this page.</p>
                         </div>
                     )}
-                    <div className="relative container mx-auto px-4 max-w-7xl">
-                        <nav className="flex items-center text-sm text-gray-300 mb-8">
-                            <Link href="/" className="hover:text-white transition-colors">Home</Link>
-                            <ChevronRight className="w-4 h-4 mx-2 text-gray-500" />
-                            <Link href="/products" className="hover:text-white transition-colors">Products</Link>
-                            <ChevronRight className="w-4 h-4 mx-2 text-gray-500" />
-                            <span className="text-white font-medium">{collection.name}</span>
-                        </nav>
-                        <div className="max-w-3xl">
-                            <span className="inline-block px-3 py-1 bg-indigo-500/20 border border-indigo-400/30 rounded-full text-xs font-bold uppercase tracking-widest text-indigo-300 mb-4">
-                                Exclusive Collection
-                            </span>
-                            <div className="flex flex-col md:flex-row md:items-center gap-6 mb-6">
-                                {collection.thumbnail_url && (
-                                    <div className="w-20 h-20 lg:w-28 lg:h-28 rounded-2xl overflow-hidden border-2 border-white/20 shadow-2xl shrink-0 bg-white/10 backdrop-blur-sm">
-                                        <img src={collection.thumbnail_url} alt="" className="w-full h-full object-cover" />
-                                    </div>
-                                )}
-                                <h1 className="text-4xl lg:text-7xl font-extrabold tracking-tight">
-                                    {collection.name}
-                                </h1>
-                            </div>
-                            {collection.description && (
-                                <p className="text-xl text-gray-300 leading-relaxed font-light">
-                                    {collection.description}
-                                </p>
-                            )}
-                        </div>
-                    </div>
                 </div>
-
-                {/* Product Grid Area */}
-                <div className="container mx-auto px-4 py-8 max-w-7xl">
-                    <div className="flex items-center justify-between mb-8 pb-4 border-b border-gray-100">
-                        <div className="flex items-center gap-2">
-                            <div className="w-2 h-8 bg-indigo-600 rounded-full"></div>
-                            <h2 className="text-2xl font-bold text-gray-900">Featured Products</h2>
-                        </div>
-                        <div className="hidden lg:flex items-center gap-4 text-sm text-gray-500">
-                            <span className="flex items-center gap-1.5"><SlidersHorizontal className="w-4 h-4" /> Refine your view</span>
-                        </div>
-                    </div>
-
-                    <SearchPageLayout config={{
-                        columns: { desktop: 4, tablet: 2, mobile: 1 },
-                        showFilters: true,
-                        sidebarEnabled: true,
-                        showCategoryFilter: true
-                    }} />
-                </div>
-            </div>
+            </LegacyPageProvider>
         </SearchProvider>
     );
 }

@@ -1,8 +1,9 @@
 'use client';
 
-import { createContext, useContext, useState, useCallback, useRef } from 'react';
+import { createContext, useContext, useState, useCallback, useRef, useMemo, useEffect } from 'react';
 
 import { proxyApi as axios } from '@/lib/axios';
+import { usePathname } from 'next/navigation';
 const RandomizationContext = createContext(null);
 
 /**
@@ -21,6 +22,24 @@ export function RandomizationProvider({ children }) {
         collections: new Set(),
         attributeClauses: new Set()
     });
+
+    // Product Batching State
+    // Product Batching State
+    const [batchProducts, setBatchProducts] = useState(() => {
+        if (typeof window === 'undefined') return {};
+        try {
+            const pageHandle = window.location.pathname.split('/').pop() || 'home';
+            const key = `widget_random_plan_${pageHandle}`;
+            const stored = localStorage.getItem(key);
+            if (stored) {
+                const { products } = JSON.parse(stored);
+                return products || {};
+            }
+        } catch (e) { }
+        return {};
+    });
+    const batchRegistryRef = useRef(new Map()); // Map<widgetId, { filter, sort, perPage }>
+    const batchTimerRef = useRef(null);
 
     // Track how many times each item was reused (for smart fallback)
     const reuseCount = useRef(new Map());
@@ -46,200 +65,297 @@ export function RandomizationProvider({ children }) {
     };
 
     /**
-     * getStableWidgetId: Generates a stable ID based on config if explicit ID is missing
+     * getStableWidgetId: Generates a stable ID based on config if explicit ID is missing.
+     * Including an idPrefix ensures that different types of widgets (e.g. Category Grid vs Product Carousel)
+     * never share the same identity even if they have the same title/settings.
      */
-    const getStableWidgetId = useCallback((config, fallbackId) => {
+    /**
+     * getStableWidgetId: Generates a stable ID based on config if explicit ID is missing.
+     */
+    const getStableWidgetId = useCallback((config) => {
         if (config.id) return config.id;
         // Fallback to fingerprinting title + settings
         const fingerprint = `${config.title || 'untitled'}_${config.sourceType || 'all'}_${config.limit || 10}_${JSON.stringify(config.randomize || {})}`;
         return `stable_${stableHash(fingerprint)}`;
     }, []);
 
-    // Cache Management
-    const CACHE_KEY = 'randomization_v1_cache';
-
-    const loadCache = useCallback(() => {
-        try {
-            const stored = localStorage.getItem(CACHE_KEY);
-            return stored ? JSON.parse(stored) : {};
-        } catch (e) {
-            console.warn('[RandomizationContext] Failed to load cache', e);
-            return {};
-        }
-    }, []);
-
-    const saveCache = useCallback((newPlan) => {
-        try {
-            const current = loadCache();
-            // Merge new plan into cache
-            const updated = {
-                ...current,
-                ...newPlan,
-                _timestamp: Date.now() // Update global timestamp for session/cleanup logic if needed
-            };
-            localStorage.setItem(CACHE_KEY, JSON.stringify(updated));
-        } catch (e) {
-            console.warn('[RandomizationContext] Failed to save cache', e);
-        }
-    }, [loadCache]);
-
-    /**
-     * Check if cached data is still valid based on frequency
-     * @param {number} timestamp - When the data was cached
-     * @param {string} frequency - 'always', 'hourly', 'daily', 'session'
-     */
-    const checkExpiration = useCallback((timestamp, frequency = 'always') => {
-        if (!timestamp) return false;
-
-        const now = Date.now();
-        const age = now - timestamp;
-
-        switch (frequency) {
-            case 'hourly':
-                return age < 3600 * 1000; // 1 hour
-            case 'daily':
-                return age < 24 * 3600 * 1000; // 24 hours
-            case 'session':
-                return true; // Valid for session (cleared on browser close ideally, but here effectively infinite until explicit clear)
-            case 'always':
-            default:
-                return false; // Always expire on reload
-        }
-    }, []);
+    // --- Global Snapshot Hydration ---
+    // The frontend no longer manages its own expiry or local storage.
+    // It accepts the "Global Authority" plan from the server.
 
     // --- Backend Master Plan (For Product Widgets) ---
-    const [masterPlan, setMasterPlan] = useState({});
+    const [masterPlan, setMasterPlan] = useState(() => {
+        if (typeof window === 'undefined') return {};
+        try {
+            const pageHandle = window.location.pathname.split('/').pop() || 'home';
+            const key = `widget_random_plan_${pageHandle}`;
+            const stored = localStorage.getItem(key);
+            if (stored) {
+                const { data } = JSON.parse(stored);
+                return data || {};
+            }
+        } catch (e) { }
+        return {};
+    });
+    const masterPlanRef = useRef(masterPlan); // Mirror state for stable callbacks
     const [isResolving, setIsResolving] = useState(false);
+    const isResolvingRef = useRef(false); // Mirror state for stable callbacks
 
     // Registry to collect widget requirements before batch resolution
     const registryRef = useRef(new Map());
     const resolveTimerRef = useRef(null);
     const resolvedRef = useRef(false);
+    const [isHydrated, setIsHydrated] = useState(() => typeof window !== 'undefined' && !!localStorage.getItem(`widget_random_plan_${window.location.pathname.split('/').pop() || 'home'}`));
+
+    // Persistence Helpers
+    const getStorageKey = useCallback((pageHandle) => `widget_random_plan_${pageHandle || 'home'}`, []);
+
+    /**
+     * Reset all in-memory state when the route changes.
+     * The RandomizationProvider lives in the layout and never unmounts,
+     * so without this, masterPlan + batchProducts from the previous page
+     * persist into the next page and render stale content.
+     */
+    const pathname = usePathname();
+    const prevPathnameRef = useRef(pathname);
+
+    useEffect(() => {
+        // Skip the very first render — state is already initialized from localStorage
+        if (prevPathnameRef.current === pathname) return;
+        prevPathnameRef.current = pathname;
+
+        const pageHandle = pathname.split('/').pop() || 'home';
+        const key = `widget_random_plan_${pageHandle}`;
+
+        // Try to hydrate from the new page's localStorage (may exist from a prior visit)
+        let newPlan = {};
+        let newBatch = {};
+        if (typeof window !== 'undefined') {
+            try {
+                const stored = localStorage.getItem(key);
+                if (stored) {
+                    const parsed = JSON.parse(stored);
+                    // Respect expiry
+                    if (!parsed.expiresAt || parsed.expiresAt > Date.now()) {
+                        newPlan = parsed.data || {};
+                        newBatch = parsed.products || {};
+                    } else {
+                        localStorage.removeItem(key);
+                    }
+                }
+            } catch (e) { }
+        }
+
+        // Apply new state
+        setMasterPlan(newPlan);
+        masterPlanRef.current = newPlan;
+        setBatchProducts(newBatch);
+        setIsHydrated(Object.keys(newPlan).length > 0);
+
+        // Reset all resolution flags
+        resolvedRef.current = false;
+        isResolvingRef.current = false;
+        setIsResolving(false);
+        // NOTE: Do NOT clear registryRef or cancel resolveTimerRef here.
+        // Child effects (widget registration) fire BEFORE this parent effect in React.
+        // Widgets have already registered + started the 150ms timer.
+        // Cancelling the timer would leave the resolve stranded with no trigger.
+        // The pending timer will fire, read masterPlanRef (now reset to {}), and
+        // correctly determine it needs a foreground update with full context.
+        batchRegistryRef.current.clear();
+        if (batchTimerRef.current) {
+            clearTimeout(batchTimerRef.current);
+            batchTimerRef.current = null;
+        }
+    }, [pathname]);
+
+
+    /**
+     * Helper to save current state to localStorage
+     */
+    const persistToStorage = useCallback((pageHandle, plan, products) => {
+        if (typeof window === 'undefined') return;
+
+        try {
+            const key = getStorageKey(pageHandle);
+            const current = JSON.parse(localStorage.getItem(key) || '{}');
+
+            const payload = {
+                ...current,
+                expiresAt: current.expiresAt || (Date.now() + 15 * 60 * 1000), // Default 15m if missing
+                data: plan || current.data || {},
+                products: products || current.products || {}
+            };
+
+            localStorage.setItem(key, JSON.stringify(payload));
+        } catch (e) {
+            console.error("[RandomizationContext] Persistence failed", e);
+        }
+    }, [getStorageKey]);
 
     /**
      * Resolve the master plan from the backend
+     * @param {boolean} applyToState - If true, updates active React state. If false, only saves to storage.
+     * @param {object|null} context - Page context (vendor/category) to scope the pool
+     * @param {Array|null} widgetList - Explicit list of { id, intent, config }. If null, reads from registryRef.
      */
-    const resolveMasterPlan = useCallback(async () => {
-        if (registryRef.current.size === 0) return;
+    const resolveMasterPlan = useCallback(async (applyToState = true, context = null, widgetList = null) => {
+        const pageHandle = window.location.pathname.split('/').pop() || 'home';
 
-        // If already resolving, fallback or queue? For now, we assume batching handles it.
-        if (isResolving) return;
+        const widgetsToResolve = [];
+        let snapshot; // used for configData lookup in background fetch
+
+        if (widgetList) {
+            // Explicit list provided by the timer after splitting — registry already cleared
+            widgetsToResolve.push(...widgetList);
+            snapshot = new Map(widgetList.map(w => [w.id, w]));
+        } else {
+            // Legacy path: background sync or direct call without pre-split
+            snapshot = new Map(registryRef.current);
+            registryRef.current.clear();
+            snapshot.forEach((data, id) => {
+                widgetsToResolve.push({ id, intent: data.intent, config: data.config });
+            });
+
+            // Background sync fallback: refresh existing plan widgets if registry was empty
+            if (widgetsToResolve.length === 0 && !applyToState) {
+                Object.values(masterPlanRef.current).forEach(item => {
+                    widgetsToResolve.push({ id: item.widgetId, intent: {}, config: {} });
+                });
+            }
+        }
+
+        if (widgetsToResolve.length === 0) return;
+        if (isResolvingRef.current) return;
 
         setIsResolving(true);
+        isResolvingRef.current = true;
         resolvedRef.current = true;
 
         try {
-            const widgetsToResolve = [];
-            const cachedPlanMap = {};
+            console.log(`[RandomizationContext] Resolving plan (applyToState: ${applyToState}, context: ${context?.contextType || 'none'}, widgets: ${widgetsToResolve.length})...`);
 
-            // 1. Check Cache for each widget validity
-            const cache = loadCache();
-
-            registryRef.current.forEach((data, id) => {
-                const cachedData = cache[id];
-                // Support both 'frequency' (new) and 'interval' (legacy/builder) keys
-                const rawFreq = data.config.randomize?.frequency || data.config.randomize?.interval;
-                // Map 'page_load' to 'always' for consistency, otherwise pass through
-                const frequency = rawFreq === 'page_load' ? 'always' : (rawFreq || 'always');
-
-                if (cachedData && checkExpiration(cachedData._timestamp, frequency)) {
-                    // Valid cache hit - use it
-                    console.log(`[RandomizationContext] Cache HIT for ${id} (${frequency})`);
-                    cachedPlanMap[id] = cachedData;
-                } else {
-                    // Cache miss or expired - needs resolution
-                    console.log(`[RandomizationContext] Cache MISS/EXPIRED for ${id} (${frequency})`);
-                    widgetsToResolve.push({
-                        id,
-                        intent: data.intent,
-                        config: data.config
-                    });
-                }
+            const response = await axios.post('/api/search/randomization/resolve', {
+                widgets: widgetsToResolve,
+                pageHandle,
+                context
             });
 
-            // Update state with cached items immediately
-            if (Object.keys(cachedPlanMap).length > 0) {
-                setMasterPlan(prev => ({ ...prev, ...cachedPlanMap }));
-            }
+            if (response.data.success) {
+                const { results } = response.data;
+                const newPlanMap = {};
+                if (Array.isArray(results)) {
+                    results.forEach(res => { newPlanMap[res.widgetId] = res; });
+                }
 
-            // 2. Fetch missing items from backend
-            if (widgetsToResolve.length > 0) {
-                console.log(`[RandomizationContext] Requesting master plan for ${widgetsToResolve.length} widgets...`, widgetsToResolve);
+                // Only persist non-context-aware plans to localStorage.
+                // Context-aware plans are always resolved fresh — nothing to cache.
+                if (!context) {
+                    persistToStorage(pageHandle, newPlanMap, null);
+                }
 
-                const response = await axios.post('/api/search/randomization/resolve', { widgets: widgetsToResolve });
+                // TRUE BACKGROUND FETCH: Silently pre-warm product cache for next load
+                if (!applyToState) {
+                    const widgetsForProducts = [];
+                    Object.keys(newPlanMap).forEach(widgetId => {
+                        const plan = newPlanMap[widgetId];
+                        const configData = snapshot.get(widgetId)?.config || {};
 
-                console.log("[RandomizationContext] Backend Response:", response.data);
+                        const selections = plan.multiple ? plan.selections : [plan];
+                        const primary = selections[0];
+                        if (!primary) return;
 
-                if (response.data.success) {
-                    const newPlanMap = {};
-                    const timestamp = Date.now();
+                        const filters = {};
+                        if (primary.meta?.filter) {
+                            const params = new URLSearchParams(primary.meta.filter);
+                            for (const [key, val] of params.entries()) { filters[key] = val; }
+                        }
 
-                    if (Array.isArray(response.data.results)) {
-                        response.data.results.forEach(res => {
-                            // Add timestamp to each item for granular expiration
-                            newPlanMap[res.widgetId] = { ...res, _timestamp: timestamp };
-                        });
+                        if (Object.keys(filters).length > 0) {
+                            filters.sort = primary.resolvedSort || configData.sort || 'relevance';
+                            filters.limit = primary.resolvedLimit || configData.limit || 8;
+                            filters.showFeaturedOnly = primary.resolvedFeatured ?? configData.showFeaturedOnly ?? false;
+                            widgetsForProducts.push({ widgetId, filters, perPage: filters.limit });
+                        }
+                    });
+
+                    if (widgetsForProducts.length > 0) {
+                        axios.post('/api/search/randomization/batch-products', { widgets: widgetsForProducts })
+                            .then(res => {
+                                if (res.data.success && res.data.results) {
+                                    persistToStorage(pageHandle, null, res.data.results);
+                                    console.log('[RandomizationContext] True Background Fetch completely cached.');
+                                }
+                            })
+                            .catch(e => console.error('[RandomizationContext] Silent fetch failed', e));
                     }
+                }
 
-                    console.log("[RandomizationContext] Merging new plan results:", newPlanMap);
-
-                    // Merge new results with cached results in State
-                    setMasterPlan(prev => ({ ...prev, ...newPlanMap }));
-
-                    // Persist ONLY the new items to cache (merging with existing cache)
-                    saveCache(newPlanMap);
-                } else {
-                    console.error("[RandomizationContext] Backend reported failure:", response.data);
+                if (applyToState) {
+                    setMasterPlan(prev => {
+                        const updated = { ...prev };
+                        Object.keys(newPlanMap).forEach(key => {
+                            // Non-context: only apply if not already in state (no UI jump)
+                            // Context-aware: always apply — plan must reflect current context
+                            if (!prev[key] || context) {
+                                updated[key] = newPlanMap[key];
+                            }
+                        });
+                        masterPlanRef.current = updated;
+                        return updated;
+                    });
                 }
             }
         } catch (error) {
-            console.error("[RandomizationContext] Failed to resolve master plan:", error);
+            console.error("[RandomizationContext] Master plan resolution failed:", error);
         } finally {
             setIsResolving(false);
+            isResolvingRef.current = false;
         }
-    }, [checkExpiration, loadCache, saveCache]);
+    }, [axios, persistToStorage]);
 
     /**
      * Register a widget and trigger plan resolution
      */
     const registerWidget = useCallback((id, intent, config) => {
-        // Generate stable ID for caching
-        const stableId = getStableWidgetId(config, id);
+        if (!id) return;
 
-        // 1. Check if we already have this in current state (fastest path)
-        if (masterPlan[stableId]) {
-            console.log(`[RandomizationContext] Widget ${stableId} already in plan state (fast return)`);
-            return;
-        }
+        console.log(`[RandomizationContext] Registering ${id}`);
+        registryRef.current.set(id, { intent, config });
 
-        // 2. Check if we have valid cache (sync check) logic moved to resolveMasterPlan
-        // We register intent regardless, resolveMasterPlan filters based on cache.
-        // BUT to solve "Too Late" error: if resolvedRef is true, we try to load from cache immediately
+        if (resolveTimerRef.current) clearTimeout(resolveTimerRef.current);
+        resolveTimerRef.current = setTimeout(async () => {
+            // Take snapshot + clear registry here (before splitting) so resolveMasterPlan
+            // doesn't need to touch the registry at all when given an explicit widgetList.
+            const registrySnapshot = new Map(registryRef.current);
+            registryRef.current.clear();
 
-        if (resolvedRef.current) {
-            const cache = loadCache();
-            const cachedData = cache[stableId];
-            // If we have cached data, we can recover even if "too late" for the batch
-            if (cachedData) {
-                console.log(`[RandomizationContext] Late registration recovered from cache for ${stableId}`);
-                setMasterPlan(prev => ({ ...prev, [stableId]: cachedData }));
-                return;
+            // Split widgets into two independent groups
+            const contextWidgets = [];
+            const nonContextWidgets = [];
+            let context = null;
+
+            for (const [wid, data] of registrySnapshot) {
+                if (data.config?.contextAware && data.config?._pageContext) {
+                    if (!context) context = data.config._pageContext;
+                    contextWidgets.push({ id: wid, intent: data.intent, config: data.config });
+                } else {
+                    nonContextWidgets.push({ id: wid, intent: data.intent, config: data.config });
+                }
             }
 
-            console.warn(`[RandomizationContext] Widget ${stableId} registered too late and no cache available!`);
-            // Optional: Trigger specific resolution for this straggler?
-            // For now, we accept the warning as per original logic, but cache recovery fixes 90% of cases
-            return;
-        }
+            // 1. Context-aware widgets: always foreground, never cached, always fresh
+            if (contextWidgets.length > 0) {
+                await resolveMasterPlan(true, context, contextWidgets);
+            }
 
-        registryRef.current.set(stableId, { intent, config });
-
-        // Debounce resolution to ensure we catch all widgets mounting in the same tick
-        if (resolveTimerRef.current) clearTimeout(resolveTimerRef.current);
-        resolveTimerRef.current = setTimeout(() => {
-            resolveMasterPlan();
-        }, 100); // 100ms
-    }, [masterPlan, resolveMasterPlan, getStableWidgetId, loadCache]);
+            // 2. Non-context widgets: normal snapshot/cache flow (Redis + localStorage)
+            if (nonContextWidgets.length > 0) {
+                const needsForeground = nonContextWidgets.some(w => !masterPlanRef.current[w.id]);
+                await resolveMasterPlan(!!needsForeground, null, nonContextWidgets);
+            }
+        }, 150);
+    }, [resolveMasterPlan]);
 
     /**
      * Get next random item from pool (Client-side fallback logic remains)
@@ -305,16 +421,102 @@ export function RandomizationProvider({ children }) {
         return selected;
     }, []);
 
-    const value = {
+    /**
+     * Seed the master plan from external source (e.g. server-side injection)
+     * reconcile with local cache to maintain stickiness for hourly/daily settings
+     */
+    const seedPlan = useCallback((serverPlan) => {
+        if (!serverPlan) return;
+        setMasterPlan(prev => {
+            const updated = { ...prev, ...serverPlan };
+            masterPlanRef.current = updated;
+            return updated;
+        });
+    }, []);
+
+    /**
+     * registerProductFetch: Widgets call this to participate in the product batching
+     */
+    const registerProductFetch = useCallback((widgetId, intent) => {
+        if (!widgetId) return;
+
+        batchRegistryRef.current.set(widgetId, intent);
+
+        if (batchTimerRef.current) clearTimeout(batchTimerRef.current);
+        batchTimerRef.current = setTimeout(() => {
+            resolveBatchProducts();
+        }, 150); // Slightly longer debounce to catch all widgets on page
+    }, []);
+
+    /**
+     * resolveBatchProducts: Executes the consolidated network request
+     */
+    const resolveBatchProducts = useCallback(async () => {
+        const registry = batchRegistryRef.current;
+        if (registry.size === 0) return;
+
+        console.log(`[RandomizationContext] Resolving batch products for ${registry.size} widgets`);
+
+        const widgets = [];
+        registry.forEach((intent, widgetId) => {
+            const w = { widgetId, ...intent };
+            // Merge context filters declared by the widget (vendor or category injection)
+            if (intent._contextFilters && typeof intent._contextFilters === 'object') {
+                w.filters = { ...(w.filters || {}), ...intent._contextFilters };
+                delete w._contextFilters;
+            }
+            widgets.push(w);
+        });
+
+        // Clear registry immediately to prevent duplicate triggers
+        registry.clear();
+
+        // Mark as loading in state
+        setBatchProducts(prev => {
+            const next = { ...prev };
+            widgets.forEach(w => {
+                next[w.widgetId] = { ...next[w.widgetId], loading: true };
+            });
+            return next;
+        });
+
+        try {
+            const response = await axios.post('/api/search/randomization/batch-products', { widgets });
+
+            if (response.data.success) {
+                const results = response.data.results;
+                setBatchProducts(prev => {
+                    const next = { ...prev, ...results };
+
+                    // Persist to storage immediately
+                    const pageHandle = window.location.pathname.split('/').pop() || 'home';
+                    persistToStorage(pageHandle, null, next);
+
+                    return next;
+                });
+            }
+        } catch (error) {
+            console.error('[RandomizationContext] Batch product resolution failed', error);
+            // Mark all as failed/not loading
+            setBatchProducts(prev => {
+                const next = { ...prev };
+                widgets.forEach(w => {
+                    next[w.widgetId] = { ...next[w.widgetId], loading: false, error: 'Batch fetch failed' };
+                });
+                return next;
+            });
+        }
+    }, [axios]);
+
+    const value = useMemo(() => ({
         // Client-side utils
         getNextRandom,
         reset: () => {
-            // Clear state but NOT cache (unless specifically requested?)
-            // Keeping reset simple for now
             const empty = { categories: new Set(), collections: new Set(), attributeClauses: new Set() };
             usedSelectionsRef.current = empty;
             setUsedSelections(empty);
             reuseCount.current.clear();
+            setBatchProducts({});
         },
         getStats: () => ({ /* ... */ }),
         usedSelections,
@@ -323,8 +525,90 @@ export function RandomizationProvider({ children }) {
         masterPlan,
         isResolving,
         registerWidget,
-        getStableWidgetId // Export helper for widgets to use if needed
-    };
+        getStableWidgetId,
+        seedPlan,
+
+        // Product Batching
+        batchProducts,
+        registerProductFetch,
+        isHydrated
+    }), [
+        getNextRandom, usedSelections, masterPlan, isResolving,
+        registerWidget, getStableWidgetId, seedPlan, batchProducts, registerProductFetch, isHydrated
+    ]);
+
+    // --- Initialization & Background Sync ---
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+
+        const hydrateFromStorage = () => {
+            const pageHandle = window.location.pathname.split('/').pop() || 'home';
+            const key = getStorageKey(pageHandle);
+            const stored = localStorage.getItem(key);
+
+            if (!stored) return false;
+
+            try {
+                const { data, products, expiresAt, cacheId } = JSON.parse(stored);
+                console.log(`[RandomizationContext] Hydrating from localStorage (CacheID: ${cacheId})`);
+
+                // Immediate Hydration
+                if (data) {
+                    setMasterPlan(data);
+                    masterPlanRef.current = data;
+                }
+
+                if (products) {
+                    setBatchProducts(products);
+                }
+
+                setIsHydrated(true);
+
+                // Background Revalidation after a small delay
+                setTimeout(async () => {
+                    console.log(`[RandomizationContext] Background checking cache validity...`);
+                    try {
+                        const check = await axios.post('/api/search/randomization/validate', {
+                            cacheId,
+                            pageHandle
+                        });
+
+                        const isExpired = Date.now() > expiresAt;
+
+                        if (!check.data.valid || isExpired) {
+                            console.log(`[RandomizationContext] Cache invalid or expired. Fetching fresh resolution for NEXT load.`);
+                            resolveMasterPlan(false);
+                        } else {
+                            console.log(`[RandomizationContext] Cache still valid.`);
+                        }
+                    } catch (e) {
+                        console.warn("[RandomizationContext] Background validation failed:", e);
+                    }
+                }, 2000);
+
+                return true;
+            } catch (e) {
+                console.error("[RandomizationContext] Failed to parse stored plan", e);
+                localStorage.removeItem(getStorageKey(window.location.pathname.split('/').pop() || 'home'));
+                return false;
+            }
+        };
+
+        // Run on initial mount
+        hydrateFromStorage();
+
+        // Also run on bfcache restoration (back/forward navigation)
+        // persisted=true means the page was restored from bfcache
+        const handlePageShow = (e) => {
+            if (e.persisted) {
+                console.log('[RandomizationContext] bfcache restore detected — re-hydrating.');
+                hydrateFromStorage();
+            }
+        };
+
+        window.addEventListener('pageshow', handlePageShow);
+        return () => window.removeEventListener('pageshow', handlePageShow);
+    }, [resolveMasterPlan, getStorageKey, axios]);
 
     return (
         <RandomizationContext.Provider value={value}>

@@ -1,6 +1,8 @@
 import React from 'react';
 
 export default function TextWidget({ config }) {
+    if (!config?.content) return null;
+
     const style = {
         fontSize: config.size || '1rem',
         color: config.color || 'inherit'
@@ -10,7 +12,7 @@ export default function TextWidget({ config }) {
         <div
             className="prose prose-lg max-w-none text-gray-600 leading-relaxed"
             style={style}
-            dangerouslySetInnerHTML={{ __html: config.content || '' }}
+            dangerouslySetInnerHTML={{ __html: config.content }}
         />
     );
 }

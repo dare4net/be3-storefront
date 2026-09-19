@@ -154,6 +154,34 @@ export default function CarouselWidget({ config = {}, children }) {
         }
     }, [settings.autoPlay, currentIndex, childrenArray.length, currentItemsPerRow]);
 
+    if (loading) {
+        const gapValue = { sm: '4px', md: '8px', lg: '16px', xl: '24px' }[settings.gap] || '8px';
+        
+        return (
+            <div className={`w-full ${settings.padding}`} style={{ backgroundColor: settings.backgroundColor }}>
+                <div className={`max-w-${settings.maxWidth} mx-auto px-2 md:px-4 relative group`}>
+                    <div className="overflow-hidden">
+                        <div className="flex">
+                            {Array.from({ length: Math.ceil(currentItemsPerRow) }).map((_, index) => (
+                                <div
+                                    key={index}
+                                    className="flex-shrink-0"
+                                    style={{
+                                        flex: `0 0 ${100 / currentItemsPerRow}%`,
+                                        paddingLeft: gapValue,
+                                        paddingRight: gapValue,
+                                    }}
+                                >
+                                    <div className={`${currentItemsPerRow <= 2 ? 'aspect-[16/9] md:aspect-[21/9]' : 'aspect-[4/5] md:aspect-[3/4]'} bg-gray-200 animate-pulse rounded-lg`}></div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
     if (childrenArray.length === 0) return null;
 
     const gapValue = { sm: '4px', md: '8px', lg: '16px', xl: '24px' }[settings.gap] || '8px';

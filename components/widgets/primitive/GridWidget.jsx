@@ -1,4 +1,9 @@
+import React from 'react';
+
 export default function GridWidget({ config = {}, children }) {
+    const validChildren = React.Children.toArray(children).filter(Boolean);
+    if (validChildren.length === 0) return null;
+
     const {
         columnCount = 3,
         mobileColumnCount = 1,

@@ -14,7 +14,7 @@ export default function TabsWidget({ config, children }) {
         tabStyle = 'underline',
         animation = 'fade',
         mobileLayout = 'tabs',
-        accentColor = '#3b82f6',
+        accentColor = config.useThemeColors || !config.accentColor || config.accentColor === '#3b82f6' ? 'var(--primary, #3b82f6)' : config.accentColor,
         backgroundColor = '#ffffff'
     } = config;
 

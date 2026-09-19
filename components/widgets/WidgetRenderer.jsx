@@ -25,6 +25,7 @@ import SearchBarWidget from './SearchBarWidget';
 import SearchFiltersWidget from './SearchFiltersWidget';
 import SearchResultsWidget from './SearchResultsWidget';
 import SearchPageLayout from './SearchPageLayout';
+import ImageSearchWidget from './ImageSearchWidget';
 
 // New Primitives
 import HeadingWidget from './primitive/HeadingWidget';
@@ -47,7 +48,10 @@ import AccordionWidget from './AccordionWidget';
 import TabsWidget from './TabsWidget';
 import AnnouncementBarWidget from './AnnouncementBarWidget';
 import CategoryCarouselWidget from './CategoryCarouselWidget';
+import ClauseGridWidget from './ClauseGridWidget';
+import ClauseCarouselWidget from './ClauseCarouselWidget';
 import RandomizerWidget from './primitive/RandomizerWidget';
+import LegacyWidgetBridge from './LegacyWidgetBridge';
 
 const WIDGET_MAP = {
     hero: HeroWidget,
@@ -76,6 +80,7 @@ const WIDGET_MAP = {
     search_filters: SearchFiltersWidget,
     search_results: SearchResultsWidget,
     search_page_layout: SearchPageLayout,
+    image_search: ImageSearchWidget,
 
     // Primitives
     heading: HeadingWidget,
@@ -98,18 +103,24 @@ const WIDGET_MAP = {
     tabs: TabsWidget,
     announcement_bar: AnnouncementBarWidget,
     category_carousel: CategoryCarouselWidget,
+    clause_grid: ClauseGridWidget,
+    clause_carousel: ClauseCarouselWidget,
     randomizer: RandomizerWidget,
+
+    // Stock Content Stubs
+    header_stock_content: () => null,
+    footer_stock_content: () => null,
+    stock_content: () => null,
+
+    // Legacy Bridge
+    unknown_widget: LegacyWidgetBridge,
 };
 
 
 
 export default function WidgetRenderer({ widget, widgets = [] }) {
-    const WidgetComponent = WIDGET_MAP[widget.widget_type];
-
-    if (!WidgetComponent) {
-        console.warn(`Unknown widget type: ${widget.widget_type}`);
-        return null;
-    }
+    if (!widget) return null;
+    if (widget.is_active === false) return null;
 
     // Ensure config is an object
     let config = widget.config || {};
@@ -122,6 +133,23 @@ export default function WidgetRenderer({ widget, widgets = [] }) {
         }
     }
 
+    // Check hidden flags in config
+    if (config.hidden === true || config.visible === false || config.enabled === false || config.display === 'none') {
+        return null;
+    }
+
+    // Stock Content Stubs should return null immediately without emitting DOM nodes
+    if (widget.widget_type === 'header_stock_content' || widget.widget_type === 'footer_stock_content' || widget.widget_type === 'stock_content') {
+        return null;
+    }
+
+    const WidgetComponent = WIDGET_MAP[widget.widget_type];
+
+    if (!WidgetComponent) {
+        console.warn(`Unknown widget type: ${widget.widget_type}`);
+        return null;
+    }
+
     // Inject stable unique ID from database/page builder
     if (widget.id) {
         config = { ...config, id: widget.id };
@@ -129,13 +157,13 @@ export default function WidgetRenderer({ widget, widgets = [] }) {
 
     // Find children
     const children = widgets
-        .filter(w => w.parent_id === widget.id)
+        .filter(w => w.parent_id === widget.id && w.is_active !== false)
         .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
 
     // Grid Placement Styling
     const parent = widgets.find(w => w.id === widget.parent_id);
     const isInsideGrid = parent?.widget_type === 'grid';
-    const wrapperClass = `widget-placement-${widget.id.toString().split('-').pop()}`;
+    const wrapperClass = `widget-placement-${widget.id ? widget.id.toString().split('-').pop() : 'item'}`;
 
     const desktopStyle = {};
     if (isInsideGrid) {
@@ -151,9 +179,21 @@ export default function WidgetRenderer({ widget, widgets = [] }) {
         }
     }
 
-    return (
-        <div className={wrapperClass} style={desktopStyle}>
-            {isInsideGrid && (
+    const renderedChildren = children.length > 0 ? (
+        children.map(child => (
+            <WidgetRenderer key={child.id} widget={child} widgets={widgets} />
+        ))
+    ) : null;
+
+    const renderedContent = (
+        <WidgetComponent config={config}>
+            {renderedChildren}
+        </WidgetComponent>
+    );
+
+    if (isInsideGrid) {
+        return (
+            <div className={wrapperClass} style={desktopStyle}>
                 <style jsx>{`
                     @media (max-width: 768px) {
                         .${wrapperClass} {
@@ -162,12 +202,10 @@ export default function WidgetRenderer({ widget, widgets = [] }) {
                         }
                     }
                 `}</style>
-            )}
-            <WidgetComponent config={config}>
-                {children.length > 0 && children.map(child => (
-                    <WidgetRenderer key={child.id} widget={child} widgets={widgets} />
-                ))}
-            </WidgetComponent>
-        </div>
-    );
+                {renderedContent}
+            </div>
+        );
+    }
+
+    return renderedContent;
 }

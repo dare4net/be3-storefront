@@ -6,6 +6,8 @@ export default function AboutWidget({ config }) {
         image = ''
     } = config;
 
+    if (!content && !image) return null;
+
     return (
         <section className="py-16 bg-white">
             <div className="container mx-auto px-4">

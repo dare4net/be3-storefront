@@ -5,12 +5,14 @@ import { useParams } from "next/navigation";
 import { useTenant } from "@/components/providers/TenantContext";
 import api from "@/lib/axios";
 import WidgetRenderer from "@/components/widgets/WidgetRenderer";
-import DynamicMetaTags from "@/components/DynamicMetaTags";
+
 
 import { useStorefront } from "@/components/providers/StorefrontProvider";
 import { useSearch } from "@/components/providers/SearchContext";
 import { DEFAULT_PAGES, DEFAULT_SEARCH_WIDGETS } from "@/lib/default-content";
 import SuggestionsCarousel from "@/components/products/SuggestionsCarousel";
+import EntityAnalytics from "@/components/analytics/EntityAnalytics";
+import { LegacyPageProvider } from "@/components/providers/LegacyPageContext";
 
 export default function DynamicPage() {
     const params = useParams();
@@ -30,6 +32,13 @@ export default function DynamicPage() {
         }
         return () => setIsSearchActive(false);
     }, [tenant, params.slug]);
+
+    // Analytics: Track Page View
+    const analyticsEntity = resolution
+        ? { ...resolution, id: `${resolution.attribute.id}:${resolution.clause.name}:${resolution.category.id}`, name: page?.title || resolution.seo?.title }
+        : page;
+
+    const analyticsType = resolution ? 'branded_page' : 'page';
 
     const fetchPage = async () => {
         // ... (existing default pages logic remains the same)
@@ -108,8 +117,8 @@ export default function DynamicPage() {
                 setFilters(filterParams);
                 setQ(""); // We don't want a residual query string usually
 
-                // Fetch search widgets to render the results
-                const widgetsRes = await api.get(`/page-builder/widgets?page=search`, {
+                // Fetch branded search widgets to render the results
+                const widgetsRes = await api.get(`/page-builder/widgets?page=branded_search`, {
                     headers: { "X-Tenant-ID": tenant.id }
                 });
 
@@ -168,40 +177,24 @@ export default function DynamicPage() {
 
     return (
         <>
-            <DynamicMetaTags meta={page} tenant={tenant} />
+
+            {!loading && analyticsEntity && (
+                <EntityAnalytics type={analyticsType} entity={analyticsEntity} />
+            )}
 
             <div className="min-h-screen">
-                {widgets.length > 0 ? (
-                    widgets.filter(w => !w.parent_id).map((widget) => (
-                        <WidgetRenderer key={widget.id} widget={widget} widgets={widgets} />
-                    ))
-                ) : (
-                    <div className="container mx-auto px-4 py-16">
-                        <h1 className="text-4xl font-bold mb-4">{page.title}</h1>
-                        <p className="text-gray-600">This page doesn't have any content yet.</p>
-                    </div>
-                )}
-
-                {resolution && (
-                    <div className="bg-gray-50/50 py-16">
-                        <div className="max-w-7xl mx-auto space-y-16">
-                            <SuggestionsCarousel
-                                title={`Premium ${resolution.category.name} for You`}
-                                subtitle={`Handpicked ${resolution.clause.label} options matching your style`}
-                                categoryId={resolution.category.id}
-                                limit={8}
-                            />
-
-                            <SuggestionsCarousel
-                                title="Trending Selections"
-                                subtitle="What other shoppers are loving right now"
-                                isFeatured={true}
-                                sort="random"
-                                limit={8}
-                            />
+                <LegacyPageProvider data={resolution || page} type={resolution ? "branded_search" : "cms_page"}>
+                    {widgets.length > 0 ? (
+                        widgets.filter(w => !w.parent_id).map((widget) => (
+                            <WidgetRenderer key={widget.id} widget={widget} widgets={widgets} />
+                        ))
+                    ) : (
+                        <div className="container mx-auto px-4 py-16">
+                            <h1 className="text-4xl font-bold mb-4">{page.title}</h1>
+                            <p className="text-gray-600">This page doesn't have any content yet.</p>
                         </div>
-                    </div>
-                )}
+                    )}
+                </LegacyPageProvider>
             </div>
         </>
     );

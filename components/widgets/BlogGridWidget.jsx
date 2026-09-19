@@ -39,6 +39,8 @@ export default function BlogGridWidget({ config }) {
         ]);
     }, []);
 
+    if (posts.length === 0) return null;
+
     return (
         <section className="py-16 bg-gray-50">
             <div className="container mx-auto px-4">

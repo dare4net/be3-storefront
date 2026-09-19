@@ -1,0 +1,23 @@
+Hey, i want to implement something
+currently I can only make a suer a vendor by manually changing the user's status in the admin panel which is okay and I still want it pretty manual but I need to implement few things
+
+1. I want users to be able to apply to become a vendor, thereby owning a store, so in the admin panel  I need a new tab called "vendor" where we handle all these like requests, listings: review => approve/reject for both new listing and updates
+
+now this applications is tied to another thing ont he plafrom called VERFICATIONS, we will have 3 tiered verification (we can mock for now, implement later),
+tier 1: email verification: for all users (already implemented), without verification, no checkout and some important platform wide actions
+tier 2: KYC: you can now apply to be a vendor, if approved you get an unverified store but its liveb(we will implement the restrictions later)
+tier 3: KYB: your store becomes a verified store, restrictions lifted
+
+sure, I can still manually make a user a vendor right from the admin panel and they own a store even without KYC
+
+
+2, Removing a vendor, what happens, i.e banned, deleted store etc, do we have different tiers such as ones that rewuires the store+products hard deleted, or or store deleted+products archived and can be restored etc
+
+Vendor application goes like this
+1. checklist: atleast KYC or KYB complete
+2. An application form, very short - once approved
+3. Training -  you go through a phased training session and then an assessment, 100% score is required to move to next step
+4. Product Upload Test - upload 5 test products - would be reviewed, if all passes you move on, if it fails, you reupload the failed ones - you get reasons for failure
+4. Supply extra info like: payment setup, contact, business page setup info, store name and other necessary ones and your store goes live immediately
+I need a proper planning of all these
+an you can also ask me necessary questions

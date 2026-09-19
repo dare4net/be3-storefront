@@ -16,7 +16,7 @@ export default function AccordionWidget({ config }) {
         closedIcon = 'plus',
         backgroundColor = '#ffffff',
         borderColor = '#e5e7eb',
-        accentColor = '#3b82f6'
+        accentColor = config.useThemeColors || !config.accentColor || config.accentColor === '#3b82f6' ? 'var(--primary, #3b82f6)' : config.accentColor
     } = config;
 
     const [openItems, setOpenItems] = useState(

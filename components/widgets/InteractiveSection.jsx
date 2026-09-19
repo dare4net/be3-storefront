@@ -221,6 +221,7 @@ export default function InteractiveSection({ config }) {
                                     color: title.color,
                                     fontSize: title.fontSize?.desktop || '3.5rem',
                                     fontWeight: title.fontWeight || '700',
+                                    fontFamily: 'inherit',
                                     animationDelay: `${title.animation?.delay || 0}ms`
                                 }}
                             >
@@ -236,6 +237,7 @@ export default function InteractiveSection({ config }) {
                                 style={{
                                     color: subtitle.color,
                                     fontSize: subtitle.fontSize?.desktop || '1.25rem',
+                                    fontFamily: 'inherit',
                                     animationDelay: `${subtitle.animation?.delay || 200}ms`
                                 }}
                             >
@@ -326,8 +328,8 @@ export default function InteractiveSection({ config }) {
             <style jsx>{`
                 @media (max-width: 768px) {
                     section { height: ${height.mobile} !important; }
-                    h1, h2, h3, h4 { font-size: ${title.fontSize?.mobile || '1.8rem'} !important; }
-                    p { font-size: ${subtitle.fontSize?.mobile || '1rem'} !important; }
+                    h1, h2, h3, h4 { font-size: clamp(1.2rem, 1rem + 1.5vw, ${title.fontSize?.mobile || '1.8rem'}) !important; }
+                    p { font-size: clamp(0.9rem, 0.8rem + 0.5vw, ${subtitle.fontSize?.mobile || '1rem'}) !important; }
                 }
                 @media (min-width: 769px) and (max-width: 1024px) {
                     section { height: ${height.tablet} !important; }
@@ -485,13 +487,21 @@ function PatternGrid({ color, speed }) {
 function CTAButton({ cta, index }) {
     const Icon = cta.icon && LucideIcons[toPascalCase(cta.icon)];
     const buttonStyles = {
-        primary: 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg',
-        secondary: 'bg-white hover:bg-gray-100 text-gray-900 shadow-lg',
+        primary: 'btn-theme-primary bg-blue-600 hover:bg-blue-700 text-white shadow-lg',
+        secondary: 'btn-theme-secondary bg-white hover:bg-gray-100 text-gray-900 shadow-lg',
         outline: 'bg-transparent border-2 border-white hover:bg-white hover:text-gray-900 text-white',
         ghost: 'bg-transparent hover:bg-white/10 text-white'
     };
     return (
-        <Link href={cta.link || '#'} className={`inline-flex items-center gap-2 px-8 py-4 font-semibold rounded-full transition-all hover:scale-105 ${getAnimationClass(cta.animation)} ${buttonStyles[cta.style] || buttonStyles.primary}`} style={{ animationDelay: `${cta.animation?.delay || 400}ms` }}>
+        <Link
+            href={cta.link || '#'}
+            className={`inline-flex items-center gap-2 px-8 py-4 font-semibold rounded-full transition-all hover:scale-105 ${getAnimationClass(cta.animation)} ${buttonStyles[cta.style] || buttonStyles.primary}`}
+            style={{
+                backgroundColor: cta.style === 'primary' || !cta.style ? 'var(--btn-primary-bg, var(--primary))' : undefined,
+                color: cta.style === 'primary' || !cta.style ? 'var(--btn-primary-text, #ffffff)' : undefined,
+                animationDelay: `${cta.animation?.delay || 400}ms`
+            }}
+        >
             {cta.text}
             {Icon && <Icon className="w-5 h-5" />}
         </Link>

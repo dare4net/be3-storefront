@@ -15,6 +15,7 @@ export function TenantProvider({ tenant, children }) {
 export function useTenant() {
     const context = useContext(TenantContext);
     if (!context) {
+        if (typeof window === "undefined") return null;
         throw new Error("useTenant must be used within a TenantProvider");
     }
     return context;

@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Search, X, TrendingUp, Package, FolderOpen, FileText } from "lucide-react";
 import api from "@/lib/axios";
 import { useTenant } from "@/components/providers/TenantContext";
+import { useAnalytics } from "@/lib/hooks/useAnalytics";
 
 function getContentIcon(type) {
   switch (type) {
@@ -28,6 +29,40 @@ export default function SearchBarWidget({ config = {} }) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(-1);
+
+  const { trackImpression, trackClick } = useAnalytics();
+  const sessionImpressedRef = useRef(new Set());
+
+  // Reset impression cache when search opens or input clears
+  useEffect(() => {
+    if (!open || !input) {
+      sessionImpressedRef.current.clear();
+    }
+  }, [open, input]);
+
+  // Track impressions when suggestions update
+  useEffect(() => {
+    if (open && suggestions.length > 0) {
+      suggestions.forEach((s, index) => {
+        const entityId = s.id || s.content_id || s.slug || s.text;
+        if (!sessionImpressedRef.current.has(entityId)) {
+          trackImpression({
+            entity_type: s.type === 'content' ? s.content_type : 'search_suggestion',
+            entity_id: String(entityId),
+            placement_id: 'search_autocomplete',
+            placement_type: 'search',
+            position: index + 1,
+            metadata: {
+              term: input,
+              suggestion_text: s.text,
+              suggestion_type: s.type
+            }
+          });
+          sessionImpressedRef.current.add(entityId);
+        }
+      });
+    }
+  }, [suggestions, open, input, trackImpression]);
 
   // Ghost Suggestion Logic
   const ghostSuggestion = useMemo(() => {
@@ -88,6 +123,45 @@ export default function SearchBarWidget({ config = {} }) {
     router.push(url);
   };
 
+  const handleSuggestionClick = (s, index) => {
+    // 1. Track Click
+    trackClick({
+      entity_type: s.type === 'content' ? s.content_type : 'search_suggestion',
+      entity_id: String(s.id || s.content_id || s.slug || s.text),
+      placement_id: 'search_autocomplete',
+      placement_type: 'search',
+      position: index + 1,
+      metadata: {
+        term: input,
+        suggestion_text: s.text,
+        suggestion_type: s.type
+      }
+    });
+
+    const refParams = '?ref_type=search_autocomplete&ref_id=search_bar';
+    const isContent = s.type === "content";
+    const type = isContent ? s.content_type : s.type;
+
+    // 2. Determine Navigation Path
+    if (type === 'product' && (s.handle || s.slug)) {
+      router.push(`/products/${s.handle || s.slug}${refParams}`);
+    } else if (type === 'category' && (s.slug || s.category_slug)) {
+      router.push(`/categories/${s.slug || s.category_slug}${refParams}`);
+    } else if (type === 'collection' && s.slug) {
+      router.push(`/collections/${s.slug}${refParams}`);
+    } else if (type === 'clause' && s.slug) {
+      router.push(`/${s.slug}${refParams}`);
+    } else {
+      // Fallback to search query
+      navigateToSearch(s.text, s.filter);
+      return;
+    }
+
+    // 3. Close and Cleanup
+    setOpen(false);
+    setInput("");
+  };
+
   const handleKeyDown = (e) => {
     // Ghost completion on ArrowRight or Space (if cursor at end)
     if ((e.key === "ArrowRight" || e.key === " ") && ghostSuggestion && input.length < ghostSuggestion.length) {
@@ -109,23 +183,7 @@ export default function SearchBarWidget({ config = {} }) {
       setSelectedIndex((prev) => (prev > 0 ? prev - 1 : -1));
     } else if (e.key === "Enter" && selectedIndex >= 0) {
       e.preventDefault();
-      const s = suggestions[selectedIndex];
-      const isContent = s.type === "content";
-
-      if (s.type === 'clause' && s.slug) {
-        router.push(`/${s.slug}`);
-      } else if (isContent && s.content_type === 'product' && s.handle) {
-        router.push(`/products/${s.handle}`);
-      } else if (isContent && s.content_type === 'category' && s.slug) {
-        router.push(`/categories/${s.slug}`);
-      } else if (isContent && s.content_type === 'collection' && s.slug) {
-        router.push(`/collections/${s.slug}`);
-      } else {
-        navigateToSearch(s.text, s.filter);
-        return;
-      }
-      setOpen(false);
-      setInput("");
+      handleSuggestionClick(suggestions[selectedIndex], selectedIndex);
     }
   };
 
@@ -200,27 +258,7 @@ export default function SearchBarWidget({ config = {} }) {
                       type="button"
                       onMouseDown={(e) => {
                         e.preventDefault(); // Prevent input from blurring
-                        if (isProduct && s.handle) {
-                          router.push(`/products/${s.handle}`);
-                          setOpen(false);
-                          setInput("");
-                        } else if (isContent && s.content_type === 'category' && s.slug) {
-                          router.push(`/categories/${s.slug}`);
-                          setOpen(false);
-                          setInput("");
-                        } else if (isContent && s.content_type === 'collection' && s.slug) {
-                          router.push(`/collections/${s.slug}`);
-                          setOpen(false);
-                          setInput("");
-                        } else if (s.type === 'clause' && s.slug) {
-                          // If it's a clause-based suggestion with a pretty slug, navigate to it!
-                          router.push(`/${s.slug}`);
-                          setOpen(false);
-                          setInput("");
-                        } else {
-                          // Fallback to search query
-                          navigateToSearch(s.text, s.filter);
-                        }
+                        handleSuggestionClick(s, idx);
                       }}
                       className={`w-full text-left px-5 py-3 transition-colors flex items-center gap-4 ${isSelected
                         ? "bg-indigo-50"

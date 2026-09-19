@@ -4,11 +4,33 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { ChevronLeft, ChevronRight, Package, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 import { proxyApi as api } from '@/lib/axios';
-import { useRandomizationData } from '@/lib/hooks/useRandomizationData';
-import { applyCategoryRandomization } from '@/lib/utils/widgetRandomizer';
+import { useRandomizationContext } from '@/lib/contexts/RandomizationContext';
+import { usePageContext } from '@/lib/hooks/usePageContext';
+import { useAnalytics } from '@/lib/hooks/useAnalytics';
+
+// Helper to format CSS values (append px if numeric)
+const formatCSSValue = (val) => {
+    if (!val || val === '0') return '0';
+    if (/^\d+(\.\d+)?$/.test(val.toString())) return `${val}px`;
+    return val;
+};
 
 export default function CategoryCarouselWidget({ config = {} }) {
+    // 2. Context & Hooks
+    const { masterPlan, registerWidget, getStableWidgetId } = useRandomizationContext();
+    const { trackImpression, trackClick } = useAnalytics();
+
+    // Page context for context-aware mode
+    const pageContext = usePageContext();
+    const isContextActive = config.contextAware === true && !!pageContext;
+    
+    const widgetId = useMemo(() => {
+        return config.id || (getStableWidgetId ? getStableWidgetId(config) : 'untitled_carousel');
+    }, [config.id, config.title, getStableWidgetId]);
+    const resolvedFromPlan = masterPlan?.[widgetId];
+
     const [categories, setCategories] = useState([]);
+    const [loading, setLoading] = useState(!resolvedFromPlan && config.randomize?.enabled);
     const [currentIndex, setCurrentIndex] = useState(0);
     const [isHovered, setIsHovered] = useState(null);
     const [tooltipPosition, setTooltipPosition] = useState({});
@@ -206,40 +228,129 @@ export default function CategoryCarouselWidget({ config = {} }) {
         return desktop;
     };
 
-    // Fetch randomization data if randomization is enabled
-    const { data: randomizationData, loading: randomizationLoading } = useRandomizationData();
+    // If category context active, show children of the context category
+    const effectiveParentCategoryId = (isContextActive && pageContext.contextType === 'category')
+        ? pageContext.contextValue
+        : settings.parentCategoryId;
+    const effectiveSourceTypeForContext = (isContextActive && pageContext.contextType === 'category')
+        ? 'subcategories'
+        : settings.sourceType;
 
-    // Apply randomization to config
-    const randomizedConfig = useMemo(() => {
-        if (!config.randomize?.enabled || randomizationLoading || !randomizationData) {
-            return config;
-        }
-        return applyCategoryRandomization(config, randomizationData);
-    }, [config, randomizationData, randomizationLoading]);
+    const effectiveSourceType = resolvedFromPlan?.resolvedType || effectiveSourceTypeForContext;
+    const effectiveSettings = {
+        ...settings,
+        sourceType: effectiveSourceType,
+        parentCategoryId: effectiveParentCategoryId
+    };
 
-    // Update settings with randomized values
-    const effectiveSettings = useMemo(() => {
-        const baseSettings = { ...settings };
-        if (randomizedConfig.sourceType) baseSettings.sourceType = randomizedConfig.sourceType;
-        if (randomizedConfig.parentCategoryId !== undefined) baseSettings.parentCategoryId = randomizedConfig.parentCategoryId;
-        if (randomizedConfig.sortOrder) baseSettings.sortOrder = randomizedConfig.sortOrder;
-        if (randomizedConfig.maxCategories) baseSettings.maxCategories = randomizedConfig.maxCategories;
-        if (randomizedConfig.randomCount) baseSettings.randomCount = randomizedConfig.randomCount;
-        if (randomizedConfig.manualCategoryIds) baseSettings.manualCategoryIds = randomizedConfig.manualCategoryIds;
-        return baseSettings;
-    }, [settings, randomizedConfig]);
-
-    // Fetch categories based on source type
     useEffect(() => {
+        if (config.randomize?.enabled) {
+            console.log(`[CategoryCarouselWidget] Registering ${widgetId} for randomization`);
+            registerWidget(widgetId, {
+                allowedTypes: ['category'],
+                sourceType: effectiveSourceTypeForContext,
+                randomCount: settings.maxCategories || settings.randomCount || 10,
+                count: settings.maxCategories || settings.randomCount || 10,
+                parentCategoryId: effectiveParentCategoryId,
+                manualCategoryIds: settings.manualCategoryIds
+            }, {
+                ...config,
+                _pageContext: isContextActive ? pageContext : undefined
+            });
+        }
+    }, [widgetId, config.randomize?.enabled, registerWidget, isContextActive]);
+
+    // 2. Computed Categories (Render-Phase Resolution)
+    // This eliminates the flicker by calculating data immediately if the plan exists
+    const displayCategories = useMemo(() => {
+        let list = [];
+        if (!config.randomize?.enabled) {
+            list = categories;
+        } else if (resolvedFromPlan) {
+            list = resolvedFromPlan.multiple
+                ? resolvedFromPlan.selections.map(s => s.selection).filter(Boolean)
+                : (resolvedFromPlan.selection ? [resolvedFromPlan.selection] : []);
+
+            // Apply sort order to randomized results
+            const resolvedSort = resolvedFromPlan.resolvedSort || settings.sortOrder;
+            if (resolvedSort === 'alphabetical') {
+                list = [...list].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+            } else if (resolvedSort === 'random') {
+                list = [...list].sort(() => Math.random() - 0.5);
+            }
+        }
+
+        // Deduplicate and sanitize
+        const seen = new Set();
+        return list.filter(cat => {
+            if (!cat || (!cat.id && !cat.slug)) return false;
+            const key = cat.id || cat.slug;
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+        });
+    }, [categories, resolvedFromPlan, config.randomize?.enabled, settings.sortOrder]);
+
+    // Main data fetching effect (Now only for NON-randomized or initial loading)
+    useEffect(() => {
+        if (config.randomize?.enabled) {
+            if (!resolvedFromPlan) {
+                setLoading(true);
+            } else {
+                setLoading(false);
+                // Track impressions when plan is ready
+                displayCategories.forEach((cat, index) => {
+                    trackImpression({
+                        entity_type: 'category',
+                        entity_id: cat.id,
+                        placement_id: widgetId,
+                        placement_type: 'widget',
+                        position: index + 1,
+                        metadata: {
+                            widget_title: title,
+                            category_name: cat.name,
+                            category_slug: cat.slug,
+                            source_type: effectiveSourceType
+                        }
+                    });
+                });
+            }
+            return;
+        }
+
+        // Standard non-randomized path
+        // Vendor context: use vendor-category ledger endpoint
+        if (isContextActive && pageContext.contextType === 'vendor') {
+            fetchVendorCategories(pageContext.contextValue);
+            return;
+        }
+
         fetchCategories();
-    }, [
-        effectiveSettings.sourceType,
-        effectiveSettings.parentCategoryId,
-        effectiveSettings.sortOrder,
-        effectiveSettings.maxCategories,
-        effectiveSettings.randomCount,
-        JSON.stringify(effectiveSettings.manualCategoryIds)
-    ]);
+    }, [resolvedFromPlan, config.randomize?.enabled, widgetId, isContextActive, displayCategories.length]);
+
+    // Vendor context: fetch from vendor_category_ledger endpoint
+    const fetchVendorCategories = async (vendorName) => {
+        try {
+            setLoading(true);
+            const res = await api.get('/api/products/storefront/vendor-categories', {
+                params: { vendor: vendorName }
+            });
+            if (res.data.success) {
+                const cats = (res.data.categories || []).map(c => ({
+                    id: c.category_id,
+                    name: c.category_name,
+                    slug: c.category_slug,
+                    image_url: c.category_image,
+                    product_count: c.product_count
+                }));
+                setCategories(cats.slice(0, settings.maxCategories || undefined));
+            }
+        } catch (err) {
+            console.error('[CategoryCarouselWidget] Failed to fetch vendor categories', err);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     // Auto-play functionality
     useEffect(() => {
@@ -254,6 +365,7 @@ export default function CategoryCarouselWidget({ config = {} }) {
 
     const fetchCategories = async () => {
         try {
+            setLoading(true);
             const response = await api.get('/api/categories');
 
             if (response.data.success) {
@@ -261,19 +373,26 @@ export default function CategoryCarouselWidget({ config = {} }) {
 
                 // Apply filtering based on source type
                 switch (effectiveSettings.sourceType) {
+                    case 'all':
+                        // All categories that have at least one product (direct or via children)
+                        filtered = filtered.filter(cat => (cat.product_count || 0) > 0);
+                        break;
                     case 'top-level':
                         filtered = filtered.filter(cat => !cat.parent_id);
                         break;
                     case 'subcategories':
                         if (effectiveSettings.parentCategoryId) {
-                            filtered = filtered.filter(cat => cat.parent_id === effectiveSettings.parentCategoryId);
+                            filtered = filtered.filter(cat => String(cat.parent_id) === String(effectiveSettings.parentCategoryId));
                         }
                         break;
                     case 'all-subcategories':
                         filtered = filtered.filter(cat => cat.parent_id);
                         break;
                     case 'manual':
-                        filtered = filtered.filter(cat => effectiveSettings.manualCategoryIds.includes(cat.id));
+                        if (effectiveSettings.manualCategoryIds?.length > 0) {
+                            const manualIds = effectiveSettings.manualCategoryIds.map(String);
+                            filtered = filtered.filter(cat => manualIds.includes(String(cat.id)));
+                        }
                         break;
                     case 'random':
                         filtered = filtered.sort(() => 0.5 - Math.random()).slice(0, effectiveSettings.randomCount);
@@ -282,7 +401,7 @@ export default function CategoryCarouselWidget({ config = {} }) {
 
                 // Apply sorting
                 if (effectiveSettings.sortOrder === 'alphabetical') {
-                    filtered.sort((a, b) => a.name.localeCompare(b.name));
+                    filtered.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
                 } else if (effectiveSettings.sortOrder === 'random') {
                     filtered.sort(() => 0.5 - Math.random());
                 }
@@ -293,9 +412,28 @@ export default function CategoryCarouselWidget({ config = {} }) {
                 }
 
                 setCategories(filtered);
+
+                // Track impressions for all loaded categories
+                filtered.forEach((cat, index) => {
+                    trackImpression({
+                        entity_type: 'category',
+                        entity_id: cat.id,
+                        placement_id: widgetId,
+                        placement_type: 'widget',
+                        position: index + 1,
+                        metadata: {
+                            widget_title: title,
+                            category_name: cat.name,
+                            category_slug: cat.slug,
+                            source_type: settings.sourceType
+                        }
+                    });
+                });
             }
         } catch (error) {
             console.error('Failed to fetch categories:', error);
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -394,38 +532,13 @@ export default function CategoryCarouselWidget({ config = {} }) {
     const currentItemsPerRow = getItemsPerRow();
 
 
-    // Empty State
-    if (categories.length === 0) {
-        return (
-            <div className={`w-full ${settings.sectionPadding}`} style={{ background: settings.sectionBackground }}>
-                <div className="max-w-7xl mx-auto px-4">
-                    <div
-                        className="text-center py-16 rounded-xl"
-                        style={{ background: settings.emptyStateBackground }}
-                    >
-                        <Package className="w-16 h-16 mx-auto mb-4 text-gray-400" />
-                        <p className="text-gray-600 text-lg mb-4">{settings.emptyMessage}</p>
-                        {settings.showExploreCTA && (
-                            <Link
-                                href="/categories"
-                                className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
-                            >
-                                Explore Categories
-                                <ArrowRight className="w-4 h-4" />
-                            </Link>
-                        )}
-                    </div>
-                </div>
-            </div>
-        );
+    // Empty State & Loading State
+    const isLoading = loading || (config.randomize?.enabled && !resolvedFromPlan);
+
+    if (displayCategories.length === 0 && !isLoading) {
+        return null;
     }
 
-    // Helper to format CSS values (append px if numeric)
-    const formatCSSValue = (val) => {
-        if (!val || val === '0') return '0';
-        if (/^\d+(\.\d+)?$/.test(val.toString())) return `${val}px`;
-        return val;
-    };
 
     return (
         <div
@@ -448,8 +561,9 @@ export default function CategoryCarouselWidget({ config = {} }) {
                         className="font-bold"
                         style={{
                             color: settings.sectionTitleColor,
-                            fontSize: formatCSSValue(settings.titleFontSize),
+                            fontSize: `clamp(1rem, 0.75rem + 1vw, ${formatCSSValue(settings.titleFontSize)})`,
                             fontWeight: settings.titleFontWeight,
+                            fontFamily: 'inherit',
                             backgroundColor: settings.titleBackgroundColor,
                             padding: formatCSSValue(settings.titlePadding)
                         }}
@@ -476,7 +590,7 @@ export default function CategoryCarouselWidget({ config = {} }) {
                             className="font-bold"
                             style={{
                                 color: settings.sectionTitleColor,
-                                fontSize: formatCSSValue(settings.titleFontSize),
+                                fontSize: `clamp(1rem, 0.75rem + 1vw, ${formatCSSValue(settings.titleFontSize)})`,
                                 fontWeight: settings.titleFontWeight,
                                 backgroundColor: settings.titleBackgroundColor,
                                 padding: formatCSSValue(settings.titlePadding)
@@ -502,38 +616,58 @@ export default function CategoryCarouselWidget({ config = {} }) {
                                 onTouchMove={onTouchMove}
                                 onTouchEnd={onTouchEnd}
                             >
-                                <div
-                                    className={`flex transition-transform duration-${settings.transitionDuration} ${settings.easingFunction}`}
-                                    style={{
-                                        transform: `translateX(-${currentIndex * (100 / currentItemsPerRow)}%)`
-                                    }}
-                                >
-                                    {categories.map((category, index) => (
-                                        <div
-                                            key={category.id}
-                                            className="flex-shrink-0"
-                                            style={{
-                                                flex: `0 0 ${100 / currentItemsPerRow}%`,
-                                                padding: `${getGapPadding()}px`
-                                            }}
-                                        >
-                                            <CategoryCard
-                                                category={category}
-                                                index={index}
-                                                settings={settings}
-                                                deviceType={deviceType}
-                                                getScaledValue={getScaledValue}
-                                                getResponsiveValue={getResponsiveValue}
-                                                isHovered={isHovered === index}
-                                                onHover={() => setIsHovered(index)}
-                                                onLeave={() => setIsHovered(null)}
-                                                getShadowStyles={getShadowStyles}
-                                                getHoverTransform={getHoverTransform}
-                                                getEntranceAnimation={getEntranceAnimation}
-                                            />
-                                        </div>
-                                    ))}
-                                </div>
+                                    <div
+                                        className={`flex transition-transform duration-${settings.transitionDuration} ${settings.easingFunction}`}
+                                        style={{
+                                            transform: `translateX(-${currentIndex * (100 / currentItemsPerRow)}%)`
+                                        }}
+                                    >
+                                        {isLoading && displayCategories.length === 0 ? (
+                                            /* Render Skeletons in carousel view */
+                                            Array.from({ length: settings.randomCount || 6 }).map((_, idx) => (
+                                                <div
+                                                    key={`skeleton-${idx}`}
+                                                    className="flex-shrink-0"
+                                                    style={{
+                                                        flex: `0 0 ${100 / currentItemsPerRow}%`,
+                                                        padding: `${getGapPadding()}px`
+                                                    }}
+                                                >
+                                                    <div className="aspect-square be3-logo-skeleton rounded-2xl">
+                                                        <div className="be3-logo-text">BE3</div>
+                                                    </div>
+                                                </div>
+                                            ))
+                                        ) : (
+                                            displayCategories.map((category, index) => (
+                                                <div
+                                                    key={`${category.id || category.slug}-${index}`}
+                                                    className="flex-shrink-0"
+                                                    style={{
+                                                        flex: `0 0 ${100 / currentItemsPerRow}%`,
+                                                        padding: `${getGapPadding()}px`
+                                                    }}
+                                                >
+                                                    <CategoryCard
+                                                        category={category}
+                                                        index={index}
+                                                        settings={settings}
+                                                        deviceType={deviceType}
+                                                        getScaledValue={getScaledValue}
+                                                        getResponsiveValue={getResponsiveValue}
+                                                        isHovered={isHovered === index}
+                                                        onHover={() => setIsHovered(index)}
+                                                        onLeave={() => setIsHovered(null)}
+                                                        getShadowStyles={getShadowStyles}
+                                                        getHoverTransform={getHoverTransform}
+                                                        getEntranceAnimation={getEntranceAnimation}
+                                                        trackClick={trackClick}
+                                                        widgetId={widgetId}
+                                                    />
+                                                </div>
+                                            ))
+                                        )}
+                                    </div>
                             </div>
 
                             {/* Navigation Arrows */}
@@ -582,20 +716,34 @@ export default function CategoryCarouselWidget({ config = {} }) {
                                 `
                             }} />
                             <div className={`category-grid-${settings.itemsPerRowMobile}-${settings.itemsPerRowTablet}-${settings.itemsPerRowDesktop}`}>
-                                {categories.map((category, index) => (
-                                    <CategoryCard
-                                        key={category.id}
-                                        category={category}
-                                        index={index}
-                                        settings={settings}
-                                        isHovered={isHovered === index}
-                                        onHover={() => setIsHovered(index)}
-                                        onLeave={() => setIsHovered(null)}
-                                        getShadowStyles={getShadowStyles}
-                                        getHoverTransform={getHoverTransform}
-                                        getEntranceAnimation={getEntranceAnimation}
-                                    />
-                                ))}
+                                {isLoading && displayCategories.length === 0 ? (
+                                    /* Render Skeletons in grid view */
+                                    Array.from({ length: settings.randomCount || 6 }).map((_, idx) => (
+                                        <div
+                                            key={`skeleton-grid-${idx}`}
+                                            className="aspect-square be3-logo-skeleton rounded-2xl"
+                                        >
+                                            <div className="be3-logo-text">BE3</div>
+                                        </div>
+                                    ))
+                                ) : (
+                                    displayCategories.map((category, index) => (
+                                        <CategoryCard
+                                            key={category.id}
+                                            category={category}
+                                            index={index}
+                                            settings={settings}
+                                            isHovered={isHovered === index}
+                                            onHover={() => setIsHovered(index)}
+                                            onLeave={() => setIsHovered(null)}
+                                            getShadowStyles={getShadowStyles}
+                                            getHoverTransform={getHoverTransform}
+                                            getEntranceAnimation={getEntranceAnimation}
+                                            trackClick={trackClick}
+                                            widgetId={widgetId}
+                                        />
+                                    ))
+                                )}
                             </div>
                         </>
                     )}
@@ -618,7 +766,9 @@ function CategoryCard({
     onLeave,
     getShadowStyles,
     getHoverTransform,
-    getEntranceAnimation
+    getEntranceAnimation,
+    trackClick,
+    widgetId
 }) {
     const cardRef = useRef(null);
 
@@ -694,9 +844,9 @@ function CategoryCard({
         return (
             <>
                 <h3
-                    className={`font-bold mb-1`}
+                    className="font-bold mb-1"
                     style={{
-                        fontSize: finalFontSize,
+                        fontSize: `clamp(0.9rem, 0.75rem + 1vw, ${formatCSSValue(settings.cardTitleFontSizeDesktop)})`,
                         fontWeight: settings.cardTitleFontWeight,
                         color: isBelow
                             ? (settings.cardTitleColor === '#ffffff' ? '#111827' : settings.cardTitleColor)
@@ -710,7 +860,7 @@ function CategoryCard({
                 {settings.showProductCount && (
                     <p className="opacity-90" style={{
                         color: isBelow ? settings.countColor : (settings.contentPositionDesktop === 'overlay' ? 'rgba(255,255,255,0.9)' : settings.countColor),
-                        fontSize: `${getScaledValue(14)}px`,
+                        fontSize: `clamp(0.65rem, 0.6rem + 0.3vw, 0.8rem)`,
                         textAlign: settings.cardTitleAlignment,
                     }}>
                         {category.product_count || 0} {settings.countStyle === 'text' ? 'products' : ''}
@@ -731,12 +881,27 @@ function CategoryCard({
 
     return (
         <Link
-            href={`/categories/${category.slug}`}
+            href={`/categories/${category.slug}?ref_type=widget&ref_id=${widgetId}`}
             ref={cardRef}
             className={`block w-full cursor-pointer group category-card-link ${applyStylesToLink ? `relative overflow-hidden ${shapeClasses}` : ''}`}
             style={applyStylesToLink ? cardStyle : {}}
             onMouseEnter={onHover}
             onMouseLeave={onLeave}
+            onClick={() => {
+                if (trackClick) {
+                    trackClick({
+                        entity_type: 'category',
+                        entity_id: category.id,
+                        placement_id: widgetId,
+                        placement_type: 'widget',
+                        position: index + 1,
+                        metadata: {
+                            category_name: category.name,
+                            category_slug: category.slug
+                        }
+                    });
+                }
+            }}
         >
             {/* Image Container (Styled if text is below, otherwise just aspect ratio wrapper) */}
             <div
@@ -771,8 +936,8 @@ function CategoryCard({
                                 'bottom-2 left-2'
                             } bg-red-500 text-white font-bold rounded-full`}
                         style={{
-                            padding: `${getScaledValue(4)}px ${getScaledValue(12)}px`,
-                            fontSize: `${getScaledValue(12)}px`,
+                            padding: `clamp(0.15rem, 0.1rem + 0.2vw, 0.25rem) clamp(0.5rem, 0.4rem + 0.5vw, 0.75rem)`,
+                            fontSize: `clamp(0.55rem, 0.45rem + 0.2vw, 0.75rem)`,
                         }}
                     >
                         {settings.badgeLabel}
@@ -811,8 +976,9 @@ function CategoryCard({
                                 'border-l-gray-900'
                         }`} />
                 </div>
-            )}
-        </Link>
+            )
+            }
+        </Link >
     );
 }
 

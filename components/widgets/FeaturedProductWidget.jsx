@@ -5,10 +5,12 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { ShoppingCart, Star } from 'lucide-react';
 import { proxyApi as api } from '@/lib/axios';
+import { useCurrency } from '@/hooks/useCurrency';
 
 export default function FeaturedProductWidget({ config }) {
     const { productId } = config;
     const [product, setProduct] = useState(null);
+    const { formatPrice } = useCurrency();
 
     useEffect(() => {
         if (productId) {
@@ -64,11 +66,14 @@ export default function FeaturedProductWidget({ config }) {
                         </div>
                         <h2 className="text-4xl md:text-5xl font-bold mb-4">{product.name}</h2>
                         <p className="text-gray-600 text-lg mb-6">{product.description}</p>
-                        <div className="text-4xl font-bold text-blue-600 mb-8">
-                            ${product.price}
+                        <div className="text-4xl font-bold mb-8" style={{ color: 'var(--primary)' }}>
+                            {formatPrice(product.price)}
                         </div>
                         <div className="flex gap-4">
-                            <button className="flex-1 bg-blue-600 text-white py-4 px-8 rounded-full font-bold hover:bg-blue-700 transition flex items-center justify-center gap-2">
+                            <button 
+                                className="flex-1 text-white py-4 px-8 rounded-full font-bold transition flex items-center justify-center gap-2 hover:brightness-95 shadow-md"
+                                style={{ backgroundColor: 'var(--primary)', color: 'var(--primary-foreground, #ffffff)' }}
+                            >
                                 <ShoppingCart className="w-5 h-5" />
                                 Add to Cart
                             </button>
