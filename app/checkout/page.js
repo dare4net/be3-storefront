@@ -565,7 +565,15 @@ function CheckoutContent() {
 
                                 {error && <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-xl px-4 py-3">{error}</p>}
 
-                                <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-2xl text-sm transition flex items-center justify-center gap-2 shadow-lg shadow-blue-200">
+                                <button
+                                    type="submit"
+                                    style={{
+                                        backgroundColor: 'var(--btn-primary-bg, var(--primary, #2563eb))',
+                                        color: 'var(--btn-primary-text, var(--primary-foreground, #ffffff))',
+                                        borderRadius: 'var(--btn-radius, 1rem)'
+                                    }}
+                                    className="w-full font-bold py-4 text-sm transition flex items-center justify-center gap-2 shadow-lg hover:brightness-95 active:scale-[0.99]"
+                                >
                                     Continue to Review <ChevronRight className="w-4 h-4" />
                                 </button>
                             </form>

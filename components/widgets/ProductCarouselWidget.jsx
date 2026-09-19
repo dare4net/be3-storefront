@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useMemo, useRef } from 'react';
 import Link from 'next/link';
-import { ChevronLeft, ChevronRight, Heart, Check, ShoppingCart, Eye, MessageCircle, X, Star } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Heart, Check, ShoppingCart, ShoppingBag, Plus, Eye, MessageCircle, X, Star } from 'lucide-react';
 import { useChatContext } from '@/components/providers/ChatContext';
 import { proxyApi as api } from '@/lib/axios';
 import { useRandomizationContext } from '@/lib/contexts/RandomizationContext';
@@ -951,29 +951,133 @@ export default function ProductCarouselWidget({ config }) {
                                                                 <MessageCircle style={{ width: `${1.25 * scale}rem`, height: `${1.25 * scale}rem` }} />
                                                             </button>
                                                         )}
-                                                        {effectiveShowAddToCart && (
+                                                        {effectiveShowAddToCart && config.cartButtonVariant !== 'full_width' && (
                                                             <button
                                                                 onClick={(e) => handleAddToCart(e, product)}
                                                                 disabled={addingToCart === product.id}
-                                                                className="rounded-full transition-all duration-200 flex items-center justify-center shadow-sm"
+                                                                className="transition-all duration-200 flex items-center justify-center gap-1.5 shadow-sm transform hover:scale-105 active:scale-95"
                                                                 style={{
-                                                                    backgroundColor: addingToCart === product.id ? '#10b981' : (colors?.accent && colors.accent !== '#3b82f6' ? colors.accent : 'var(--accent-soft, rgba(37, 99, 235, 0.1))'),
-                                                                    color: addingToCart === product.id ? '#ffffff' : (colors?.accent && colors.accent !== '#3b82f6' ? '#ffffff' : 'var(--primary)'),
-                                                                    width: deviceType === 'mobile' ? `${2.1 * scale}rem` : `${2.5 * scale}rem`,
-                                                                    height: deviceType === 'mobile' ? `${2.1 * scale}rem` : `${2.5 * scale}rem`,
-                                                                    padding: deviceType === 'mobile' ? `${0.5 * scale}rem` : `${0.625 * scale}rem`
+                                                                    ...(() => {
+                                                                        let borderRadius = 'var(--btn-radius, 9999px)';
+                                                                        if (config.cartButtonShape === 'pill') borderRadius = '9999px';
+                                                                        else if (config.cartButtonShape === 'rounded') borderRadius = '8px';
+                                                                        else if (config.cartButtonShape === 'sharp') borderRadius = '0px';
+
+                                                                        if (addingToCart === product.id) {
+                                                                            return { backgroundColor: '#10b981', color: '#ffffff', borderRadius, border: '1px solid transparent' };
+                                                                        }
+                                                                        const variant = config.cartButtonVariant || 'soft';
+                                                                        const hasCustomColors = config.cartButtonCustomColors;
+                                                                        const customBg = config.cartButtonBg;
+                                                                        const customText = config.cartButtonTextCol;
+
+                                                                        if (variant === 'solid') {
+                                                                            return {
+                                                                                backgroundColor: hasCustomColors && customBg ? customBg : (colors?.accent && colors.accent !== '#3b82f6' ? colors.accent : 'var(--btn-primary-bg, var(--primary))'),
+                                                                                color: hasCustomColors && customText ? customText : 'var(--btn-primary-text, var(--primary-foreground, #ffffff))',
+                                                                                borderRadius,
+                                                                                border: '1px solid transparent'
+                                                                            };
+                                                                        }
+                                                                        if (variant === 'outline') {
+                                                                            return {
+                                                                                backgroundColor: 'transparent',
+                                                                                color: hasCustomColors && customText ? customText : 'var(--primary, #2563eb)',
+                                                                                borderRadius,
+                                                                                border: `1.5px solid ${hasCustomColors && customBg ? customBg : 'var(--primary, #2563eb)'}`
+                                                                            };
+                                                                        }
+                                                                        // Default 'soft'
+                                                                        return {
+                                                                            backgroundColor: hasCustomColors && customBg ? customBg : (colors?.accent && colors.accent !== '#3b82f6' ? colors.accent : 'var(--accent-soft, rgba(37, 99, 235, 0.1))'),
+                                                                            color: hasCustomColors && customText ? customText : (colors?.accent && colors.accent !== '#3b82f6' ? '#ffffff' : 'var(--primary)'),
+                                                                            borderRadius,
+                                                                            border: '1px solid transparent'
+                                                                        };
+                                                                    })(),
+                                                                    ...(config.cartButtonText ? {
+                                                                        padding: deviceType === 'mobile'
+                                                                            ? `${0.45 * scale}rem ${0.75 * scale}rem`
+                                                                            : `${0.55 * scale}rem ${0.9 * scale}rem`
+                                                                    } : {
+                                                                        width: deviceType === 'mobile' ? `${2.1 * scale}rem` : `${2.5 * scale}rem`,
+                                                                        height: deviceType === 'mobile' ? `${2.1 * scale}rem` : `${2.5 * scale}rem`,
+                                                                        padding: deviceType === 'mobile' ? `${0.5 * scale}rem` : `${0.625 * scale}rem`
+                                                                    })
                                                                 }}
                                                                 aria-label="Add to Cart"
                                                             >
                                                                 {addingToCart === product.id ? (
-                                                                    <Check className="animate-in zoom-in" style={{ width: `${1.25 * scale}rem`, height: `${1.25 * scale}rem` }} />
+                                                                    <Check className="animate-in zoom-in spin-in-50 duration-300 shrink-0" style={{ width: `${1.2 * scale}rem`, height: `${1.2 * scale}rem` }} />
                                                                 ) : (
-                                                                    <ShoppingCart style={{ width: `${1.25 * scale}rem`, height: `${1.25 * scale}rem` }} />
+                                                                    <>
+                                                                        {(config.cartButtonIcon || 'cart') === 'bag' ? (
+                                                                            <ShoppingBag style={{ width: `${1.2 * scale}rem`, height: `${1.2 * scale}rem` }} className="shrink-0" />
+                                                                        ) : (config.cartButtonIcon || 'cart') === 'plus' ? (
+                                                                            <Plus style={{ width: `${1.2 * scale}rem`, height: `${1.2 * scale}rem` }} className="shrink-0" />
+                                                                        ) : (config.cartButtonIcon || 'cart') === 'none' ? null : (
+                                                                            <ShoppingCart style={{ width: `${1.2 * scale}rem`, height: `${1.2 * scale}rem` }} className="shrink-0" />
+                                                                        )}
+                                                                        {config.cartButtonText ? (
+                                                                            <span className="font-medium text-xs hidden md:inline" style={{ fontSize: `${0.8 * scale}rem` }}>
+                                                                                {config.cartButtonText}
+                                                                            </span>
+                                                                        ) : null}
+                                                                    </>
                                                                 )}
                                                             </button>
                                                         )}
                                                     </div>
                                                 </div>
+
+                                                {/* Full-width Cart Button variant */}
+                                                {effectiveShowAddToCart && config.cartButtonVariant === 'full_width' && (
+                                                    <button
+                                                        onClick={(e) => handleAddToCart(e, product)}
+                                                        disabled={addingToCart === product.id}
+                                                        className="w-full mt-3 py-2 px-3 font-semibold text-xs transition-all duration-200 transform active:scale-95 shadow-sm flex items-center justify-center gap-1.5 hover:opacity-95"
+                                                        style={{
+                                                            ...(() => {
+                                                                let borderRadius = 'var(--btn-radius, 8px)';
+                                                                if (config.cartButtonShape === 'pill') borderRadius = '9999px';
+                                                                else if (config.cartButtonShape === 'rounded') borderRadius = '8px';
+                                                                else if (config.cartButtonShape === 'sharp') borderRadius = '0px';
+
+                                                                if (addingToCart === product.id) {
+                                                                    return { backgroundColor: '#10b981', color: '#ffffff', borderRadius, border: '1px solid transparent' };
+                                                                }
+                                                                const hasCustomColors = config.cartButtonCustomColors;
+                                                                const customBg = config.cartButtonBg;
+                                                                const customText = config.cartButtonTextCol;
+
+                                                                return {
+                                                                    backgroundColor: hasCustomColors && customBg ? customBg : (colors?.accent && colors.accent !== '#3b82f6' ? colors.accent : 'var(--btn-primary-bg, var(--primary))'),
+                                                                    color: hasCustomColors && customText ? customText : 'var(--btn-primary-text, var(--primary-foreground, #ffffff))',
+                                                                    borderRadius,
+                                                                    border: '1px solid transparent'
+                                                                };
+                                                            })()
+                                                        }}
+                                                        aria-label="Add to Cart"
+                                                    >
+                                                        {addingToCart === product.id ? (
+                                                            <Check className="animate-in zoom-in spin-in-50 duration-300 shrink-0" style={{ width: `${1.1 * scale}rem`, height: `${1.1 * scale}rem` }} />
+                                                        ) : (
+                                                            <>
+                                                                {(config.cartButtonIcon || 'cart') === 'bag' ? (
+                                                                    <ShoppingBag style={{ width: `${1.1 * scale}rem`, height: `${1.1 * scale}rem` }} className="shrink-0" />
+                                                                ) : (config.cartButtonIcon || 'cart') === 'plus' ? (
+                                                                    <Plus style={{ width: `${1.1 * scale}rem`, height: `${1.1 * scale}rem` }} className="shrink-0" />
+                                                                ) : (config.cartButtonIcon || 'cart') === 'none' ? null : (
+                                                                    <ShoppingCart style={{ width: `${1.1 * scale}rem`, height: `${1.1 * scale}rem` }} className="shrink-0" />
+                                                                )}
+                                                                <span className="font-medium" style={{ fontSize: `${0.8 * scale}rem` }}>
+                                                                    {config.cartButtonText !== undefined && config.cartButtonText !== '' ? config.cartButtonText : 'Add to Cart'}
+                                                                </span>
+                                                            </>
+                                                        )}
+                                                    </button>
+                                                )}
                                             </div>
                                         </div>
                                     </div>

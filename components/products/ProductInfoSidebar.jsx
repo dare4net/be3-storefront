@@ -229,7 +229,7 @@ export default function ProductInfoSidebar({ product }) {
             {/* Delivery Info */}
             <div className="border border-gray-200 rounded-2xl overflow-hidden">
                 <div className="px-5 py-4 border-b border-gray-100 flex items-center gap-3">
-                    <Truck className="w-5 h-5 text-blue-600" />
+                    <Truck className="w-5 h-5" style={{ color: 'var(--primary)' }} />
                     <span className="font-semibold text-gray-900 text-sm">Delivery & Shipping</span>
                 </div>
                 <div className="px-5 py-4 space-y-4">
@@ -242,7 +242,14 @@ export default function ProductInfoSidebar({ product }) {
                                         <span className="font-bold uppercase tracking-wider pr-2">Express Delivery</span>
                                     </div>
                                 ) : product?.delivery_type === 'shipped_from_abroad' ? (
-                                    <div className="inline-flex items-center gap-1 rounded flex-shrink-0 bg-blue-50 text-blue-600 border border-blue-100 px-1 py-1 text-[11px]">
+                                    <div
+                                        className="inline-flex items-center gap-1 rounded flex-shrink-0 border px-1.5 py-1 text-[11px]"
+                                        style={{
+                                            backgroundColor: 'var(--accent-soft, rgba(37, 99, 235, 0.1))',
+                                            color: 'var(--primary, #2563eb)',
+                                            borderColor: 'rgba(var(--primary-rgb, 37, 99, 235), 0.2)'
+                                        }}
+                                    >
                                         <img src="/abroad.gif" alt="Abroad" className="w-6 h-6 object-contain object-center shrink-0" />
                                         <span className="font-bold uppercase tracking-wider pr-2">International Delivery</span>
                                     </div>
@@ -263,7 +270,12 @@ export default function ProductInfoSidebar({ product }) {
                                 <div className="flex items-center justify-between mb-2">
                                     <span className="text-xs font-semibold text-gray-500">Destination</span>
                                     {token && user && (
-                                        <button onClick={() => setUseManualLocation(!useManualLocation)} className="text-[11px] font-semibold text-blue-600 hover:text-blue-700">
+                                        <button
+                                            type="button"
+                                            onClick={() => setUseManualLocation(!useManualLocation)}
+                                            className="text-[11px] font-semibold hover:opacity-80 transition-opacity"
+                                            style={{ color: 'var(--primary)' }}
+                                        >
                                             {useManualLocation ? "Use My Saved Address" : "Use Different Location"}
                                         </button>
                                     )}
@@ -277,14 +289,14 @@ export default function ProductInfoSidebar({ product }) {
                                         >
                                             <div>
                                                 <p className="text-xs font-bold text-gray-800 flex items-center gap-1.5">
-                                                    <MapPin className="w-3.5 h-3.5 text-blue-600" /> {selectedAddress?.is_default ? 'Default Address' : 'Saved Address'}
+                                                    <MapPin className="w-3.5 h-3.5" style={{ color: 'var(--primary)' }} /> {selectedAddress?.is_default ? 'Default Address' : 'Saved Address'}
                                                 </p>
                                                 <p className="text-[11px] text-gray-500 mt-0.5 ml-5">
                                                     {selectedAddress?.street_address}, {[selectedAddress?.landmark_name, selectedAddress?.state_name].filter(Boolean).join(", ")}
                                                 </p>
                                             </div>
                                             {userAddresses.length > 1 && (
-                                                <div className="text-[10px] font-bold text-blue-600 uppercase tracking-widest pl-2">Change</div>
+                                                <div className="text-[10px] font-bold uppercase tracking-widest pl-2" style={{ color: 'var(--primary)' }}>Change</div>
                                             )}
                                         </div>
 
@@ -294,6 +306,7 @@ export default function ProductInfoSidebar({ product }) {
                                                     <div className="flex items-center justify-between p-4 border-b border-gray-100">
                                                         <h3 className="font-bold text-gray-900 text-sm">Select Address</h3>
                                                         <button
+                                                            type="button"
                                                             onClick={() => setShowAddressDropdown(false)}
                                                             className="text-gray-400 hover:text-gray-600 transition-colors p-1"
                                                         >
@@ -309,10 +322,20 @@ export default function ProductInfoSidebar({ product }) {
                                                                     setDestinationIds({ country_id: String(addr.country_id), state_id: String(addr.state_id), landmark_id: String(addr.landmark_id) });
                                                                     setShowAddressDropdown(false);
                                                                 }}
-                                                                className={`p-4 text-left rounded-xl mb-2 last:mb-0 cursor-pointer transition-colors border ${selectedAddress?.id === addr.id ? 'border-blue-500 bg-blue-50/50' : 'border-gray-100 hover:border-gray-300 bg-white shadow-sm hover:shadow'}`}
+                                                                className={`p-4 text-left rounded-xl mb-2 last:mb-0 cursor-pointer transition-colors border ${selectedAddress?.id === addr.id ? 'border-primary shadow-sm' : 'border-gray-100 hover:border-gray-300 bg-white shadow-sm hover:shadow'}`}
+                                                                style={selectedAddress?.id === addr.id ? {
+                                                                    borderColor: 'var(--primary)',
+                                                                    backgroundColor: 'var(--accent-soft, rgba(37, 99, 235, 0.08))'
+                                                                } : {}}
                                                             >
                                                                 <div className="flex items-start gap-3">
-                                                                    <div className={`mt-0.5 w-4 h-4 rounded-full border flex-shrink-0 flex items-center justify-center ${selectedAddress?.id === addr.id ? 'border-blue-500 bg-blue-500' : 'border-gray-300'}`}>
+                                                                    <div
+                                                                        className="mt-0.5 w-4 h-4 rounded-full border flex-shrink-0 flex items-center justify-center"
+                                                                        style={selectedAddress?.id === addr.id ? {
+                                                                            borderColor: 'var(--primary)',
+                                                                            backgroundColor: 'var(--primary)'
+                                                                        } : { borderColor: '#d1d5db' }}
+                                                                    >
                                                                         {selectedAddress?.id === addr.id && <div className="w-1.5 h-1.5 bg-white rounded-full" />}
                                                                     </div>
                                                                     <div>
@@ -450,7 +473,7 @@ export default function ProductInfoSidebar({ product }) {
             {/* Seller Info */}
             <div className="border border-gray-200 rounded-2xl overflow-hidden">
                 <div className="px-5 py-4 border-b border-gray-100 flex items-center gap-3">
-                    <Store className="w-5 h-5 text-blue-600" />
+                    <Store className="w-5 h-5" style={{ color: 'var(--primary)' }} />
                     <span className="font-semibold text-gray-900 text-sm">Sold by</span>
                 </div>
                 <div className="px-5 py-4">
@@ -458,7 +481,14 @@ export default function ProductInfoSidebar({ product }) {
                         {product?.store_collection?.image_url ? (
                             <img src={product.store_collection.image_url} alt={product.vendor} className="w-12 h-12 rounded-xl object-cover border border-gray-200 flex-shrink-0" />
                         ) : (
-                            <div className="w-12 h-12 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 font-bold text-lg flex-shrink-0">
+                            <div
+                                className="w-12 h-12 rounded-xl border flex items-center justify-center font-bold text-lg flex-shrink-0"
+                                style={{
+                                    backgroundColor: 'var(--accent-soft, rgba(37, 99, 235, 0.1))',
+                                    color: 'var(--primary, #2563eb)',
+                                    borderColor: 'rgba(var(--primary-rgb, 37, 99, 235), 0.2)'
+                                }}
+                            >
                                 {product?.vendor?.charAt(0)?.toUpperCase() || 'S'}
                             </div>
                         )}
@@ -491,7 +521,16 @@ export default function ProductInfoSidebar({ product }) {
                             </div>
                         </div>
                         {product?.store_collection?.slug && (
-                            <Link href={`/collections/${product.store_collection.slug}`} className="ml-auto self-start flex items-center gap-1 text-xs text-blue-600 font-semibold border border-blue-200 rounded-lg px-3 py-1.5 hover:bg-blue-50 transition-colors whitespace-nowrap">
+                            <Link
+                                href={`/collections/${product.store_collection.slug}`}
+                                className="ml-auto self-start flex items-center gap-1 text-xs font-semibold px-3 py-1.5 border transition-all hover:brightness-95 whitespace-nowrap"
+                                style={{
+                                    color: 'var(--primary, #2563eb)',
+                                    backgroundColor: 'var(--accent-soft, rgba(37, 99, 235, 0.08))',
+                                    borderColor: 'rgba(var(--primary-rgb, 37, 99, 235), 0.25)',
+                                    borderRadius: 'var(--btn-radius, 0.5rem)'
+                                }}
+                            >
                                 Visit Store <ChevronRight className="w-3 h-3" />
                             </Link>
                         )}
@@ -518,25 +557,44 @@ export default function ProductInfoSidebar({ product }) {
             </div>
 
             {/* Coupons & Offers */}
-            <div className="border border-dashed border-blue-300 bg-blue-50/50 rounded-2xl overflow-hidden">
-                <div className="px-5 py-4 border-b border-blue-100 flex items-center gap-3">
-                    <Award className="w-5 h-5 text-blue-600" />
-                    <span className="font-semibold text-blue-900 text-sm">Available Coupons</span>
+            <div
+                className="border border-dashed rounded-2xl overflow-hidden"
+                style={{
+                    backgroundColor: 'var(--accent-soft, rgba(37, 99, 235, 0.05))',
+                    borderColor: 'rgba(var(--primary-rgb, 37, 99, 235), 0.35)'
+                }}
+            >
+                <div
+                    className="px-5 py-4 border-b flex items-center gap-3"
+                    style={{ borderColor: 'rgba(var(--primary-rgb, 37, 99, 235), 0.15)' }}
+                >
+                    <Award className="w-5 h-5" style={{ color: 'var(--primary)' }} />
+                    <span className="font-semibold text-sm" style={{ color: 'var(--primary)' }}>Available Coupons</span>
                 </div>
                 <div className="px-5 py-4 space-y-3 relative min-h-[40px]">
                     {fetchingCoupons && (
-                        <div className="absolute inset-0 bg-blue-50/80 backdrop-blur-sm flex items-center justify-center z-10">
-                            <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
+                        <div className="absolute inset-0 bg-white/60 backdrop-blur-sm flex items-center justify-center z-10">
+                            <Loader2 className="w-4 h-4 animate-spin" style={{ color: 'var(--primary)' }} />
                         </div>
                     )}
 
                     {eligibleCoupons.length > 0 ? (
                         <>
                             {eligibleCoupons.slice(0, 3).map((coupon) => (
-                                <div key={coupon.id} className="flex items-center justify-between py-1 border-b border-blue-100/50 last:border-0 last:pb-0">
+                                <div
+                                    key={coupon.id}
+                                    className="flex items-center justify-between py-1 border-b last:border-0 last:pb-0"
+                                    style={{ borderColor: 'rgba(var(--primary-rgb, 37, 99, 235), 0.15)' }}
+                                >
                                     <div className="flex-1 pr-4">
                                         <div className="flex items-center gap-2">
-                                            <span className="text-[10px] font-bold text-blue-700 border border-blue-300 rounded px-1.5 py-0.5 bg-white uppercase tracking-widest leading-none">
+                                            <span
+                                                className="text-[10px] font-bold border rounded px-1.5 py-0.5 bg-white uppercase tracking-widest leading-none"
+                                                style={{
+                                                    color: 'var(--primary, #2563eb)',
+                                                    borderColor: 'rgba(var(--primary-rgb, 37, 99, 235), 0.35)'
+                                                }}
+                                            >
                                                 {coupon.code}
                                             </span>
                                             <span className="text-[10px] font-bold text-orange-600 bg-orange-100 px-1.5 py-0.5 rounded uppercase tracking-wider leading-none">
@@ -546,14 +604,29 @@ export default function ProductInfoSidebar({ product }) {
                                         <p className="text-[11px] text-gray-600 mt-1.5 font-medium leading-snug line-clamp-1">{coupon.description}</p>
                                     </div>
                                     <button
+                                        type="button"
                                         onClick={() => handleCopyToken(coupon.code)}
-                                        className="text-[11px] text-blue-600 font-bold ml-2 px-3 py-1.5 rounded-lg border border-transparent hover:border-blue-200 hover:bg-blue-100 transition-all uppercase tracking-widest min-w-[70px] text-center"
+                                        className="text-[11px] font-bold ml-2 px-3 py-1.5 rounded-lg border transition-all uppercase tracking-widest min-w-[70px] text-center hover:brightness-95"
+                                        style={{
+                                            color: 'var(--primary, #2563eb)',
+                                            backgroundColor: 'var(--accent-soft, rgba(37, 99, 235, 0.08))',
+                                            borderColor: 'rgba(var(--primary-rgb, 37, 99, 235), 0.25)',
+                                            borderRadius: 'var(--btn-radius, 0.5rem)'
+                                        }}
                                     >
                                         {copiedCoupon === coupon.code ? 'Copied!' : 'Claim'}
                                     </button>
                                 </div>
                             ))}
-                            <Link href="/coupons" className="mt-4 block w-full py-2.5 text-[11px] font-bold text-blue-700 bg-white border border-blue-200 rounded-lg text-center uppercase tracking-widest hover:bg-blue-50 transition-colors">
+                            <Link
+                                href="/coupons"
+                                className="mt-4 block w-full py-2.5 text-[11px] font-bold bg-white border text-center uppercase tracking-widest transition-all hover:brightness-95"
+                                style={{
+                                    color: 'var(--primary, #2563eb)',
+                                    borderColor: 'rgba(var(--primary-rgb, 37, 99, 235), 0.25)',
+                                    borderRadius: 'var(--btn-radius, 0.5rem)'
+                                }}
+                            >
                                 See More Coupons
                             </Link>
                         </>
@@ -561,7 +634,15 @@ export default function ProductInfoSidebar({ product }) {
                         !fetchingCoupons && (
                             <div className="text-center py-2">
                                 <p className="text-[11px] text-gray-500 font-medium mb-3">No active coupons available specifically for this product.</p>
-                                <Link href="/coupons" className="inline-block w-full py-2.5 text-[11px] font-bold text-blue-700 bg-white border border-blue-200 rounded-lg text-center uppercase tracking-widest hover:bg-blue-50 transition-colors">
+                                <Link
+                                    href="/coupons"
+                                    className="inline-block w-full py-2.5 text-[11px] font-bold bg-white border text-center uppercase tracking-widest transition-all hover:brightness-95"
+                                    style={{
+                                        color: 'var(--primary, #2563eb)',
+                                        borderColor: 'rgba(var(--primary-rgb, 37, 99, 235), 0.25)',
+                                        borderRadius: 'var(--btn-radius, 0.5rem)'
+                                    }}
+                                >
                                     Browse All Store Coupons
                                 </Link>
                             </div>

@@ -4,6 +4,7 @@ import { Check, Heart, Share2, Star, ShieldCheck, Truck, RefreshCw, MessageCircl
 import { getTenantAndTheme } from "@/lib/context";
 import AddToCartButton from "@/components/products/AddToCartButton";
 import WishlistButton from "@/components/products/WishlistButton";
+import ShareButton from "@/components/products/ShareButton";
 import ProductGallery from "@/components/products/ProductGallery";
 import RelatedProducts from "@/components/products/RelatedProducts";
 import ProductDetailsStacked from "@/components/products/ProductDetailsStacked";
@@ -119,13 +120,13 @@ export default async function ProductPage({ params }) {
             
             {/* Breadcrumbs */}
             <nav className="flex items-center text-sm text-gray-500 mb-8 overflow-x-auto whitespace-nowrap pb-2 scrollbar-hide">
-                <Link href="/" className="hover:text-blue-600 transition-colors">Home</Link>
+                <Link href="/" className="hover:opacity-80 transition-opacity" style={{ color: 'var(--primary)' }}>Home</Link>
                 <ChevronRight className="w-4 h-4 mx-2 text-gray-400" />
-                <Link href="/categories" className="hover:text-blue-600 transition-colors">Categories</Link>
+                <Link href="/categories" className="hover:opacity-80 transition-opacity" style={{ color: 'var(--primary)' }}>Categories</Link>
                 {mainCategory?.breadcrumb?.map(bc => (
                     <span key={bc.id} className="flex items-center">
                         <ChevronRight className="w-4 h-4 mx-2 text-gray-400" />
-                        <Link href={`/categories/${bc.slug}`} className="hover:text-blue-600 transition-colors">
+                        <Link href={`/categories/${bc.slug}`} className="hover:opacity-80 transition-opacity" style={{ color: 'var(--primary)' }}>
                             {bc.name}
                         </Link>
                     </span>
@@ -154,7 +155,14 @@ export default async function ProductPage({ params }) {
                         {tags && tags.length > 0 && (
                             <div className="flex flex-wrap gap-1.5 mb-2">
                                 {tags.map((tag, i) => (
-                                    <span key={i} className="text-[11px] font-semibold bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full uppercase tracking-wide">
+                                    <span
+                                        key={i}
+                                        className="text-[11px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wide"
+                                        style={{
+                                            backgroundColor: 'var(--accent-soft, rgba(37, 99, 235, 0.1))',
+                                            color: 'var(--accent-content, var(--primary, #2563eb))'
+                                        }}
+                                    >
                                         {tag}
                                     </span>
                                 ))}
@@ -172,14 +180,14 @@ export default async function ProductPage({ params }) {
                             <span className="text-gray-300">·</span>
                             <span className="text-gray-500">{product.rating_summary?.total_ratings || 0} ratings</span>
                             <span className="text-gray-300">·</span>
-                            <span className="text-blue-600 font-medium">{product.vendor_stats?.items_sold || 0} sold</span>
+                            <span className="font-medium" style={{ color: 'var(--primary)' }}>{product.vendor_stats?.items_sold || 0} sold</span>
                         </div>
                     </div>
 
                     {/* Price */}
                     <div className="px-6 py-5">
                         <div className="flex items-end gap-3">
-                            <span className="text-3xl font-bold text-gray-900">${parseFloat(price).toFixed(2)}</span>
+                            <span className="text-3xl font-bold" style={{ color: 'var(--foreground, #111827)' }}>${parseFloat(price).toFixed(2)}</span>
                             {compare_at_price && (
                                 <span className="text-base text-gray-400 line-through pb-0.5">${parseFloat(compare_at_price).toFixed(2)}</span>
                             )}
@@ -210,17 +218,33 @@ export default async function ProductPage({ params }) {
                         <div className="flex gap-3">
                             <WishlistButton
                                 product={product}
-                                className="flex-1 flex items-center justify-center gap-2 h-10 border border-gray-200 rounded-full text-sm font-medium text-gray-700 hover:border-gray-400 transition-colors"
+                                showLabel={true}
+                                className="btn-theme-secondary flex-1 flex items-center justify-center gap-2 h-11 text-xs sm:text-sm font-semibold transition-all hover:brightness-95 border border-transparent shadow-sm"
+                                style={{
+                                    backgroundColor: 'var(--btn-secondary-bg, rgba(37, 99, 235, 0.08))',
+                                    color: 'var(--btn-secondary-text, var(--primary, #2563eb))',
+                                    borderRadius: 'var(--btn-radius, 0.75rem)'
+                                }}
                             />
                             <ChatButton
                                 productId={product.id}
                                 productName={product.name}
-                                className="flex-1 flex items-center justify-center gap-2 h-10 border border-gray-200 rounded-full text-sm font-medium text-gray-700 hover:border-gray-400 transition-colors"
+                                className="btn-theme-secondary flex-1 flex items-center justify-center gap-2 h-11 text-xs sm:text-sm font-semibold transition-all hover:brightness-95 border border-transparent shadow-sm"
+                                style={{
+                                    backgroundColor: 'var(--btn-secondary-bg, rgba(37, 99, 235, 0.08))',
+                                    color: 'var(--btn-secondary-text, var(--primary, #2563eb))',
+                                    borderRadius: 'var(--btn-radius, 0.75rem)'
+                                }}
                             />
-                            <button className="flex-1 flex items-center justify-center gap-2 h-10 border border-gray-200 rounded-full text-sm font-medium text-gray-700 hover:border-gray-400 transition-colors">
-                                <Share2 className="w-4 h-4" />
-                                Share
-                            </button>
+                            <ShareButton
+                                title={product.name}
+                                className="btn-theme-secondary flex-1 flex items-center justify-center gap-2 h-11 text-xs sm:text-sm font-semibold transition-all hover:brightness-95 border border-transparent shadow-sm"
+                                style={{
+                                    backgroundColor: 'var(--btn-secondary-bg, rgba(37, 99, 235, 0.08))',
+                                    color: 'var(--btn-secondary-text, var(--primary, #2563eb))',
+                                    borderRadius: 'var(--btn-radius, 0.75rem)'
+                                }}
+                            />
                         </div>
                     </div>
 

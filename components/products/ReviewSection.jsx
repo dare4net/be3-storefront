@@ -171,8 +171,15 @@ export default function ReviewSection({ productId, ratingSummary: initialSummary
                 <h2 className="text-base font-bold text-gray-900">Customer Reviews</h2>
                 {isAuthenticated && (
                     <button
+                        type="button"
                         onClick={() => { setEditingReviewId(null); setFormTitle(''); setFormBody(''); setFormMediaUrls([]); setShowForm(!showForm); }}
-                        className="text-xs text-blue-600 font-semibold border border-blue-200 rounded-lg px-3 py-1.5 hover:bg-blue-50 transition-colors"
+                        className="text-xs font-semibold px-3 py-1.5 transition-all hover:brightness-95 border"
+                        style={{
+                            color: 'var(--primary, #2563eb)',
+                            backgroundColor: 'var(--accent-soft, rgba(37, 99, 235, 0.08))',
+                            borderColor: 'rgba(var(--primary-rgb, 37, 99, 235), 0.25)',
+                            borderRadius: 'var(--btn-radius, 0.5rem)'
+                        }}
                     >
                         + Write a Review
                     </button>
@@ -211,13 +218,14 @@ export default function ReviewSection({ productId, ratingSummary: initialSummary
 
             {/* Your Rating (only for authenticated users) */}
             {isAuthenticated && (
-                <div className="px-6 py-4 border-b border-gray-100 bg-blue-50/30">
+                <div className="px-6 py-4 border-b border-gray-100" style={{ backgroundColor: 'var(--accent-soft, rgba(37, 99, 235, 0.05))' }}>
                     <div className="flex items-center gap-3">
                         <span className="text-sm font-medium text-gray-700">Your Rating:</span>
                         <div className="flex gap-0.5">
                             {[1, 2, 3, 4, 5].map((star) => (
                                 <button
                                     key={star}
+                                    type="button"
                                     onClick={() => handleRate(star)}
                                     onMouseEnter={() => setHoverRating(star)}
                                     onMouseLeave={() => setHoverRating(0)}
@@ -290,7 +298,12 @@ export default function ReviewSection({ productId, ratingSummary: initialSummary
                             <button
                                 type="submit"
                                 disabled={submitting || !formBody.trim()}
-                                className="flex items-center gap-1.5 px-4 py-1.5 bg-blue-600 text-white text-xs font-semibold rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+                                className="flex items-center gap-1.5 px-4 py-1.5 text-xs font-semibold rounded-lg transition-all hover:brightness-95 disabled:opacity-50"
+                                style={{
+                                    backgroundColor: 'var(--btn-primary-bg, var(--primary, #2563eb))',
+                                    color: 'var(--btn-primary-text, #ffffff)',
+                                    borderRadius: 'var(--btn-radius, 0.5rem)'
+                                }}
                             >
                                 <Send className="w-3 h-3" />
                                 {submitting ? 'Submitting...' : editingReviewId ? 'Update' : 'Submit'}
@@ -361,12 +374,21 @@ export default function ReviewSection({ productId, ratingSummary: initialSummary
                                 <div className="flex items-center gap-2">
                                     {/* Helpful vote */}
                                     <button
+                                        type="button"
                                         onClick={() => handleVote(review.id)}
-                                        className={`flex items-center gap-1 text-xs px-2 py-1 rounded-lg border transition-colors ${
+                                        className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg border transition-colors"
+                                        style={
                                             review.user_has_voted
-                                                ? 'bg-blue-50 border-blue-200 text-blue-600'
-                                                : 'border-gray-200 text-gray-400 hover:text-gray-600 hover:border-gray-300'
-                                        }`}
+                                                ? {
+                                                    backgroundColor: 'var(--accent-soft, rgba(37, 99, 235, 0.08))',
+                                                    borderColor: 'rgba(var(--primary-rgb, 37, 99, 235), 0.3)',
+                                                    color: 'var(--primary, #2563eb)'
+                                                }
+                                                : {
+                                                    borderColor: '#e5e7eb',
+                                                    color: '#9ca3af'
+                                                }
+                                        }
                                     >
                                         <ThumbsUp className="w-3 h-3" />
                                         <span>{parseInt(review.helpful_count || 0)}</span>
@@ -375,10 +397,10 @@ export default function ReviewSection({ productId, ratingSummary: initialSummary
                                     {/* Edit/Delete own */}
                                     {review.is_own && (
                                         <>
-                                            <button onClick={() => handleEditReview(review)} className="text-gray-400 hover:text-blue-600 transition-colors p-1">
+                                            <button type="button" onClick={() => handleEditReview(review)} className="text-gray-400 hover:opacity-80 transition-opacity p-1" style={{ color: 'var(--primary)' }}>
                                                 <Pencil className="w-3 h-3" />
                                             </button>
-                                            <button onClick={() => handleDeleteReview(review.id)} className="text-gray-400 hover:text-red-600 transition-colors p-1">
+                                            <button type="button" onClick={() => handleDeleteReview(review.id)} className="text-gray-400 hover:text-red-600 transition-colors p-1">
                                                 <Trash2 className="w-3 h-3" />
                                             </button>
                                         </>
@@ -390,8 +412,8 @@ export default function ReviewSection({ productId, ratingSummary: initialSummary
                             {review.vendor_reply && (
                                 <div className="mt-3 ml-4 p-3 bg-gray-50 rounded-lg border border-gray-100">
                                     <div className="flex items-center gap-1.5 mb-1">
-                                        <MessageSquare className="w-3 h-3 text-blue-600" />
-                                        <span className="text-xs font-semibold text-blue-600">
+                                        <MessageSquare className="w-3 h-3" style={{ color: 'var(--primary)' }} />
+                                        <span className="text-xs font-semibold" style={{ color: 'var(--primary)' }}>
                                             {review.vendor_reply.vendor_name || 'Seller'} replied
                                         </span>
                                     </div>
@@ -413,15 +435,22 @@ export default function ReviewSection({ productId, ratingSummary: initialSummary
                                             />
                                             <div className="flex gap-2 justify-end">
                                                 <button
+                                                    type="button"
                                                     onClick={() => { setReplyingToId(null); setReplyBody(''); }}
                                                     className="px-3 py-1 text-xs text-gray-500 border border-gray-200 rounded-lg hover:bg-gray-100"
                                                 >
                                                     Cancel
                                                 </button>
                                                 <button
+                                                    type="button"
                                                     onClick={() => handleReply(review.id)}
                                                     disabled={!replyBody.trim()}
-                                                    className="flex items-center gap-1 px-3 py-1 bg-blue-600 text-white text-xs font-semibold rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                                                    className="flex items-center gap-1 px-3 py-1 text-white text-xs font-semibold rounded-lg transition-all hover:brightness-95 disabled:opacity-50"
+                                                    style={{
+                                                        backgroundColor: 'var(--btn-primary-bg, var(--primary, #2563eb))',
+                                                        color: 'var(--btn-primary-text, #ffffff)',
+                                                        borderRadius: 'var(--btn-radius, 0.5rem)'
+                                                    }}
                                                 >
                                                     <Send className="w-3 h-3" /> Reply
                                                 </button>
@@ -429,8 +458,10 @@ export default function ReviewSection({ productId, ratingSummary: initialSummary
                                         </div>
                                     ) : (
                                         <button
+                                            type="button"
                                             onClick={() => setReplyingToId(review.id)}
-                                            className="ml-4 flex items-center gap-1 text-xs text-blue-600 font-medium hover:text-blue-700 transition-colors"
+                                            className="ml-4 flex items-center gap-1 text-xs font-medium hover:opacity-80 transition-opacity"
+                                            style={{ color: 'var(--primary)' }}
                                         >
                                             <Reply className="w-3 h-3" /> Reply as seller
                                         </button>
@@ -446,8 +477,10 @@ export default function ReviewSection({ productId, ratingSummary: initialSummary
             {page < totalPages && (
                 <div className="px-6 py-4 border-t border-gray-100 text-center">
                     <button
+                        type="button"
                         onClick={() => fetchReviews(page + 1)}
-                        className="text-xs text-blue-600 font-semibold flex items-center gap-1 mx-auto hover:text-blue-700 transition-colors"
+                        className="text-xs font-semibold flex items-center gap-1 mx-auto hover:opacity-80 transition-opacity"
+                        style={{ color: 'var(--primary)' }}
                     >
                         <ChevronDown className="w-4 h-4" /> Load More Reviews
                     </button>

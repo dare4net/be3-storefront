@@ -33,13 +33,18 @@ export default function ProductGallery({ images = [], title }) {
                     {safeImages.map((img, idx) => (
                         <button
                             key={idx}
+                            type="button"
                             onClick={() => setSelectedImage(img)}
                             className={cn(
-                                "relative w-20 aspect-square flex-shrink-0 bg-white border overflow-hidden transition-colors flex items-center justify-center p-2",
+                                "relative w-20 aspect-square flex-shrink-0 bg-white border overflow-hidden transition-all flex items-center justify-center p-2",
                                 selectedImage === img
-                                    ? "border-blue-600"
-                                    : "border-gray-100 hover:border-gray-300"
+                                    ? "border-2 shadow-sm"
+                                    : "border-gray-200 hover:border-gray-300"
                             )}
+                            style={{
+                                borderRadius: 'var(--btn-radius, 0.75rem)',
+                                ...(selectedImage === img ? { borderColor: 'var(--primary)' } : {})
+                            }}
                         >
                             <img
                                 src={img}

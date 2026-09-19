@@ -28,7 +28,7 @@ export default function VariantSelector({ currentHandle, variants = [], parentPr
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                    <Layers className="w-3.5 h-3.5 text-blue-500" />
+                    <Layers className="w-3.5 h-3.5" style={{ color: 'var(--primary)' }} />
                     <h3 className="text-xs font-bold text-gray-900 uppercase tracking-widest">
                         Available Configurations
                     </h3>
@@ -49,33 +49,44 @@ export default function VariantSelector({ currentHandle, variants = [], parentPr
                     return (
                         <button
                             key={opt.id}
+                            type="button"
                             onClick={() => !isActive && router.push(`/products/${opt.handle}`)}
                             className={cn(
-                                "relative group text-left px-4 py-3 rounded-xl border-2 transition-all duration-200",
+                                "relative group text-left px-4 py-3 border-2 transition-all duration-200",
                                 isActive
-                                    ? "border-blue-600 bg-blue-50 shadow-md shadow-blue-100"
-                                    : "border-gray-100 bg-white hover:border-gray-300 hover:bg-gray-50/80 cursor-pointer"
+                                    ? "shadow-sm"
+                                    : "border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50/80 cursor-pointer"
                             )}
+                            style={{
+                                borderRadius: 'var(--btn-radius, 0.75rem)',
+                                ...(isActive ? {
+                                    borderColor: 'var(--primary)',
+                                    backgroundColor: 'var(--accent-soft, rgba(37, 99, 235, 0.08))'
+                                } : {})
+                            }}
                         >
                             {/* Active check */}
                             {isActive && (
-                                <CheckCircle2 className="absolute top-2 right-2 w-3.5 h-3.5 text-blue-600" />
+                                <CheckCircle2 className="absolute top-2 right-2 w-3.5 h-3.5" style={{ color: 'var(--primary)' }} />
                             )}
 
                             {/* Label */}
-                            <span className={cn(
-                                "block text-xs font-bold truncate pr-5",
-                                isActive ? "text-blue-800" : "text-gray-800"
-                            )}>
+                            <span
+                                className={cn(
+                                    "block text-xs font-bold truncate pr-5",
+                                    isActive ? "font-extrabold" : "text-gray-800"
+                                )}
+                                style={isActive ? { color: 'var(--primary)' } : {}}
+                            >
                                 {label}
                             </span>
 
                             {/* Price row */}
                             <div className="flex items-center gap-1.5 mt-1">
-                                <span className={cn(
-                                    "text-sm font-black",
-                                    isActive ? "text-blue-700" : "text-gray-700"
-                                )}>
+                                <span
+                                    className="text-sm font-black"
+                                    style={isActive ? { color: 'var(--primary)' } : { color: '#374151' }}
+                                >
                                     ${optPrice.toFixed(2)}
                                 </span>
                                 {!opt._isBase && delta !== 0 && (
