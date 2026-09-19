@@ -1,4 +1,4 @@
-﻿// Server Component — exports generateMetadata + injects JSON-LD for Google
+// Server Component — exports generateMetadata + injects JSON-LD for Google
 import { getTenantAndTheme } from "@/lib/context";
 import CategoryPageClient from "@/components/CategoryPageClient";
 
@@ -19,7 +19,7 @@ async function fetchCategoryMeta(slug, tenantId) {
 
 export async function generateMetadata({ params }) {
     const { slug } = await params;
-    const { tenant } = await getTenantAndTheme();
+    const { tenant, theme } = await getTenantAndTheme();
     if (!tenant) return {};
 
     const category = await fetchCategoryMeta(slug, tenant.id);
@@ -27,11 +27,25 @@ export async function generateMetadata({ params }) {
 
     const title = category.seo_title || category.name;
     const description = category.seo_description || category.description || `Browse ${category.name} products.`;
+    const storeName = tenant?.name || "Store";
+    const ogImage = category.image_url || theme?.variables?.logo || tenant?.settings?.logo_url;
 
     return {
         title,
         description,
-        openGraph: { title, description, type: "website" },
+        openGraph: {
+            title,
+            description,
+            type: "website",
+            siteName: storeName,
+            ...(ogImage && { images: [{ url: ogImage, alt: title }] })
+        },
+        twitter: {
+            card: 'summary_large_image',
+            title,
+            description,
+            ...(ogImage && { images: [ogImage] })
+        },
         alternates: { canonical: `/categories/${slug}` },
     };
 }
