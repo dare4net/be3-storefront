@@ -13,6 +13,41 @@ import { LegacyPageProvider } from "@/components/providers/LegacyPageContext";
 import WidgetRenderer from "@/components/widgets/WidgetRenderer";
 import CollectionHeader from "@/components/collections/CollectionHeader";
 
+// Server-side metadata for collection pages
+export async function generateMetadata({ params }) {
+    const { slug } = await params;
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3000';
+
+    const { headers } = await import('next/headers');
+    const headersList = await headers();
+    const tenantId = headersList.get('x-tenant-id');
+
+    if (!tenantId) return {};
+
+    try {
+        const res = await fetch(`${apiUrl}/products/storefront/collections/${slug}`, {
+            headers: { 'x-tenant-id': tenantId },
+            cache: 'no-store'
+        });
+        if (res.ok) {
+            const data = await res.json();
+            if (data.success && data.collection) {
+                const col = data.collection;
+                const title = col.seo_title || col.name;
+                const description = col.seo_description || col.description || `Browse the ${col.name} collection.`;
+                return {
+                    title,
+                    description,
+                    openGraph: { title, description, type: 'website' },
+                    alternates: { canonical: `/collections/${slug}` },
+                };
+            }
+        }
+    } catch (_) {}
+
+    return {};
+}
+
 export default function CollectionPage({ params }) {
     const resolvedParams = use(params);
     const { slug } = resolvedParams;
@@ -106,6 +141,32 @@ export default function CollectionPage({ params }) {
         <SearchProvider key={slug} initialFilters={initialFilters}>
             <LegacyPageProvider data={collection} type="collection">
                 <div className="min-h-screen bg-white">
+
+                    {/* CollectionPage + BreadcrumbList JSON-LD */}
+                    <script
+                        type="application/ld+json"
+                        dangerouslySetInnerHTML={{
+                            __html: JSON.stringify([
+                                {
+                                    "@context": "https://schema.org",
+                                    "@type": "CollectionPage",
+                                    "name": collection.name,
+                                    "description": collection.description || `Browse the ${collection.name} collection`,
+                                    "url": `/collections/${collection.slug}`,
+                                    "image": collection.image_url || undefined,
+                                },
+                                {
+                                    "@context": "https://schema.org",
+                                    "@type": "BreadcrumbList",
+                                    "itemListElement": [
+                                        { "@type": "ListItem", "position": 1, "name": "Home", "item": "/" },
+                                        { "@type": "ListItem", "position": 2, "name": "Collections", "item": "/collections" },
+                                        { "@type": "ListItem", "position": 3, "name": collection.name, "item": `/collections/${collection.slug}` },
+                                    ]
+                                }
+                            ])
+                        }}
+                    />
 
                     <EntityAnalytics type="collection" entity={collection} />
 

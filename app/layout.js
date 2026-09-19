@@ -34,17 +34,24 @@ export async function generateViewport() {
     };
 }
 
+/** Helper: build the tenant's canonical base URL */
+function getTenantBaseUrl(tenant) {
+    const platformDomain = process.env.NEXT_PUBLIC_PLATFORM_DOMAIN || 'be3.shop';
+    if (tenant?.custom_domain) return `https://${tenant.custom_domain}`;
+    if (tenant?.subdomain) return `https://${tenant.subdomain}.${platformDomain}`;
+    return process.env.NEXT_PUBLIC_APP_URL || `https://${platformDomain}`;
+}
+
 export async function generateMetadata() {
     const { tenant, theme } = await getTenantAndTheme();
     const logoUrl = theme?.variables?.logo || tenant?.settings?.logo_url;
     const storeName = tenant?.name || "Be3 Storefront";
     const storeDescription = tenant?.description ||
-        `Scale your business with Be3, the AI-powered multi-vendor marketplace. ` +
-        `Secure vendor dashboards, unified checkout, and optimized SEO for global sellers. ` +
-        `Discover a premium shopping experience powered by ${storeName}.`;
+        `Discover a premium shopping experience powered by ${storeName}. ` +
+        `Browse quality products, secure checkout, and fast delivery.`;
 
-    // Enforce primary canonical domain
-    const baseUrl = 'https://be3.shop';
+    // Tenant-aware canonical — each store gets its own unique canonical domain
+    const baseUrl = getTenantBaseUrl(tenant);
 
     return {
         title: {
@@ -54,7 +61,7 @@ export async function generateMetadata() {
         description: storeDescription,
         metadataBase: new URL(baseUrl),
         alternates: {
-            canonical: '/',
+            canonical: baseUrl,
         },
         openGraph: {
             title: storeName,
@@ -85,9 +92,14 @@ export async function generateMetadata() {
         } : {
             icon: '/favicon.ico',
         },
-        keywords: ["eCommerce", "SaaS", "Be3 Protocol", storeName, "Online Shopping", "Multi-tenant"],
+        keywords: [
+            "online shopping",
+            storeName,
+            tenant?.settings?.industry || "eCommerce",
+            ...(tenant?.settings?.keywords || [])
+        ],
         authors: [{ name: storeName }],
-        creator: "Be3 Protocol",
+        creator: storeName,
         publisher: storeName,
         robots: {
             index: true,
@@ -165,24 +177,78 @@ export default async function RootLayout({ children }) {
     // Select font based on settings, default to Inter
     const selectedFont = fonts[tenant.settings?.font_family] || inter;
 
-    // Enforce primary canonical domain
-    const baseUrl = 'https://be3.shop';
+    // Tenant-aware canonical base URL
+    const baseUrl = getTenantBaseUrl(tenant);
 
-    const jsonLd = {
+    const logoUrl = theme?.variables?.logo || tenant?.settings?.logo_url;
+    const storeName = tenant.name || 'Store';
+    const storeDescription = tenant.description || `Discover quality products at ${storeName}.`;
+
+    // Build sameAs array from tenant footer social links
+    const socialLinks = tenant?.settings?.social_links || {};
+    const sameAs = [
+        socialLinks.facebook,
+        socialLinks.instagram,
+        socialLinks.twitter,
+        socialLinks.tiktok,
+        socialLinks.youtube,
+        socialLinks.linkedin,
+        socialLinks.pinterest,
+        socialLinks.whatsapp,
+    ].filter(Boolean);
+
+    // Organization JSON-LD — Google Knowledge Panel
+    const organizationJsonLd = {
         "@context": "https://schema.org",
         "@type": "Organization",
-        "name": tenant.name,
+        "name": storeName,
         "url": baseUrl,
-        "logo": theme?.variables?.logo || tenant?.settings?.logo_url,
-        "description": tenant.description || `Scale your business with Be3, the AI-powered multi-vendor marketplace. Secure vendor dashboards, unified checkout, and optimized SEO for global sellers.`
+        "logo": logoUrl ? {
+            "@type": "ImageObject",
+            "url": logoUrl,
+            "width": 200,
+            "height": 200
+        } : undefined,
+        "description": storeDescription,
+        ...(sameAs.length > 0 && { "sameAs": sameAs }),
+        ...(tenant?.settings?.email && { "email": tenant.settings.email }),
+        ...(tenant?.settings?.phone && { "telephone": tenant.settings.phone }),
+    };
+
+    // WebSite JSON-LD — enables Google Sitelinks Searchbox
+    const websiteJsonLd = {
+        "@context": "https://schema.org",
+        "@type": "WebSite",
+        "name": storeName,
+        "url": baseUrl,
+        "description": storeDescription,
+        "potentialAction": {
+            "@type": "SearchAction",
+            "target": {
+                "@type": "EntryPoint",
+                "urlTemplate": `${baseUrl}/search?q={search_term_string}`
+            },
+            "query-input": "required name=search_term_string"
+        }
     };
 
     return (
         <html lang="en">
             <head>
+                {/* Preconnect to image CDN and API for faster LCP */}
+                <link rel="preconnect" href="https://storage.googleapis.com" />
+                <link rel="dns-prefetch" href="https://storage.googleapis.com" />
+                <link rel="preconnect" href={process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'} crossOrigin="anonymous" />
+
+                {/* Organization JSON-LD — Google Knowledge Panel */}
                 <script
                     type="application/ld+json"
-                    dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+                    dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
+                />
+                {/* WebSite JSON-LD — Google Sitelinks Searchbox */}
+                <script
+                    type="application/ld+json"
+                    dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }}
                 />
             </head>
             <body className={`${selectedFont.className} ${selectedFont.variable}`} suppressHydrationWarning>
