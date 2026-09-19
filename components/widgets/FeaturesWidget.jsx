@@ -178,7 +178,7 @@ function FeatureCard({ feature, cardStyle, hoverEffect, entranceAnimation, anima
             <div
                 className="mb-4 inline-flex items-center justify-center rounded-xl transition-transform group-hover:scale-110"
                 style={{
-                    backgroundColor: feature.iconBackground || '#eff6ff',
+                    backgroundColor: feature.iconBackground || 'var(--accent-soft, #eff6ff)',
                     width: `${parseInt(feature.iconSize) + 16 || 64}px`,
                     height: `${parseInt(feature.iconSize) + 16 || 64}px`
                 }}
@@ -186,7 +186,7 @@ function FeatureCard({ feature, cardStyle, hoverEffect, entranceAnimation, anima
                 {feature.iconType === 'lucide' && Icon && (
                     <Icon
                         style={{
-                            color: feature.iconColor || '#3b82f6',
+                            color: feature.iconColor || 'var(--primary, #3b82f6)',
                             width: `${feature.iconSize || 48}px`,
                             height: `${feature.iconSize || 48}px`
                         }}

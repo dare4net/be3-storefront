@@ -108,11 +108,11 @@ async function getMenu(location, tenantId) {
     try {
         const res = await fetch(`${apiUrl}/api/storefront/menus/${location}`, {
             headers: { 'x-tenant-id': tenantId },
-            next: { revalidate: 60 }
+            cache: 'no-store'
         });
         if (res.ok) {
             const data = await res.json();
-            return data.items || [];
+            return data.tree || data.items || [];
         }
     } catch (e) {
         console.error(`[Layout] Failed to fetch menu ${location}:`, e);

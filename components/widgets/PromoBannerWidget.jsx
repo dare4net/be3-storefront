@@ -1,20 +1,20 @@
 // Promotional Banner Widget
 import Link from 'next/link';
 
-export default function PromoBannerWidget({ config }) {
+export default function PromoBannerWidget({ config = {} }) {
     const {
         title = 'Special Offer',
         subtitle = 'Limited time only',
         ctaText = 'Shop Now',
         ctaLink = '/products',
-        backgroundColor = '#3b82f6',
-        textColor = '#ffffff'
+        backgroundColor = config.useThemeColors || !config.backgroundColor || config.backgroundColor === '#3b82f6' ? 'var(--primary, #3b82f6)' : config.backgroundColor,
+        textColor = config.useThemeColors || !config.textColor || config.textColor === '#ffffff' ? 'var(--primary-content, #ffffff)' : config.textColor
     } = config;
 
     return (
         <section
-            className="py-16"
-            style={{ backgroundColor }}
+            className="py-16 transition-colors duration-300"
+            style={{ backgroundColor: backgroundColor || 'var(--primary, #3b82f6)' }}
         >
             <div className="container mx-auto px-4">
                 <div className="text-center max-w-3xl mx-auto">

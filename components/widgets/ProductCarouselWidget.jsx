@@ -11,6 +11,7 @@ import { usePageContext } from '@/lib/hooks/usePageContext';
 import { useWishlist } from '../providers/WishlistContext';
 import { useCart } from '../providers/CartContext';
 import { useAnalytics } from '@/lib/hooks/useAnalytics';
+import { useCurrency } from '@/hooks/useCurrency';
 import { getStaticCache, saveStaticCache } from '@/lib/staticWidgetCache';
 
 export default function ProductCarouselWidget({ config }) {
@@ -117,6 +118,7 @@ export default function ProductCarouselWidget({ config }) {
     const scrollContainerRef = useRef(null);
 
     const { toggleWishlist, isInWishlist } = useWishlist();
+    const { formatPrice } = useCurrency();
     const { openChat } = useChatContext();
     const [addingToCart, setAddingToCart] = useState(null);
     const { addToCart } = useCart();
@@ -926,11 +928,11 @@ export default function ProductCarouselWidget({ config }) {
                                                     <div className="flex flex-col">
                                                         {effectiveShowPrice && (
                                                             <span className="font-bold" style={{
-                                                                color: colors.price,
+                                                                color: colors.price || 'var(--primary)',
                                                                 // Use scale for density, clamp for viewport (sync with name scaling)
                                                                 fontSize: `clamp(${0.95 * scale}rem, ${0.85 * scale}rem + ${0.5 * scale}vw, ${1.25 * scale}rem)`
                                                             }}>
-                                                                ${parseFloat(product.price).toFixed(2)}
+                                                                {formatPrice(product.price)}
                                                             </span>
                                                         )}
                                                     </div>
@@ -953,8 +955,10 @@ export default function ProductCarouselWidget({ config }) {
                                                             <button
                                                                 onClick={(e) => handleAddToCart(e, product)}
                                                                 disabled={addingToCart === product.id}
-                                                                className="rounded-full bg-blue-50 text-blue-600 hover:bg-blue-100 transition-all duration-200 flex items-center justify-center shadow-sm"
+                                                                className="rounded-full transition-all duration-200 flex items-center justify-center shadow-sm"
                                                                 style={{
+                                                                    backgroundColor: addingToCart === product.id ? '#10b981' : (colors?.accent && colors.accent !== '#3b82f6' ? colors.accent : 'var(--accent-soft, rgba(37, 99, 235, 0.1))'),
+                                                                    color: addingToCart === product.id ? '#ffffff' : (colors?.accent && colors.accent !== '#3b82f6' ? '#ffffff' : 'var(--primary)'),
                                                                     width: deviceType === 'mobile' ? `${2.1 * scale}rem` : `${2.5 * scale}rem`,
                                                                     height: deviceType === 'mobile' ? `${2.1 * scale}rem` : `${2.5 * scale}rem`,
                                                                     padding: deviceType === 'mobile' ? `${0.5 * scale}rem` : `${0.625 * scale}rem`

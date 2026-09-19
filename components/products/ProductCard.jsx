@@ -5,11 +5,13 @@ import Link from 'next/link';
 import { ShoppingCart, MessageCircle, Eye, X, Heart, Star } from 'lucide-react';
 import { useCart } from '@/components/providers/CartContext';
 import { useChatContext } from '@/components/providers/ChatContext';
+import { useCurrency } from '@/hooks/useCurrency';
 import WishlistButton from './WishlistButton';
 
 export default function ProductCard({ product, trackClick }) {
     const { addToCart } = useCart();
     const { openChat } = useChatContext();
+    const { formatPrice } = useCurrency();
     const [showOverlay, setShowOverlay] = useState(false);
     const [isMobile, setIsMobile] = useState(false);
     const [stats, setStats] = useState({ impressions: 0, wishlist_count: 0 });
@@ -131,18 +133,19 @@ export default function ProductCard({ product, trackClick }) {
                 <div className="mt-1 sm:mt-2 flex items-center justify-between">
                     <div className="flex flex-col">
                         <span className="text-[clamp(1rem,0.9rem+0.5vw,1.25rem)] font-bold text-gray-900">
-                            ${parseFloat(product.price).toFixed(2)}
+                            {formatPrice(product.price)}
                         </span>
                         {product.compare_at_price && (
                             <span className="text-[clamp(0.7rem,0.65rem+0.2vw,0.875rem)] text-gray-500 line-through">
-                                ${parseFloat(product.compare_at_price).toFixed(2)}
+                                {formatPrice(product.compare_at_price)}
                             </span>
                         )}
                     </div>
 
                     <button
                         onClick={handleAddToCart}
-                        className="p-1.5 sm:p-2 rounded-full bg-blue-600 text-white hover:bg-blue-700 transition-colors shadow-md hover:shadow-lg"
+                        style={{ backgroundColor: 'var(--primary)', color: 'var(--primary-foreground, #ffffff)' }}
+                        className="p-1.5 sm:p-2 rounded-full transition-all shadow-md hover:shadow-lg hover:brightness-95"
                         title="Add to Cart"
                     >
                         <ShoppingCart className="w-4 h-4 sm:w-5 h-5" />

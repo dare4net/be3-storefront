@@ -487,13 +487,21 @@ function PatternGrid({ color, speed }) {
 function CTAButton({ cta, index }) {
     const Icon = cta.icon && LucideIcons[toPascalCase(cta.icon)];
     const buttonStyles = {
-        primary: 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg',
-        secondary: 'bg-white hover:bg-gray-100 text-gray-900 shadow-lg',
+        primary: 'btn-theme-primary bg-blue-600 hover:bg-blue-700 text-white shadow-lg',
+        secondary: 'btn-theme-secondary bg-white hover:bg-gray-100 text-gray-900 shadow-lg',
         outline: 'bg-transparent border-2 border-white hover:bg-white hover:text-gray-900 text-white',
         ghost: 'bg-transparent hover:bg-white/10 text-white'
     };
     return (
-        <Link href={cta.link || '#'} className={`inline-flex items-center gap-2 px-8 py-4 font-semibold rounded-full transition-all hover:scale-105 ${getAnimationClass(cta.animation)} ${buttonStyles[cta.style] || buttonStyles.primary}`} style={{ animationDelay: `${cta.animation?.delay || 400}ms` }}>
+        <Link
+            href={cta.link || '#'}
+            className={`inline-flex items-center gap-2 px-8 py-4 font-semibold rounded-full transition-all hover:scale-105 ${getAnimationClass(cta.animation)} ${buttonStyles[cta.style] || buttonStyles.primary}`}
+            style={{
+                backgroundColor: cta.style === 'primary' || !cta.style ? 'var(--btn-primary-bg, var(--primary))' : undefined,
+                color: cta.style === 'primary' || !cta.style ? 'var(--btn-primary-text, #ffffff)' : undefined,
+                animationDelay: `${cta.animation?.delay || 400}ms`
+            }}
+        >
             {cta.text}
             {Icon && <Icon className="w-5 h-5" />}
         </Link>

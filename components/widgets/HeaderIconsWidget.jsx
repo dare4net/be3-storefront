@@ -29,6 +29,8 @@ export default function HeaderIconsWidget({ config }) {
         setShowAccountMenu(false);
     };
 
+    if (!showCart && !showAccount) return null;
+
     return (
         <div className="flex items-center gap-4">
             {/* Account Menu */}

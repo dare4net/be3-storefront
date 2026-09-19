@@ -1,6 +1,7 @@
 import React from 'react';
 
 export default function HeadingWidget({ config }) {
+    if (!config?.text) return null;
     const Tag = config.tag || 'h2';
     const alignClass = {
         left: 'text-left',

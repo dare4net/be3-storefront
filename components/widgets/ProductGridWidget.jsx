@@ -12,6 +12,7 @@ import { proxyApi as api } from '@/lib/axios';
 import { useRandomizationContext } from '@/lib/contexts/RandomizationContext';
 import { usePageContext } from '@/lib/hooks/usePageContext';
 import { useAnalytics } from '@/lib/hooks/useAnalytics';
+import { useCurrency } from '@/hooks/useCurrency';
 import { getStaticCache, saveStaticCache } from '@/lib/staticWidgetCache';
 
 export default function ProductGridWidget({ config }) {
@@ -68,6 +69,7 @@ export default function ProductGridWidget({ config }) {
     const { toggleWishlist, isInWishlist } = useWishlist();
     const { trackImpression, trackClick } = useAnalytics();
     const { openChat } = useChatContext();
+    const { formatPrice } = useCurrency();
     const [activeAddToCart, setActiveAddToCart] = useState(null);
     const [deviceType, setDeviceType] = useState('desktop');
 
@@ -641,12 +643,27 @@ export default function ProductGridWidget({ config }) {
                     </div>
                 )}
 
-                <div
-                    className={`grid ${columns?.mobile ? `grid-cols-${columns.mobile}` : 'grid-cols-1'} ${columns?.tablet ? `md:grid-cols-${columns.tablet}` : 'md:grid-cols-2'} ${columns?.desktop ? `lg:grid-cols-${columns.desktop}` : 'lg:grid-cols-4'}`}
-                    style={{
-                        gap: formatCSSValue(gridGap)
-                    }}
-                >
+                <>
+                    <style dangerouslySetInnerHTML={{
+                        __html: `
+                            .product-grid-widget-${widgetId}-${columns?.mobile || 2}-${columns?.tablet || 3}-${columns?.desktop || 4} {
+                                display: grid;
+                                grid-template-columns: repeat(${columns?.mobile || 2}, minmax(0, 1fr));
+                                gap: ${formatCSSValue(gridGap)};
+                            }
+                            @media (min-width: 768px) {
+                                .product-grid-widget-${widgetId}-${columns?.mobile || 2}-${columns?.tablet || 3}-${columns?.desktop || 4} {
+                                    grid-template-columns: repeat(${columns?.tablet || 3}, minmax(0, 1fr));
+                                }
+                            }
+                            @media (min-width: 1024px) {
+                                .product-grid-widget-${widgetId}-${columns?.mobile || 2}-${columns?.tablet || 3}-${columns?.desktop || 4} {
+                                    grid-template-columns: repeat(${columns?.desktop || 4}, minmax(0, 1fr));
+                                }
+                            }
+                        `
+                    }} />
+                    <div className={`product-grid-widget-${widgetId}-${columns?.mobile || 2}-${columns?.tablet || 3}-${columns?.desktop || 4}`}>
                     {showSkeletons ? (
                         Array.from({ length: limit || 8 }).map((_, idx) => (
                             <div
@@ -881,11 +898,11 @@ export default function ProductGridWidget({ config }) {
                                             <div className="flex flex-col">
                                                 {effectiveShowPrice && (
                                                     <span className="font-bold" style={{
-                                                        color: colors.price,
+                                                        color: colors.price || 'var(--primary)',
                                                         // Use scale for density, clamp for viewport (sync with name scaling)
                                                         fontSize: `clamp(${0.95 * scale}rem, ${0.85 * scale}rem + ${0.5 * scale}vw, ${1.25 * scale}rem)`
                                                     }}>
-                                                        ${parseFloat(product.price).toFixed(2)}
+                                                        {formatPrice(product.price)}
                                                     </span>
                                                 )}
                                             </div>
@@ -927,8 +944,8 @@ export default function ProductGridWidget({ config }) {
                                                         disabled={addingToCart === product.id}
                                                         className="rounded-full transition-all duration-200 transform hover:scale-105 active:scale-95 shadow-md flex items-center gap-2"
                                                         style={{
-                                                            backgroundColor: addingToCart === product.id ? '#10b981' : (colors.accent || '#3b82f6'),
-                                                            color: '#ffffff',
+                                                            backgroundColor: addingToCart === product.id ? '#10b981' : (colors?.accent && colors.accent !== '#3b82f6' ? colors.accent : 'var(--btn-primary-bg, var(--primary))'),
+                                                            color: 'var(--btn-primary-text, var(--primary-foreground, #ffffff))',
                                                             padding: deviceType === 'mobile'
                                                                 ? `${0.5 * scale}rem ${0.8 * scale}rem`
                                                                 : `${0.625 * scale}rem ${1 * scale}rem`
@@ -953,7 +970,9 @@ export default function ProductGridWidget({ config }) {
                             </AnimatedItem>
                         ))
                     )}
-                </div>            </div>
+                    </div>
+                </>
+            </div>
 
 
             {enableEntryAnimation && <AnimationStyles />}

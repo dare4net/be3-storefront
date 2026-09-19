@@ -4,6 +4,7 @@ import { useState, useEffect, Suspense } from "react";
 import { useCart } from "@/components/providers/CartContext";
 import { useTenant } from "@/components/providers/TenantContext";
 import { useAuth } from "@/components/providers/AuthContext";
+import { useCurrency } from "@/hooks/useCurrency";
 import api from "@/lib/axios";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -21,6 +22,7 @@ function CheckoutContent() {
     const { cart, items: allItems, vendorGroups, refreshCart } = useCart();
     const tenant = useTenant();
     const { user, token } = useAuth();
+    const { formatPrice } = useCurrency();
     const router = useRouter();
     const searchParams = useSearchParams();
     const vendorId = searchParams.get("vendor_id");
@@ -614,15 +616,15 @@ function CheckoutContent() {
                                                         {discountedPrice !== null ? (
                                                             <>
                                                                 <p className="text-xs text-gray-400 line-through">
-                                                                    ₦{originalPrice.toLocaleString("en-NG", { minimumFractionDigits: 2 })}
+                                                                    {formatPrice(originalPrice)}
                                                                 </p>
                                                                 <p className="text-sm font-bold text-gray-900">
-                                                                    ₦{discountedPrice.toLocaleString("en-NG", { minimumFractionDigits: 2 })}
+                                                                    {formatPrice(discountedPrice)}
                                                                 </p>
                                                             </>
                                                         ) : (
                                                             <p className="text-sm font-bold text-gray-900">
-                                                                ₦{originalPrice.toLocaleString("en-NG", { minimumFractionDigits: 2 })}
+                                                                {formatPrice(originalPrice)}
                                                             </p>
                                                         )}
                                                     </div>
@@ -637,23 +639,24 @@ function CheckoutContent() {
                                 <button
                                     onClick={handlePay}
                                     disabled={loading || !!shippingError}
-                                    className={`w-full disabled:opacity-60 text-white font-bold py-4 rounded-2xl text-sm transition flex items-center justify-center gap-2 shadow-lg ${isWhatsApp
-                                        ? "bg-[#25D366] hover:bg-[#1ebe5d] shadow-green-200"
-                                        : "bg-blue-600 hover:bg-blue-700 shadow-blue-200"
-                                        }`}
+                                    style={{
+                                        backgroundColor: isWhatsApp ? '#25D366' : 'var(--primary)',
+                                        color: isWhatsApp ? '#ffffff' : 'var(--primary-foreground, #ffffff)',
+                                    }}
+                                    className={`w-full disabled:opacity-60 font-bold py-4 rounded-2xl text-sm transition flex items-center justify-center gap-2 shadow-lg hover:brightness-95`}
                                 >
                                     {loading
                                         ? <><Loader2 className="w-4 h-4 animate-spin" /> {isWhatsApp ? "Creating Order..." : "Initializing..."}</>
                                         : isWhatsApp
                                             ? <><svg viewBox="0 0 24 24" className="w-4 h-4 fill-current" xmlns="http://www.w3.org/2000/svg"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z" /><path d="M12 0C5.373 0 0 5.373 0 12c0 2.124.558 4.117 1.534 5.845L0 24l6.335-1.505A11.945 11.945 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.818a9.818 9.818 0 01-5.006-1.371l-.36-.214-3.727.886.936-3.618-.235-.372A9.818 9.818 0 1112 21.818z" /></svg> Send WhatsApp Order</>
-                                            : <><Lock className="w-4 h-4" /> Pay ₦{total.toLocaleString("en-NG", { minimumFractionDigits: 2 })}</>
+                                            : <><Lock className="w-4 h-4" /> Pay {formatPrice(total)}</>
                                     }
                                 </button>
 
                                 {!isWhatsApp && (
                                     <div className="flex items-center justify-center gap-2 text-xs text-gray-400">
                                         <ShieldCheck className="w-3.5 h-3.5 text-green-500" />
-                                        Secured by Paystack
+                                        Secured Checkout
                                     </div>
                                 )}
                                 {isWhatsApp && (
@@ -685,15 +688,15 @@ function CheckoutContent() {
                                                 {discountedPrice !== null ? (
                                                     <div className="flex items-center gap-2">
                                                         <span className="text-gray-400 line-through text-xs">
-                                                            ₦{originalPrice.toLocaleString("en-NG", { minimumFractionDigits: 2 })}
+                                                            {formatPrice(originalPrice)}
                                                         </span>
                                                         <span className="font-bold text-gray-900">
-                                                            ₦{discountedPrice.toLocaleString("en-NG", { minimumFractionDigits: 2 })}
+                                                            {formatPrice(discountedPrice)}
                                                         </span>
                                                     </div>
                                                 ) : (
                                                     <span className="font-medium text-gray-900">
-                                                        ₦{originalPrice.toLocaleString("en-NG", { minimumFractionDigits: 2 })}
+                                                        {formatPrice(originalPrice)}
                                                     </span>
                                                 )}
                                             </div>
@@ -737,12 +740,12 @@ function CheckoutContent() {
 
                                 <div className="flex justify-between text-gray-500">
                                     <span>Subtotal</span>
-                                    <span>₦{subtotal.toLocaleString("en-NG", { minimumFractionDigits: 2 })}</span>
+                                    <span>{formatPrice(subtotal)}</span>
                                 </div>
                                 {appliedCoupon && (
                                     <div className="flex justify-between text-green-600 font-medium">
                                         <span>Discount ({appliedCoupon.code})</span>
-                                        <span>− ₦{appliedCoupon.discount_amount.toLocaleString("en-NG", { minimumFractionDigits: 2 })}</span>
+                                        <span>− {formatPrice(appliedCoupon.discount_amount)}</span>
                                     </div>
                                 )}
                                 {!isWhatsApp && (
@@ -766,14 +769,14 @@ function CheckoutContent() {
                                             {shippingError ? (
                                                 <span className="text-red-500 font-bold text-[10px] uppercase tracking-widest bg-red-50 px-2 py-1 rounded border border-red-100">Unavailable</span>
                                             ) : (
-                                                shipping === 0 ? <span className="text-green-600 font-medium">Free</span> : `₦${shipping.toLocaleString("en-NG", { minimumFractionDigits: 2 })}`
+                                                shipping === 0 ? <span className="text-green-600 font-medium">Free</span> : formatPrice(shipping)
                                             )}
                                         </span>
                                     </div>
                                 )}
                                 <div className="flex justify-between font-bold text-gray-900 text-base pt-2 border-t border-gray-50">
                                     <span>Total</span>
-                                    <span>₦{(isWhatsApp ? Math.max(0, subtotal - discount) : total).toLocaleString("en-NG", { minimumFractionDigits: 2 })}</span>
+                                    <span>{formatPrice(isWhatsApp ? Math.max(0, subtotal - discount) : total)}</span>
                                 </div>
                             </div>
                         </div>

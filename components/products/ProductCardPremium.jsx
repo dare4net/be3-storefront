@@ -5,6 +5,7 @@ import { ShoppingCart, Check, Eye, Heart, Star } from 'lucide-react';
 import { useCart } from '@/components/providers/CartContext';
 import { useWishlist } from '@/components/providers/WishlistContext';
 import { useAnalytics } from '@/lib/hooks/useAnalytics';
+import { useCurrency } from '@/hooks/useCurrency';
 import { cn, formatAttributeValue } from '@/lib/utils';
 
 export default function ProductCardPremium({
@@ -23,7 +24,7 @@ export default function ProductCardPremium({
     showSocialProof = true,
     showRating = true,
     widgetId = "search_results",
-    colors = { text: '#111827', price: '#3b82f6', accent: '#3b82f6' },
+    colors = { text: '#111827', price: 'var(--primary)', accent: 'var(--primary)' },
     cardStyle = {
         backgroundColor: '#ffffff',
         borderColor: 'transparent',
@@ -34,6 +35,7 @@ export default function ProductCardPremium({
     const { addToCart } = useCart();
     const { toggleWishlist, isInWishlist } = useWishlist();
     const { trackClick: trackAnalyticsClick } = useAnalytics();
+    const { formatPrice } = useCurrency();
     const [addingToCart, setAddingToCart] = useState(null);
 
     const handleAddToCart = async (e) => {
@@ -277,10 +279,13 @@ export default function ProductCardPremium({
                     <div className="mt-auto flex items-center justify-between gap-2" style={{ paddingTop: `${1 * scale}rem` }}>
                         {showPrice !== false && (
                             <p
-                                className="font-bold text-blue-600"
-                                style={{ fontSize: `clamp(${1 * scale}rem, ${0.9 * scale}rem + ${0.6 * scale}vw, ${1.25 * scale}rem)` }}
+                                className="font-bold"
+                                style={{ 
+                                    color: colors.price || 'var(--primary)',
+                                    fontSize: `clamp(${1 * scale}rem, ${0.9 * scale}rem + ${0.6 * scale}vw, ${1.25 * scale}rem)` 
+                                }}
                             >
-                                ${parseFloat(product.price).toFixed(2)}
+                                {formatPrice(product.price)}
                             </p>
                         )}
 

@@ -4,11 +4,13 @@ import React, { useState, useEffect } from 'react';
 import { ShoppingCart, Heart } from 'lucide-react';
 import { useCart } from '@/components/providers/CartContext';
 import { useWishlist } from '@/components/providers/WishlistContext';
+import { useCurrency } from '@/hooks/useCurrency';
 
 export default function StickyAddToCart({ product }) {
     const [isVisible, setIsVisible] = useState(false);
     const { addToCart } = useCart();
     const { toggleWishlist, isInWishlist } = useWishlist();
+    const { formatPrice } = useCurrency();
     const active = isInWishlist(product.id);
 
     useEffect(() => {
@@ -40,7 +42,7 @@ export default function StickyAddToCart({ product }) {
                         />
                         <div className="min-w-0">
                             <h4 className="font-bold text-gray-900 truncate text-sm">{product.name}</h4>
-                            <p className="text-blue-600 font-bold text-base">${parseFloat(product.price).toFixed(2)}</p>
+                            <p className="font-bold text-base" style={{ color: 'var(--primary)' }}>{formatPrice(product.price)}</p>
                         </div>
                     </div>
 
@@ -56,7 +58,8 @@ export default function StickyAddToCart({ product }) {
 
                         <button
                             onClick={() => addToCart(product, 1)}
-                            className="flex-1 sm:w-64 flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-xl transition-all shadow-md active:scale-95"
+                            className="flex-1 sm:w-64 flex items-center justify-center gap-2 text-white font-bold py-3 px-6 rounded-xl transition-all shadow-md active:scale-95 hover:brightness-95"
+                            style={{ backgroundColor: 'var(--primary)', color: 'var(--primary-foreground, #ffffff)' }}
                         >
                             <ShoppingCart className="w-5 h-5" />
                             <span>Add to Cart</span>

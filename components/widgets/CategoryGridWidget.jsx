@@ -405,6 +405,12 @@ export default function CategoryGridWidget({ config }) {
         }
     };
 
+    const isLoading = loading || (config.randomize?.enabled && !resolvedFromPlan);
+
+    if (!isLoading && displayCategories.length === 0) {
+        return null;
+    }
+
     return (
         <section
             className="transition-colors duration-300"

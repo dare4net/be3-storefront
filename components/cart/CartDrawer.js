@@ -2,16 +2,11 @@
 
 import { useState } from "react";
 import { useCart } from "@/components/providers/CartContext";
+import { useCurrency } from "@/hooks/useCurrency";
 import { X, Minus, Plus, ShoppingBag, Trash2, CreditCard, Package, ArrowRight, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import api from "@/lib/axios";
 import { useAnalytics } from "@/lib/hooks/useAnalytics";
-
-const FLAT_SHIPPING = 1500;
-
-function formatNGN(amount) {
-    return `₦${parseFloat(amount).toLocaleString("en-NG", { minimumFractionDigits: 2 })}`;
-}
 
 /* WhatsApp SVG icon */
 function WhatsAppIcon({ className = "w-4 h-4" }) {
@@ -25,6 +20,7 @@ function WhatsAppIcon({ className = "w-4 h-4" }) {
 export default function CartDrawer() {
     const { trackClick } = useAnalytics();
     const router = useRouter();
+    const { formatPrice } = useCurrency();
     const {
         items,
         vendorGroups,
@@ -155,7 +151,7 @@ export default function CartDrawer() {
                                                         <p className="text-sm font-semibold text-gray-900 leading-snug line-clamp-1">
                                                             {item.product_name}
                                                         </p>
-                                                        <p className="text-xs text-gray-400 mt-0.5">{formatNGN(item.price)} each</p>
+                                                        <p className="text-xs text-gray-400 mt-0.5">{formatPrice(item.price)} each</p>
                                                         <div className="flex items-center gap-3 mt-2">
                                                             <div className="flex items-center bg-gray-100 rounded-full h-7">
                                                                 <button
@@ -184,7 +180,7 @@ export default function CartDrawer() {
                                                     </div>
                                                     <div className="flex-shrink-0 text-right">
                                                         <p className="text-sm font-bold text-gray-900">
-                                                            {formatNGN(parseFloat(item.price) * item.quantity)}
+                                                            {formatPrice(parseFloat(item.price) * item.quantity)}
                                                         </p>
                                                     </div>
                                                 </div>
@@ -195,7 +191,7 @@ export default function CartDrawer() {
                                         <div className="bg-gray-50 rounded-2xl p-4 space-y-3">
                                             <div className="flex justify-between items-center text-sm">
                                                 <span className="text-gray-500">Subtotal</span>
-                                                <span className="font-bold text-gray-900">{formatNGN(groupSubtotal)}</span>
+                                                <span className="font-bold text-gray-900">{formatPrice(groupSubtotal)}</span>
                                             </div>
 
                                             {isDM ? (

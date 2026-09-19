@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/components/providers/AuthContext";
 import { useTenant } from "@/components/providers/TenantContext";
+import { useCurrency } from "@/hooks/useCurrency";
 import api from "@/lib/axios";
 import { useChatContext } from "@/components/providers/ChatContext";
 import {
@@ -176,6 +177,7 @@ export default function OrderDetailPage() {
     const { token } = useAuth();
     const tenant = useTenant();
     const { openChat } = useChatContext();
+    const { formatPrice } = useCurrency();
 
     const [order, setOrder] = useState(null);
     const [items, setItems] = useState([]);
@@ -300,10 +302,10 @@ export default function OrderDetailPage() {
                             {/* Price */}
                             <div className="text-right flex-shrink-0">
                                 <p className="text-sm font-bold text-gray-900">
-                                    ₦{parseFloat(item.total ?? item.price * item.quantity).toLocaleString('en-NG', { minimumFractionDigits: 2 })}
+                                    {formatPrice(item.total ?? item.price * item.quantity)}
                                 </p>
                                 <p className="text-xs text-gray-400 mt-0.5">
-                                    ₦{parseFloat(item.price).toLocaleString('en-NG', { minimumFractionDigits: 2 })} ea.
+                                    {formatPrice(item.price)} ea.
                                 </p>
                             </div>
                         </div>
@@ -314,17 +316,17 @@ export default function OrderDetailPage() {
                 <div className="px-5 py-4 border-t border-gray-100 bg-gray-50/50 space-y-2">
                     <div className="flex justify-between text-sm text-gray-500">
                         <span>Subtotal</span>
-                        <span>₦{subtotal.toLocaleString('en-NG', { minimumFractionDigits: 2 })}</span>
+                        <span>{formatPrice(subtotal)}</span>
                     </div>
                     {shipping > 0 && (
                         <div className="flex justify-between text-sm text-gray-500">
                             <span>Shipping</span>
-                            <span>₦{shipping.toLocaleString('en-NG', { minimumFractionDigits: 2 })}</span>
+                            <span>{formatPrice(shipping)}</span>
                         </div>
                     )}
                     <div className="flex justify-between font-bold text-gray-900 text-base pt-2 border-t border-gray-200">
                         <span>Total</span>
-                        <span>₦{total.toLocaleString('en-NG', { minimumFractionDigits: 2 })}</span>
+                        <span>{formatPrice(total)}</span>
                     </div>
                 </div>
             </div>

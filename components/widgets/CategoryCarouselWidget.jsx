@@ -536,32 +536,7 @@ export default function CategoryCarouselWidget({ config = {} }) {
     const isLoading = loading || (config.randomize?.enabled && !resolvedFromPlan);
 
     if (displayCategories.length === 0 && !isLoading) {
-        return (
-            <div className={`w-full`} style={{ 
-                background: settings.sectionBackground,
-                paddingTop: formatCSSValue(settings.sectionPaddingTop),
-                paddingBottom: formatCSSValue(settings.sectionPaddingBottom)
-             }}>
-                <div className="max-w-7xl mx-auto px-4">
-                    <div
-                        className="text-center py-16 rounded-xl"
-                        style={{ background: settings.emptyStateBackground }}
-                    >
-                        <Package className="w-16 h-16 mx-auto mb-4 text-gray-400" />
-                        <p className="text-gray-600 text-lg mb-4">{settings.emptyMessage}</p>
-                        {settings.showExploreCTA && (
-                            <Link
-                                href="/categories"
-                                className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
-                            >
-                                Explore Categories
-                                <ArrowRight className="w-4 h-4" />
-                            </Link>
-                        )}
-                    </div>
-                </div>
-            </div>
-        );
+        return null;
     }
 
 

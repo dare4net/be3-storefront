@@ -1,6 +1,10 @@
 import React from 'react';
 
-export default function ContainerWidget({ config, children }) {
+export default function ContainerWidget({ config = {}, children }) {
+    const validChildren = React.Children.toArray(children).filter(Boolean);
+    if (validChildren.length === 0 && (!config.backgroundColor || config.backgroundColor === 'transparent') && !config.minHeight) {
+        return null;
+    }
     const isFullWidth = config.width === 'full';
 
     // Container styles

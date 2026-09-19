@@ -1,4 +1,9 @@
+import React from 'react';
+
 export default function ColumnsWidget({ config, children }) {
+    const validChildren = React.Children.toArray(children).filter(Boolean);
+    if (validChildren.length === 0) return null;
+
     const {
         count = 3,
         gap = '4',
