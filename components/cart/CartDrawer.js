@@ -236,10 +236,10 @@ export default function CartDrawer() {
                     <div className="border-t border-gray-100 px-5 py-4 bg-white space-y-1">
                         <div className="flex justify-between text-xs text-gray-400">
                             <span>Cart subtotal ({totalItems} item{totalItems !== 1 ? "s" : ""})</span>
-                            <span>{formatNGN(cartSubtotal)}</span>
+                            <span>{formatPrice(cartSubtotal)}</span>
                         </div>
                         <p className="text-[10px] text-gray-300 pt-1">
-                            Checkout per store above. Shipping of ₦1,500 added at checkout.
+                            Checkout per store above. Shipping calculated at checkout.
                         </p>
                     </div>
                 )}
