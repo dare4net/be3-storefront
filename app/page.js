@@ -66,8 +66,6 @@ export default async function Home() {
             ...(tenant?.settings?.logo_url && {
                 "image": tenant.settings.logo_url
             }),
-            "currenciesAccepted": tenant?.currency || tenant?.settings?.currency || "USD",
-            "paymentAccepted": "Credit Card, Debit Card, Online Payment",
         },
         ...(featuredProducts.length > 0 ? [{
             "@context": "https://schema.org",
