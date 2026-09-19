@@ -8,7 +8,6 @@ import ShareButton from "@/components/products/ShareButton";
 import ProductGallery from "@/components/products/ProductGallery";
 import RelatedProducts from "@/components/products/RelatedProducts";
 import ProductDetailsStacked from "@/components/products/ProductDetailsStacked";
-import DynamicMetaTags from "@/components/DynamicMetaTags";
 import VariantSelector from "@/components/products/VariantSelector";
 import ProductInfoSidebar from "@/components/products/ProductInfoSidebar";
 import SuggestionsCarousel from "@/components/products/SuggestionsCarousel";
@@ -109,14 +108,86 @@ export default async function ProductPage({ params }) {
         ? Math.round(((compare_at_price - price) / compare_at_price) * 100)
         : 0;
 
+    // Build server-side JSON-LD schemas
+    const platformDomain = process.env.NEXT_PUBLIC_PLATFORM_DOMAIN || 'be3.shop';
+    const baseUrl = tenant?.custom_domain
+        ? `https://${tenant.custom_domain}`
+        : tenant?.subdomain
+            ? `https://${tenant.subdomain}.${platformDomain}`
+            : process.env.NEXT_PUBLIC_APP_URL || `https://${platformDomain}`;
+
+    const productUrl = `${baseUrl}/products/${handle}`;
+    const mainImageUrl = galleryImages[0]?.url || product.image_url;
+    const isInStock = product.stock_quantity === undefined || product.stock_quantity === null || product.stock_quantity > 0;
+
+    const productJsonLd = {
+        "@context": "https://schema.org",
+        "@type": "Product",
+        "name": name,
+        "description": description || name,
+        "url": productUrl,
+        ...(mainImageUrl && {
+            "image": galleryImages.map(img => img.url).filter(Boolean)
+        }),
+        ...(product.sku && { "sku": product.sku }),
+        ...(product.brand && { "brand": { "@type": "Brand", "name": product.brand } }),
+        "offers": {
+            "@type": "Offer",
+            "url": productUrl,
+            "priceCurrency": tenant?.settings?.currency || "USD",
+            "price": parseFloat(price).toFixed(2),
+            "priceValidUntil": new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+            "availability": isInStock
+                ? "https://schema.org/InStock"
+                : "https://schema.org/OutOfStock",
+            "itemCondition": "https://schema.org/NewCondition",
+            "seller": {
+                "@type": "Organization",
+                "name": tenant?.name || "Store"
+            }
+        },
+        ...(product.rating_summary?.total_ratings > 0 && {
+            "aggregateRating": {
+                "@type": "AggregateRating",
+                "ratingValue": parseFloat(product.rating_summary.average_rating).toFixed(1),
+                "reviewCount": product.rating_summary.total_ratings,
+                "bestRating": "5",
+                "worstRating": "1"
+            }
+        })
+    };
+
+    // BreadcrumbList for search results
+    const breadcrumbItems = [
+        { "@type": "ListItem", "position": 1, "name": "Home", "item": baseUrl },
+        { "@type": "ListItem", "position": 2, "name": "Categories", "item": `${baseUrl}/categories` },
+        ...(mainCategory?.breadcrumb?.map((bc, i) => ({
+            "@type": "ListItem",
+            "position": i + 3,
+            "name": bc.name,
+            "item": `${baseUrl}/categories/${bc.slug}`
+        })) || []),
+        { "@type": "ListItem", "position": (mainCategory?.breadcrumb?.length || 0) + 3, "name": name, "item": productUrl }
+    ];
+
+    const breadcrumbJsonLd = {
+        "@context": "https://schema.org",
+        "@type": "BreadcrumbList",
+        "itemListElement": breadcrumbItems
+    };
+
     return (
         <div className="container mx-auto px-4 py-8 max-w-7xl min-h-screen">
-            {product.seo?.structured_data && (
-                <script
-                    type="application/ld+json"
-                    dangerouslySetInnerHTML={{ __html: JSON.stringify(product.seo.structured_data) }}
-                />
-            )}
+            {/* Rich Product JSON-LD — Product + Offer + AggregateRating */}
+            <script
+                type="application/ld+json"
+                dangerouslySetInnerHTML={{ __html: JSON.stringify(productJsonLd) }}
+            />
+            {/* BreadcrumbList JSON-LD */}
+            <script
+                type="application/ld+json"
+                dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+            />
             
             {/* Breadcrumbs */}
             <nav className="flex items-center text-sm text-gray-500 mb-8 overflow-x-auto whitespace-nowrap pb-2 scrollbar-hide">

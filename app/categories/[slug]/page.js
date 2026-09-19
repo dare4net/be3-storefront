@@ -13,6 +13,41 @@ import api from "@/lib/axios";
 import { LegacyPageProvider } from "@/components/providers/LegacyPageContext";
 import WidgetRenderer from "@/components/widgets/WidgetRenderer";
 
+// Server-side metadata for category pages — gives Google real title/description
+export async function generateMetadata({ params }) {
+    const { slug } = await params;
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3000';
+
+    const { headers } = await import('next/headers');
+    const headersList = await headers();
+    const tenantId = headersList.get('x-tenant-id');
+
+    if (!tenantId) return {};
+
+    try {
+        const res = await fetch(`${apiUrl}/products/storefront/categories/${slug}`, {
+            headers: { 'x-tenant-id': tenantId },
+            cache: 'no-store'
+        });
+        if (res.ok) {
+            const data = await res.json();
+            if (data.success && data.category) {
+                const cat = data.category;
+                const title = cat.seo_title || cat.name;
+                const description = cat.seo_description || cat.description || `Browse ${cat.name} products.`;
+                return {
+                    title,
+                    description,
+                    openGraph: { title, description, type: 'website' },
+                    alternates: { canonical: `/categories/${slug}` },
+                };
+            }
+        }
+    } catch (_) {}
+
+    return {};
+}
+
 // Client-side Category Page
 export default function CategoryPage({ params }) {
     const resolvedParams = use(params);
@@ -109,6 +144,32 @@ export default function CategoryPage({ params }) {
         <SearchProvider initialFilters={initialFilters}>
             <LegacyPageProvider data={category} type="category">
                 <div className="min-h-screen bg-white">
+
+                    {/* CollectionPage + BreadcrumbList JSON-LD for Google rich results */}
+                    <script
+                        type="application/ld+json"
+                        dangerouslySetInnerHTML={{
+                            __html: JSON.stringify([
+                                {
+                                    "@context": "https://schema.org",
+                                    "@type": "CollectionPage",
+                                    "name": category.name,
+                                    "description": category.description || `Browse ${category.name} products`,
+                                    "url": `/categories/${category.slug}`,
+                                    "image": category.image_url || undefined,
+                                },
+                                {
+                                    "@context": "https://schema.org",
+                                    "@type": "BreadcrumbList",
+                                    "itemListElement": [
+                                        { "@type": "ListItem", "position": 1, "name": "Home", "item": "/" },
+                                        { "@type": "ListItem", "position": 2, "name": "Categories", "item": "/categories" },
+                                        { "@type": "ListItem", "position": 3, "name": category.name, "item": `/categories/${category.slug}` },
+                                    ]
+                                }
+                            ])
+                        }}
+                    />
 
                     <EntityAnalytics type="category" entity={category} />
 

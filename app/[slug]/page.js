@@ -14,6 +14,67 @@ import SuggestionsCarousel from "@/components/products/SuggestionsCarousel";
 import EntityAnalytics from "@/components/analytics/EntityAnalytics";
 import { LegacyPageProvider } from "@/components/providers/LegacyPageContext";
 
+// Server-side metadata generation — runs at request time so bots get real titles
+export async function generateMetadata({ params }) {
+    const { slug } = await params;
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3000';
+
+    // Try to read the x-tenant-id from middleware-injected headers
+    const { headers } = await import('next/headers');
+    const headersList = await headers();
+    const tenantId = headersList.get('x-tenant-id');
+
+    if (!tenantId) return {};
+
+    try {
+        // 1. Try CMS page
+        const pageRes = await fetch(`${apiUrl}/page-builder/pages/by-slug/${slug}`, {
+            headers: { 'X-Tenant-ID': tenantId },
+            cache: 'no-store'
+        });
+        if (pageRes.ok) {
+            const data = await pageRes.json();
+            if (data.success && data.page) {
+                const page = data.page;
+                return {
+                    title: page.seo_title || page.title,
+                    description: page.meta_description || page.seo_description || '',
+                    openGraph: {
+                        title: page.seo_title || page.title,
+                        description: page.meta_description || page.seo_description || '',
+                        type: 'website',
+                    },
+                };
+            }
+        }
+    } catch (_) {}
+
+    try {
+        // 2. Try branded slug (pretty URL)
+        const resolveRes = await fetch(`${apiUrl}/search/resolve-slug/${slug}`, {
+            headers: { 'X-Tenant-ID': tenantId },
+            cache: 'no-store'
+        });
+        if (resolveRes.ok) {
+            const data = await resolveRes.json();
+            if (data.success && data.seo) {
+                return {
+                    title: data.seo.title,
+                    description: data.seo.description || '',
+                    openGraph: {
+                        title: data.seo.title,
+                        description: data.seo.description || '',
+                        images: data.seo.image ? [data.seo.image] : [],
+                        type: 'website',
+                    },
+                };
+            }
+        }
+    } catch (_) {}
+
+    return {};
+}
+
 export default function DynamicPage() {
     const params = useParams();
     const tenant = useTenant();
