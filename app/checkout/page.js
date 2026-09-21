@@ -52,6 +52,9 @@ function CheckoutContent() {
     const [calculatingShipping, setCalculatingShipping] = useState(false);
     const [shippingError, setShippingError] = useState("");
 
+    const [taxData, setTaxData] = useState({ tax_amount: 0, tax_breakdown: [] });
+    const [calculatingTax, setCalculatingTax] = useState(false);
+
     useEffect(() => {
         if (user) {
             setFormData(prev => ({
@@ -234,11 +237,41 @@ function CheckoutContent() {
         setFormData(prev => ({ ...prev, city: lName }));
     };
 
+    useEffect(() => {
+        const fetchTax = async () => {
+            if (!items || items.length === 0 || !tenant?.id) return;
+            setCalculatingTax(true);
+            try {
+                const res = await api.post("/tax/compute", {
+                    vendor_id: activeVendorId || null,
+                    items: items.map(i => ({
+                        product_id: i.product_id,
+                        price: i.price,
+                        quantity: i.quantity
+                    }))
+                }, { headers: { "X-Tenant-ID": tenant.id } });
+                if (res.data.success) {
+                    setTaxData({
+                        tax_amount: parseFloat(res.data.tax_amount || 0),
+                        tax_breakdown: res.data.tax_breakdown || []
+                    });
+                }
+            } catch (err) {
+                console.warn("Failed to compute tax:", err);
+                setTaxData({ tax_amount: 0, tax_breakdown: [] });
+            } finally {
+                setCalculatingTax(false);
+            }
+        };
+        fetchTax();
+    }, [items, activeVendorId, tenant?.id]);
+
     const subtotal = items.reduce((sum, item) => sum + (parseFloat(item.price) * item.quantity), 0);
     const shippingBase = shippingData ? parseFloat(shippingData.total_fee) : FLAT_SHIPPING_NGN;
     const shipping = appliedCoupon?.type === 'free_shipping' ? 0 : shippingBase;
     const discount = appliedCoupon ? appliedCoupon.discount_amount : 0;
-    const total = Math.max(0, subtotal + shipping - discount);
+    const taxAmount = taxData.tax_amount || 0;
+    const total = Math.max(0, subtotal + shipping + taxAmount - discount);
 
     const getDiscountedItemPrice = (item) => {
         if (!appliedCoupon || !appliedCoupon.eligible_product_ids?.includes(item.product_id)) {
@@ -353,6 +386,7 @@ function CheckoutContent() {
                     items,
                     total: total,
                     shippingFee: shipping,
+                    taxAmount: taxAmount,
                     customerName: `${formData.firstName} ${formData.lastName}`.trim(),
                     customerEmail: formData.email,
                     shippingAddress,
@@ -371,7 +405,8 @@ function CheckoutContent() {
                         .map(i => `- ${i.product_name} x${i.quantity} (\u20a6${(parseFloat(i.price) * i.quantity).toLocaleString("en-NG")})`)
                         .join("%0A");
                     const discountLine = discount > 0 ? `%0ADiscount: -\u20a6${discount.toLocaleString("en-NG")}` : "";
-                    const waMessage = `Hello! I'd like to order:%0A%0A${itemsList}%0A%0ASubtotal: \u20a6${subtotal.toLocaleString("en-NG")}%0AShipping: ${shipping > 0 ? `\u20a6${shipping.toLocaleString("en-NG")}` : "Free"}${discountLine}%0ATotal: \u20a6${total.toLocaleString("en-NG")}%0A%0AOrder Ref: ${order.order_number}%0AName: ${formData.firstName} ${formData.lastName}%0APhone: ${formData.phone}%0AAddress: ${formData.address}, ${formData.city}`;
+                    const taxLine = taxAmount > 0 ? `%0ATax: \u20a6${taxAmount.toLocaleString("en-NG")}` : "";
+                    const waMessage = `Hello! I'd like to order:%0A%0A${itemsList}%0A%0ASubtotal: \u20a6${subtotal.toLocaleString("en-NG")}%0AShipping: ${shipping > 0 ? `\u20a6${shipping.toLocaleString("en-NG")}` : "Free"}${discountLine}${taxLine}%0ATotal: \u20a6${total.toLocaleString("en-NG")}%0A%0AOrder Ref: ${order.order_number}%0AName: ${formData.firstName} ${formData.lastName}%0APhone: ${formData.phone}%0AAddress: ${formData.address}, ${formData.city}`;
                     const phone = vendorGroup?.whatsappPhone?.replace(/[^0-9]/g, "");
 
                     await refreshCart();
@@ -782,9 +817,23 @@ function CheckoutContent() {
                                         </span>
                                     </div>
                                 )}
+                                {/* Tax Breakdown Lines */}
+                                {taxData.tax_breakdown && taxData.tax_breakdown.length > 0 ? (
+                                    taxData.tax_breakdown.map((t, idx) => (
+                                        <div key={idx} className="flex justify-between text-gray-500">
+                                            <span>{t.name} ({t.rate}%)</span>
+                                            <span>{formatPrice(t.amount)}</span>
+                                        </div>
+                                    ))
+                                ) : taxAmount > 0 ? (
+                                    <div className="flex justify-between text-gray-500">
+                                        <span>Estimated Tax</span>
+                                        <span>{formatPrice(taxAmount)}</span>
+                                    </div>
+                                ) : null}
                                 <div className="flex justify-between font-bold text-gray-900 text-base pt-2 border-t border-gray-50">
                                     <span>Total</span>
-                                    <span>{formatPrice(isWhatsApp ? Math.max(0, subtotal - discount) : total)}</span>
+                                    <span>{formatPrice(isWhatsApp ? Math.max(0, subtotal + taxAmount - discount) : total)}</span>
                                 </div>
                             </div>
                         </div>
